@@ -1,15 +1,15 @@
 # AGENTS.md — Diretrizes de Engenharia e Governança para Agentes de IA
 
-Guia de engenharia canônico para agentes autônomos de IA (Antigravity, Claude Code, Cursor, OpenCode, Copilot) que desenvolvem, mantêm ou refatoram código dentro do repositório **`nodeaec/revit-plugins`**.
+Guia de engenharia canônico para agentes autônomos de IA (Antigravity, Claude Code, Cursor, OpenCode, Copilot) que desenvolvem, mantêm ou refatoram código dentro do repositório **`nodeaec/revit-connector`**.
 
-Repositório oficial: [github.com/nodeaec/revit-plugins](https://github.com/nodeaec/revit-plugins)
+Repositório oficial: [github.com/nodeaec/revit-connector](https://github.com/nodeaec/revit-connector)
 
 ---
 
 ## 🎯 Escopo e Missão do Repositório
 
-O repositório `revit-plugins` hospeda códigos públicos, SDKs, add-ins de referência e ferramentas comunitárias da **Node.aec** para Autodesk Revit.
-Sua meta é acelerar o ecossistema de desenvolvedores AEC/BIM, padronizando a integração com a plataforma Node.aec (licenciamento, catálogo, atualizações) e servindo de referência de engenharia para plugins profissionais.
+O repositório `revit-connector` mantém o **Node.aec Connector** — o add-in oficial de governança desktop, licenciamento e Ribbon unificada da **Node.aec** para Autodesk Revit — e os contratos públicos de integração de plugins parceiros via `NodeAecGate`.
+A meta é acelerar o ecossistema de desenvolvedores AEC/BIM, padronizando a integração com a plataforma Node.aec (licenciamento, catálogo, atualizações) e servindo de referência de engenharia para plugins profissionais.
 
 ### Projeto Principal no Repositório
 
@@ -20,7 +20,7 @@ Sua meta é acelerar o ecossistema de desenvolvedores AEC/BIM, padronizando a in
    - Gerencia a aba canônica **`Node.aec`** e deduplicação via `Autodesk.Windows.ComponentManager`.
 
 > [!NOTE]
-> Se o seu objetivo for instruir como integrar o licenciamento Node.aec em um **plugin externo de um usuário**, consulte a skill [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) e a seção [Como Integrar do README](plugin/README.md#-como-integrar-plugins-parceiros-com-o-nodeaecgate). Este arquivo atual rege o desenvolvimento **interno deste repositório**.
+> Se o seu objetivo for instruir como integrar o licenciamento Node.aec em um **plugin externo de um usuário**, consulte a skill [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) e a seção [Como Integrar do README](README.md#-como-integrar-plugins-parceiros-com-o-nodeaecgate). Este arquivo atual rege o desenvolvimento **interno deste repositório**.
 
 ---
 

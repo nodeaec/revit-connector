@@ -1,28 +1,104 @@
-# Node.aec // Revit Plugins & Developer Hub
+# Node.aec Connector — Autodesk Revit Add-in
 
-Repositório público oficial da [Node.aec](https://nodeaec.com.br) para a comunidade AEC/BIM.
+Add-in central de governança desktop, gerenciamento de licenças e Ribbon unificada para **Autodesk Revit 2026** (compatível com Revit 2025+).
 
-Este repositório é o ponto de encontro de desenvolvedores, engenheiros de automação e criadores de software para Autodesk Revit. Seu propósito é **hospedar códigos públicos da Node.aec para a comunidade e acelerar o desenvolvimento de ferramentas, add-ins e softwares prontos para hospedagem e monetização na Node.aec Store e integração com a nossa plataforma**.
+O **Node.aec Connector** atua como o Hub no modelo **Hub & Micro-Gate**: o usuário final realiza login uma única vez no navegador (Browser SSO com loopback local RFC 8252) e tem todos os seus plugins, templates e famílias licenciados e sincronizados automaticamente na estação de trabalho com tolerância de até 30 dias offline.
+
+Repositório oficial: [github.com/nodeaec/revit-connector](https://github.com/nodeaec/revit-connector) · Issues: use o [issue tracker](https://github.com/nodeaec/revit-connector/issues) para relatar problemas com passo a passo.
+
+📖 **Documentação**: [Manual do Usuário](plugin/docs/USER_MANUAL.md) · [Contrato da API de Licenciamento](plugin/docs/licensing-api.md)
 
 ---
 
-## 🎯 Missão e Objetivos
+## 🚀 Principais Recursos
 
-1. **Códigos Públicos e Confiáveis**: Fornecer bibliotecas, ferramentas e componentes abertos desenvolvidos com as melhores práticas da Revit API e padrões modernos de C#/.NET.
-2. **Acelerador para Desenvolvedores**: Eliminar o trabalho repetitivo de infraestrutura (licenciamento, ribbon, telemetria, autenticação e empacotamento) para criadores que desejam publicar seus add-ins na **Node.aec Store**.
-3. **Padrão de Integração Node.aec**: Manter implementações de referência e guias para conexão com os serviços da plataforma (catálogo de produtos, API de licenciamento offline-first, webhooks e atualizações).
+- **Aba Canônica `Node.aec`**: Registra e gerencia o painel oficial `Conector` na Ribbon do Revit com botões de acesso rápido e deduplicação automática de abas via `AdWindows`.
+- **Browser SSO (OAuth 2.0 Loopback Local — RFC 8252)**: Autenticação moderna e segura com suporte a login com Google e 2FA sem digitação de senhas no Revit.
+- **Master Entitlements Lease**: Obtém e renova concessões consolidadas de múltiplos produtos, com verificação Ed25519 (RFC 8032) da assinatura **antes** de confiar em qualquer claim.
+- **Verificação com JWKS**: A chave pública é obtida de `GET /license/jwks`, cacheada em `%APPDATA%\NodeAec\license-jwks.json` e opcionalmente fixada via `NODEAEC_LICENSE_PUBLIC_KEY_SPKI`. Sem chave disponível, o gate falha fechado.
+- **Armazenamento Seguro DPAPI**: O arquivo `%APPDATA%\NodeAec\entitlements.lease` é criptografado com `DataProtectionScope.CurrentUser`; falha de DPAPI em Windows não degrada para texto puro.
+- **Modo Offline & Air-Gapped**: Entrada manual de chaves (`NAEC-XXXX-...`). A importação de arquivos `.lease` está **adiada para uma iteração futura** e o link correspondente foi **removido da UI** (o formato de exportação/troca ainda não é um contrato estável).
+- **Micro-SDK `NodeAecGate`**: Classe canônica para plugins parceiros validarem permissão de execução localmente — sem requisições de rede no caminho crítico, em poucos milissegundos.
+- **Diagnóstico Local**: Erros de API mapeados para códigos estáveis e log sanitizado em `%APPDATA%\NodeAec\connector.log` (rotação de 512 KB, sem tokens).
+
+---
+
+## 🏛️ Arquitetura: Hub & Micro-Gate
+
+Em vez de cada plugin parceiro implementar um cliente HTTP próprio, apresentar telas de
+ativação, solicitar chaves individuais (`NAEC-XXXX-...`) e gerenciar criptografia de máquina,
+o Node.aec concentra tudo num **Hub** e entrega aos plugins um **Micro-Gate** local:
+
+```
++--------------------------------------------------------------------------+
+|                              Autodesk Revit                              |
+|                                                                          |
+|  [ Aba "Node.aec" ]                                                      |
+|                                                                          |
+|  +---------------------------+      +----------------------------------+ |
+|  |   Node.aec Connector      |      |      Plugins Parceiros           | |
+|  |      (Hub central)        |      |   (Revit Automator, Portas, ...) | |
+|  |                           |      |                                  | |
+|  |  - Browser SSO (loopback) |      |    public Result Execute(...)    | |
+|  |  - Master Entitlements    |      |    {                             | |
+|  |    Lease + heartbeat      |      |      var r = NodeAecGate         | |
+|  |  - Armazenamento DPAPI    |      |              .Validate(slug);    | |
+|  |  - JWKS / Ed25519         |      |      if (!r.IsLicensed)          | |
+|  |  - Dedup. de abas         |      |          return Result.Cancelled;| |
+|  +---------------------------+      |      }                           | |
+|                                     +----------------------------------+ |
+|   ^                                 | leitura local do plugin, < 1 ms    |
+|   | lease assinado, em DPAPI        | sem nenhuma chamada de rede        |
+|   | em %APPDATA%\NodeAec\           |                                    |
+|   | entitlements.lease              |                                    |
+|                                                                          |
+|   ^                                 |                                    |
+|   | HTTPS                           | abre o navegador padrão            |
+|   v                                 v                                    |
+|   https://api.nodeaec.com.br        https://nodeaec.com.br               |
++--------------------------------------------------------------------------+
+```
+
+**O que o Hub absorve para o plugin parceiro**
+
+1. **Nenhuma infraestrutura de rede no plugin** — o parceiro não escreve um cliente HTTP nem
+   conhece endpoints, tokens de sessão ou formatos de resposta.
+2. **Nenhuma UI de ativação própria** — login, chave manual e gestão de assentos vivem nas
+   janelas *Minha Conta* e *Meus Plugins*.
+3. **Nenhuma gestão de criptografia** — o Hub grava o lease com DPAPI `CurrentUser` e falha
+   fechado; o plugin só lê.
+4. **Uma única autenticação** — o usuário entra uma vez e todos os produtos da conta são
+   sincronizados juntos.
+5. **Validação local em < 1 ms** — `NodeAecGate` é puro CPU, sem I/O de rede no caminho
+   crítico, com tolerância de 30 dias offline.
+6. **Ribbon unificada** — tudo acontece na aba canônica `Node.aec`, sem abas fragmentadas.
+
+> Contrato HTTP consumido pelo Hub (endpoints, payloads, claims e códigos de erro):
+> [plugin/docs/licensing-api.md](plugin/docs/licensing-api.md).
+
+---
+
+## 🔄 Fluxo de Licença e Heartbeat
+
+| # | Quando | O que acontece |
+|---|---|---|
+| 1 | Usuário clica em **Entrar com minha conta** | O Connector escolhe uma porta efêmera livre, escuta em `127.0.0.1` e abre `https://nodeaec.com.br/auth/desktop?port=…&state=…` no navegador padrão (120 s de timeout, `state` anti-CSRF). |
+| 2 | Login concluído no navegador | O portal redireciona para `http://127.0.0.1:<porta>/callback?token=…&state=…`; o listener valida o `state` e devolve a página *Login Concluído*. |
+| 3 | Janela dispara a sincronização | `POST /account/entitlements/lease` devolve o **Master Entitlements Lease** assinado em Ed25519. |
+| 4 | Resposta recebida | `GET /license/jwks` atualiza o cache de chaves públicas, depois o lease é gravado em `%APPDATA%\NodeAec\entitlements.lease` com DPAPI. Gravação falhou ⇒ erro ao usuário, sem texto puro. |
+| 5 | Abertura do Revit (sempre) | Heartbeat em `Task.Run`: `POST /license/validate` renova o lease; falha de rede é silenciosa e fica em `connector.log`. |
+| 6 | Plugin parceiro executa | `NodeAecGate.Validate(slug)` verifica assinatura → `iss` → `scope` → `iat` → `mid` → `exp` → `slug` e libera ou bloqueia — **sem rede**. |
+| 7 | Sem internet | O lease local vale até o `exp` emitido pela API (padrão de 30 dias); a cada abertura do Revit a validade é tentativamente estendida. |
 
 ---
 
 ## 📁 Estrutura do Repositório
 
 ```text
-revit-plugins/
+revit-connector/
 ├── AGENTS.md                          # Diretrizes e regras para agentes de IA neste repositório
-├── README.md                          # Este documento (visão geral do repositório)
-│
+├── README.md                          # Este documento (documentação completa do Connector)
 └── plugin/                           # Add-in Hub central de governança desktop e Ribbon unificada
-    ├── README.md                      # Documentação completa do Connector
     ├── docs/                          # Manual do usuário e contrato da API de licenciamento
     ├── NodeAec.Connector.sln          # Solution (.NET 8 / Revit 2026)
     ├── scripts/
@@ -39,22 +115,9 @@ revit-plugins/
 
 ---
 
-## 🚀 Projeto Principal
-
-### `NodeAec.Connector` (Hub Desktop Central & Governança)
-Add-in centralizador de governança e Ribbon unificada `Node.aec` para Autodesk Revit.
-- **Browser SSO (RFC 8252)**: Login seguro no navegador padrão com Google OAuth e retorno por loopback local.
-- **Master Entitlements Lease**: Sincronização consolidada de todos os produtos do usuário em um único token assinado com Ed25519.
-- **Micro-SDK `NodeAecGate`**: Validação de autorização em plugins parceiros em menos de 1ms sem acessar rede.
-- **Tolerância Offline de 30 Dias**: Operação contínua desconectada e suporte a estações isoladas (*air-gapped*).
-- 📖 [Acessar Guia do Node.aec Connector (README.md)](plugin/README.md)
-- 📖 [Acessar o Manual do Usuário](plugin/docs/USER_MANUAL.md) e o [Contrato da API de Licenciamento](plugin/docs/licensing-api.md)
-
----
-
 ## 🛠️ Ambiente e Pré-requisitos
 
-Para compilar e contribuir com os projetos deste repositório:
+Para compilar e contribuir com o add-in:
 
 - **Sistema Operacional**: Windows 10 ou 11 (64-bit)
 - **Autodesk Revit**: 2026 instalado no caminho padrão (`C:\Program Files\Autodesk\Revit 2026`) ou 2025+
@@ -63,19 +126,58 @@ Para compilar e contribuir com os projetos deste repositório:
 
 ---
 
-## 💻 Compilação e Deploy Rápido
-
-Para compilar a solution e instalar o add-in diretamente no Revit local:
+## 💻 Como Compilar e Testar
 
 ```powershell
-# Navegar até o projeto
-Set-Location plugin
+# Compilar a solution
+dotnet build plugin\NodeAec.Connector.sln -c Release
 
-# Compilar via .NET CLI
-dotnet build NodeAec.Connector.sln -c Release
+# Executar os testes unitários (headless, sem Revit)
+dotnet test plugin\tests\NodeAec.Connector.Tests\NodeAec.Connector.Tests.csproj
 
 # Empacotar em .zip e instalar automaticamente no Revit 2026
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.1 -Install
+powershell -ExecutionPolicy Bypass -File plugin\scripts\release.ps1 -Version 0.1.1 -Install
+```
+
+O script de release também gera `plugin/release/NodeAec.Connector-<versão>-Setup.exe` (instalador com duplo clique para usuários finais, compilado via `plugin/scripts/installer.iss`) quando o [Inno Setup 6](https://jrsoftware.org/isdl.php) está instalado; sem ele, apenas o `.zip` é produzido.
+
+---
+
+## 🔌 Como Integrar Plugins Parceiros com o `NodeAecGate`
+
+Em comandos do seu plugin (`IExternalCommand`):
+
+```csharp
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using NodeAec.Connector.Gate;
+
+[Transaction(TransactionMode.Manual)]
+public class MeuComandoRevit : IExternalCommand
+{
+    private const string ProductSlug = "meu-plugin";
+
+    public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+    {
+        // Validação local e instantânea (< 1ms, zero rede)
+        var check = NodeAecGate.Validate(ProductSlug);
+        if (!check.IsLicensed)
+        {
+            TaskDialog.Show("Node.aec — Licença Necessária",
+                $"O produto '{ProductSlug}' não possui licença ativa nesta estação.\n\n" +
+                $"Motivo: {check.Message}\n\n" +
+                "Abra o Node.aec Connector na Ribbon para entrar com sua conta ou ativar sua licença.");
+
+            NodeAecGate.OpenConnector();
+            return Result.Cancelled;
+        }
+
+        // Execução normal da funcionalidade
+        TaskDialog.Show("Sucesso", $"Executando com licença {check.LicenseType}.");
+        return Result.Succeeded;
+    }
+}
 ```
 
 ---
@@ -85,7 +187,7 @@ powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.1 -Ins
 Contribuições da comunidade AEC são muito bem-vindas!
 1. Crie uma branch a partir de `main` (`feature/sua-melhoria`).
 2. Siga as diretrizes de arquitetura e código descritas em [`AGENTS.md`](AGENTS.md).
-3. Certifique-se de que a compilação execute com **0 erros** e **0 warnings desnecessários**.
+3. Certifique-se de que a compilação execute com **0 erros**.
 4. Abra um Pull Request detalhando as alterações e o propósito para o ecossistema.
 
 ---

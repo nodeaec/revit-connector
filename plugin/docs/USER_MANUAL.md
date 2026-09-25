@@ -444,7 +444,7 @@ Não. Ele não altera modelos do Revit — apenas Ribbon, licenças e janelas pr
 | **Suporte técnico** | Tenha em mãos: o **ID da máquina** (Minha Conta → expansor de chave → “Identificação desta máquina”), a versão (**Node.aec Connector 0.1**) e a mensagem de erro exata. |
 | **Portal / catálogo** | [https://nodeaec.com.br/products](https://nodeaec.com.br/products) |
 | **Área da conta** | [https://nodeaec.com.br](https://nodeaec.com.br) |
-| **Repositório e issue tracker** | [github.com/nodeaec/revit-plugins](https://github.com/nodeaec/revit-plugins) — abra uma *issue* descrevendo o passo a passo do problema. |
+| **Repositório e issue tracker** | [github.com/nodeaec/revit-connector](https://github.com/nodeaec/revit-connector) — abra uma *issue* descrevendo o passo a passo do problema. |
 
 ---
 

@@ -22,6 +22,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $ConnectorRoot = Split-Path $PSScriptRoot -Parent
+$RepoRoot = Split-Path $ConnectorRoot -Parent
 $Sln = Join-Path $ConnectorRoot "NodeAec.Connector.sln"
 $Project = Join-Path $ConnectorRoot "src\NodeAec.Connector\NodeAec.Connector.csproj"
 $DllName = "NodeAec.Connector.dll"
@@ -73,8 +74,8 @@ if ($TargetFramework -eq "net48") {
     throw "Missing DPAPI dependency in build output: System.Security.Cryptography.ProtectedData.dll was not copied to $OutDir."
   }
 }
-if (Test-Path (Join-Path $ConnectorRoot "README.md")) {
-  Copy-Item (Join-Path $ConnectorRoot "README.md") (Join-Path $StageDir "README.md") -Force
+if (Test-Path (Join-Path $RepoRoot "README.md")) {
+  Copy-Item (Join-Path $RepoRoot "README.md") (Join-Path $StageDir "README.md") -Force
 }
 
 # Stage the .addin with absolute path

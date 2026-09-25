@@ -5,7 +5,7 @@ description: Choose and apply a disciplined Git branching and commit workflow fo
 
 # Git Change Workflow for Revit Plugins
 
-This skill defines the Git branching, staging, and commit discipline for all work in the `nodeaec/revit-plugins` repository.
+This skill defines the Git branching, staging, and commit discipline for all work in the `nodeaec/revit-connector` repository.
 
 ---
 

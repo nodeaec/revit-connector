@@ -5,7 +5,7 @@ description: Review changes in the Autodesk Revit plugins repository along two a
 
 # Code Review for Revit Plugins
 
-This skill executes a rigorous two-axis review of Git changes or work-in-progress code in the `nodeaec/revit-plugins` repository:
+This skill executes a rigorous two-axis review of Git changes or work-in-progress code in the `nodeaec/revit-connector` repository:
 
 1. **Standards Axis**: Does the code conform to Revit API guidelines, clean C# standards, security invariants, and build isolation rules?
 2. **Spec Axis**: Does the code faithfully and completely implement the originating requirement without regressions or scope creep?
