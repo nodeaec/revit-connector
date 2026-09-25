@@ -28,6 +28,13 @@ public class ConnectorApiClient
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
 
     /// <summary>
+    /// Mensagem fixa quando o Machine ID não pode ser derivado: sem ele nenhuma chamada de
+    /// licenciamento tem como endereçar esta máquina (fail-closed).
+    /// </summary>
+    private const string MachineIdUnavailableMessage =
+        "Não foi possível identificar esta máquina (MachineGuid do Windows indisponível). Contate o suporte Node.aec.";
+
+    /// <summary>
     /// Cliente HTTP único de processo (M6): handshake TCP+TLS e resolução DNS uma vez por
     /// sessão do Revit, em vez de um por ação do usuário — churn de sockets é
     /// particularmente caro em net48/Revit 2023-2024 (HTTP.sys + DNS caching). É seguro
@@ -51,6 +58,25 @@ public class ConnectorApiClient
     {
         _baseUrl = (baseUrl ?? ConnectorConfig.ApiBaseUrl).TrimEnd('/');
         _httpClient = httpClient ?? SharedHttpClient;
+    }
+
+    /// <summary>
+    /// Resolve o Machine ID desta máquina ou devolve a falha de licenciamento pronta.
+    /// </summary>
+    /// <param name="machineId">Identificador canônico quando o retorno é <c>true</c>.</param>
+    /// <param name="failure">Falha pronta para retorno quando o retorno é <c>false</c>.</param>
+    /// <returns><c>true</c> quando o Machine ID foi resolvido.</returns>
+    private static bool TryResolveMachineId(out string machineId, out SyncResult? failure)
+    {
+        if (HardwareId.TryGetMachineId(out machineId, out string? reason))
+        {
+            failure = null;
+            return true;
+        }
+
+        Diagnostics.ConnectorLog.Write("WARN", $"Machine ID indisponível: {reason}.");
+        failure = SyncResult.Failed(MachineIdUnavailableMessage);
+        return false;
     }
 
     /// <summary>
@@ -78,7 +104,11 @@ public class ConnectorApiClient
             return SyncResult.Failed("Token de autenticação do usuário ausente.");
         }
 
-        string machineId = HardwareId.GetMachineId();
+        if (!TryResolveMachineId(out string machineId, out SyncResult? machineIdFailure))
+        {
+            return machineIdFailure!;
+        }
+
         string deviceName = Environment.MachineName;
 
         var requestPayload = new
@@ -173,7 +203,11 @@ public class ConnectorApiClient
             return SyncResult.Failed("Informe a chave de licença no formato NAEC-XXXX-...");
         }
 
-        string machineId = HardwareId.GetMachineId();
+        if (!TryResolveMachineId(out string machineId, out SyncResult? machineIdFailure))
+        {
+            return machineIdFailure!;
+        }
+
         string deviceName = Environment.MachineName;
 
         var requestPayload = new
@@ -247,7 +281,11 @@ public class ConnectorApiClient
             return SyncResult.Failed("Nenhum lease token encontrado para validar.");
         }
 
-        string machineId = HardwareId.GetMachineId();
+        if (!TryResolveMachineId(out string machineId, out SyncResult? machineIdFailure))
+        {
+            return machineIdFailure!;
+        }
+
         var requestPayload = new { machineId };
         var requestJson = JsonSerializer.Serialize(requestPayload);
         using var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
@@ -335,7 +373,11 @@ public class ConnectorApiClient
     /// </summary>
     public async Task<bool> DeactivateLicenseAsync(string licenseKey, CancellationToken cancellationToken = default)
     {
-        string machineId = HardwareId.GetMachineId();
+        if (!TryResolveMachineId(out string machineId, out _))
+        {
+            return false;
+        }
+
         var requestPayload = new { licenseKey = licenseKey.Trim(), machineId };
         var requestJson = JsonSerializer.Serialize(requestPayload);
         using var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
@@ -403,7 +445,13 @@ public class ConnectorApiClient
             return LeaseVerdict.Rejected;
         }
 
-        if (!string.Equals(payload.Mid, HardwareId.GetMachineId(), StringComparison.OrdinalIgnoreCase))
+        if (!HardwareId.TryGetMachineId(out string currentMachineId, out string? machineIdReason))
+        {
+            reason = $"Machine ID indisponível: {machineIdReason}";
+            return LeaseVerdict.Rejected;
+        }
+
+        if (!string.Equals(payload.Mid, currentMachineId, StringComparison.OrdinalIgnoreCase))
         {
             reason = "mid do lease divergente desta máquina";
             return LeaseVerdict.Rejected;

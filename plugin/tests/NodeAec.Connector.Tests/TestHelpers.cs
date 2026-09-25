@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using NodeAec.Connector.Hardware;
 using NodeAec.Connector.Models;
 using NodeAec.Connector.Storage;
 using Org.BouncyCastle.Crypto;
@@ -110,6 +111,48 @@ public static class TestHelpers
             .Replace("+", "-")
             .Replace("/", "_")
             .TrimEnd('=');
+    }
+
+    /// <summary>
+    /// Machine ID real do ambiente de teste. Falha explícita quando o MachineGuid não é
+    /// legível — um teste que dependa da amarração de hardware não pode rodar às cegas.
+    /// </summary>
+    public static string CurrentMachineId()
+    {
+        if (!HardwareId.TryGetMachineId(out string machineId, out string? reason))
+        {
+            throw new InvalidOperationException($"MachineGuid indisponível no ambiente de teste: {reason}");
+        }
+
+        return machineId;
+    }
+
+    /// <summary>
+    /// Substitui o leitor do MachineGuid durante o escopo e restaura leitor + cache ao final
+    /// (use sempre com <c>using</c>). A suíte roda com paralelismo desabilitado, então o
+    /// leitor global pode ser trocado sem risco de corrida.
+    /// </summary>
+    /// <param name="machineGuid">Valor devolvido pelo leitor; <c>null</c> simula GUID ilegível.</param>
+    public static IDisposable WithMachineGuid(string? machineGuid)
+    {
+        Func<string?> previous = HardwareId.MachineGuidReader;
+        HardwareId.MachineGuidReader = () => machineGuid;
+        HardwareId.ResetCacheForTests();
+
+        return new MachineGuidScope(previous);
+    }
+
+    private sealed class MachineGuidScope : IDisposable
+    {
+        private readonly Func<string?> _previous;
+
+        public MachineGuidScope(Func<string?> previous) => _previous = previous;
+
+        public void Dispose()
+        {
+            HardwareId.MachineGuidReader = _previous;
+            HardwareId.ResetCacheForTests();
+        }
     }
 
     /// <summary>

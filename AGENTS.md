@@ -100,7 +100,7 @@ powershell -ExecutionPolicy Bypass -File plugin\scripts\release.ps1 -Version 0.1
 ```
 
 > [!WARNING]
-> **Cobertura de DPAPI agora é manual.** `ProtectedData.Protect/Unprotect(..., DataProtectionScope.CurrentUser)` só funciona numa sessão de logon real (SessionId ≥ 1). Num contexto SSH/`services.exe` o processo roda na Session 0 sem Logon SID (`S-1-5-5-*`) e sem `AuthenticationId`, e o Windows devolve `win32 = 5 Acesso negado` — o comportamento é *fail-closed* por design. Os testes unitários que dependiam desse caminho foram removidos, então `dotnet test` deve fechar **134/134 em qualquer sessão (SSH ou interativa)**. A persistência DPAPI (gravar/ler `entitlements.lease` e `session.json` em `%APPDATA%`) passa a ser validada manualmente no smoke test do add-in dentro do Revit. Não enfraquecer o armazenamento nem marcar testes como Skip para compensar.
+> **Cobertura de DPAPI agora é manual.** `ProtectedData.Protect/Unprotect(..., DataProtectionScope.CurrentUser)` só funciona numa sessão de logon real (SessionId ≥ 1). Num contexto SSH/`services.exe` o processo roda na Session 0 sem Logon SID (`S-1-5-5-*`) e sem `AuthenticationId`, e o Windows devolve `win32 = 5 Acesso negado` — o comportamento é *fail-closed* por design. Os testes unitários que dependiam desse caminho foram removidos, então `dotnet test` deve fechar **100% em qualquer sessão (SSH ou interativa)**. A persistência DPAPI (gravar/ler `entitlements.lease` e `session.json` em `%APPDATA%`) passa a ser validada manualmente no smoke test do add-in dentro do Revit. Não enfraquecer o armazenamento nem marcar testes como Skip para compensar.
 
 Critérios de Aceite para Modificações:
 - Compilação limpa: **0 Erros**.

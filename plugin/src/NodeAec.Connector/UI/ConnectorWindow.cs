@@ -173,7 +173,9 @@ public class ConnectorWindow : Window
         // desconhecida seria recusado pelo gate na validação de assinatura.
         _txtMachineId = new TextBlock
         {
-            Text = $"Identificação desta máquina (para o suporte): {HardwareId.GetMachineId()}",
+            Text = HardwareId.TryGetMachineId(out string machineId, out _)
+                ? $"Identificação desta máquina (para o suporte): {machineId}"
+                : "Identificação desta máquina indisponível (MachineGuid do Windows não pôde ser lido).",
             FontSize = 11,
             FontFamily = new FontFamily("Consolas, Courier New"),
             Foreground = UiTheme.Brush(UiTheme.TextSecondary),

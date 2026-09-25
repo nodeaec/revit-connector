@@ -64,8 +64,10 @@ conta, emitido para a máquina informada.
 ```
 
 `platform` é `ConnectorConfig.PlatformDescription` e `connectorVersion` é
-`ConnectorConfig.Version`; `machineId` é o hash SHA-256 de
-`MachineGuid:MachineName` (ver [HardwareId.cs](../src/NodeAec.Connector/Hardware/HardwareId.cs)).
+`ConnectorConfig.Version`; `machineId` é o hash SHA-256 do `MachineGuid` do Windows
+(64 caracteres hexadecimais minúsculos). O nome da máquina **não** entra no hash — ele é
+renomeável e invalidaria a licença a cada rename. Sem `MachineGuid` legível o Connector
+falha fechado e não chama a API (ver [HardwareId.cs](../src/NodeAec.Connector/Hardware/HardwareId.cs)).
 
 - **Resposta** (campos lidos pelo cliente):
 

@@ -34,7 +34,7 @@ Testing inside a live Autodesk Revit session is slow, UI-bound, and difficult to
 ### Phase 0: Define the Behavioral Contract
 Before writing code, define the observable requirements and edge cases:
 - *Example*: "Token with expired `exp` timestamp must return `IsValid = false` and `ErrorMessage = 'Licença expirada'`."
-- *Example*: "Machine identity hash must produce the identical 64-character hex string for the same `MachineGuid` + `MachineName`."
+- *Example*: "Machine identity hash must produce the identical 64-character hex string for the same `MachineGuid`, regardless of the Windows hostname."
 
 ### Phase 1: Author the Unit Tests First
 Create or update tests in a test project (e.g. `NodeAec.Connector.Tests`) targeting .NET 8 using xUnit, NUnit, or MSTest:

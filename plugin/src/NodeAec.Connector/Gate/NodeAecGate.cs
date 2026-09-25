@@ -117,8 +117,14 @@ public static class NodeAecGate
                 return GateResult.Failure("A data da licença local é inválida. Confira a data e hora deste computador e tente novamente.");
             }
 
-            // 1. Validação de amarração de hardware (Machine ID)
-            string currentMachineId = HardwareId.GetMachineId();
+            // 1. Validação de amarração de hardware (Machine ID). Sem MachineGuid legível
+            //    não há como confirmar que o lease pertence a esta máquina: falha fechada.
+            if (!HardwareId.TryGetMachineId(out string currentMachineId, out string? machineIdReason))
+            {
+                Diagnostics.ConnectorLog.Write("WARN", $"Machine ID indisponível: {machineIdReason}.");
+                return GateResult.Failure("Não foi possível identificar esta máquina (MachineGuid do Windows indisponível). Contate o suporte Node.aec.");
+            }
+
             if (!string.Equals(payload.Mid, currentMachineId, StringComparison.OrdinalIgnoreCase))
             {
                 return GateResult.Failure("A concessão de licenças foi emitida para outra estação de trabalho (Hardware ID divergente).");

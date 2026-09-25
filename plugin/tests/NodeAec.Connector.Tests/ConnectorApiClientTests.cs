@@ -7,7 +7,6 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using NodeAec.Connector.Client;
-using NodeAec.Connector.Hardware;
 using NodeAec.Connector.Models;
 using NodeAec.Connector.Storage;
 using Org.BouncyCastle.Crypto.Parameters;
@@ -47,6 +46,31 @@ public class ConnectorApiClientTests : IDisposable
     }
 
     [Fact]
+    public async Task MidDependentCalls_WithoutMachineId_FailClosedBeforeHttp()
+    {
+        // MachineGuid ilegível ⇒ nenhuma chamada pode sair para a API: sem Machine ID não
+        // há como ativar, sincronizar, validar ou desativar assento nesta máquina.
+        using var machineGuidScope = TestHelpers.WithMachineGuid(null);
+        var handler = new MockHttpMessageHandler(_ =>
+            throw new InvalidOperationException("HTTP não deveria ser chamado sem Machine ID."));
+        using var httpClient = new HttpClient(handler);
+        var client = new ConnectorApiClient("https://api.test", httpClient);
+
+        var sync = await client.SyncMasterEntitlementsAsync("valid-user-jwt");
+        var activate = await client.ActivateKeyAsync("NAEC-KEY1-KEY2-KEY3-KEY4");
+        var heartbeat = await client.ValidateHeartbeatAsync("hdr.payload.sig");
+        bool deactivated = await client.DeactivateLicenseAsync("NAEC-KEY1-KEY2-KEY3-KEY4");
+
+        Assert.False(sync.Success);
+        Assert.False(activate.Success);
+        Assert.False(heartbeat.Success);
+        Assert.False(deactivated);
+        Assert.Contains("identificar esta máquina", sync.Message);
+        Assert.Contains("identificar esta máquina", activate.Message);
+        Assert.Contains("identificar esta máquina", heartbeat.Message);
+    }
+
+    [Fact]
     public async Task SyncMasterEntitlementsAsync_ApiError_UsesStableCodeCopy()
     {
         // Formato real do middleware de erro da API: { error: true, status, type, code, message }.
@@ -80,7 +104,7 @@ public class ConnectorApiClientTests : IDisposable
     public async Task SyncMasterEntitlementsAsync_TamperedLease_RejectedBeforeSaving()
     {
         // O JWKS servido traz a chave de teste; o lease vem assinado por chave forjada.
-        string forgedLease = CreateForgedMasterLease(HardwareId.GetMachineId());
+        string forgedLease = CreateForgedMasterLease(TestHelpers.CurrentMachineId());
         using var httpClient = new HttpClient(HandlerServing(new { success = true, leaseToken = forgedLease }));
         var client = new ConnectorApiClient("https://api.test", httpClient);
 
@@ -119,7 +143,7 @@ public class ConnectorApiClientTests : IDisposable
         // Assinatura e mid válidos, mas scope de produto — não é um master lease.
         string pluginScopedLease = TestHelpers.CreateMasterLeaseJwt(
             "usr_1",
-            HardwareId.GetMachineId(),
+            TestHelpers.CurrentMachineId(),
             DateTimeOffset.UtcNow.AddDays(30),
             new List<EntitlementItem> { new EntitlementItem { Slug = "revit-automator", Status = "active" } },
             scope: "plugin-license");
@@ -137,7 +161,7 @@ public class ConnectorApiClientTests : IDisposable
     [Fact]
     public async Task ValidateHeartbeatAsync_TamperedRenewal_RejectedBeforeSaving()
     {
-        string forgedRenewal = CreateForgedMasterLease(HardwareId.GetMachineId());
+        string forgedRenewal = CreateForgedMasterLease(TestHelpers.CurrentMachineId());
         using var httpClient = new HttpClient(HandlerServing(
             new { success = true, valid = true, scope = "master-lease", leaseToken = forgedRenewal }));
         var client = new ConnectorApiClient("https://api.test", httpClient);
