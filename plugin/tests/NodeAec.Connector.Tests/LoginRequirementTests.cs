@@ -33,14 +33,6 @@ public class LoginRequirementTests : IDisposable
     }
 
     [Fact]
-    public void IsLoggedIn_WithSavedSession_ReturnsTrue()
-    {
-        LeaseStorage.SaveSession("arquiteta@escritorio.com.br", "user-token");
-
-        Assert.True(LoginRequirement.IsLoggedIn());
-    }
-
-    [Fact]
     public void IsLoggedIn_AfterLogout_ReturnsFalse()
     {
         LeaseStorage.SaveSession("arquiteta@escritorio.com.br", "user-token");

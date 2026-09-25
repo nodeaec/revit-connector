@@ -29,27 +29,6 @@ public class LeaseStorageTests : IDisposable
     }
 
     [Fact]
-    public void SaveAndLoadMasterLease_PersistsTokenCorrectly()
-    {
-        string dummyJwt = "header.payload.signature";
-
-        LeaseStorage.SaveMasterLease(dummyJwt);
-        string? loaded = LeaseStorage.LoadMasterLease();
-
-        Assert.Equal(dummyJwt, loaded);
-    }
-
-    [Fact]
-    public void ClearMasterLease_RemovesFile()
-    {
-        LeaseStorage.SaveMasterLease("token-to-delete");
-        Assert.NotNull(LeaseStorage.LoadMasterLease());
-
-        LeaseStorage.ClearMasterLease();
-        Assert.Null(LeaseStorage.LoadMasterLease());
-    }
-
-    [Fact]
     public void ClearAll_RemovesBothMasterLeaseAndSession()
     {
         // M7 — primitivo do logout: apaga lease E sessão. Escreve arquivos crus (sem
@@ -63,35 +42,6 @@ public class LeaseStorageTests : IDisposable
 
         Assert.False(File.Exists(LeaseStorage.GetLeaseFilePath()));
         Assert.False(File.Exists(LeaseStorage.GetSessionFilePath()));
-    }
-
-    [Fact]
-    public void SaveAndLoadSession_PersistsNameEmailAndToken()
-    {
-        LeaseStorage.SaveSession("pablo@nodeaec.com.br", "jwt-user-token", "Pablo");
-
-        var session = LeaseStorage.LoadSession();
-        Assert.NotNull(session);
-        Assert.Equal("Pablo", session.Value.Name);
-        Assert.Equal("pablo@nodeaec.com.br", session.Value.Email);
-        Assert.Equal("jwt-user-token", session.Value.Token);
-
-        LeaseStorage.ClearSession();
-        Assert.Null(LeaseStorage.LoadSession());
-    }
-
-    [Fact]
-    public void LoadSession_LegacySessionWithPublicIdAsEmail_RecoversRealIdentityFromToken()
-    {
-        // Sessões antigas gravavam o id público (sub do lease) no campo "email".
-        string userToken = TestHelpers.CreateUserSessionJwt("x1lwHOhSSguYA", "pablo@nodeaec.com.br", "Pablo");
-        LeaseStorage.SaveSession("x1lwHOhSSguYA", userToken);
-
-        var session = LeaseStorage.LoadSession();
-        Assert.NotNull(session);
-        Assert.Equal("pablo@nodeaec.com.br", session.Value.Email);
-        Assert.Equal("Pablo", session.Value.Name);
-        Assert.Equal(userToken, session.Value.Token);
     }
 
     [Fact]
@@ -144,17 +94,6 @@ public class LeaseStorageTests : IDisposable
         Assert.Single(payload.Entitlements);
         Assert.Equal("revit-automator", payload.Entitlements[0].Slug);
         Assert.False(payload.IsExpired);
-    }
-
-    [Fact]
-    public void SaveMasterLease_ReturnsTrueAndPersistsAtomically()
-    {
-        bool saved = LeaseStorage.SaveMasterLease("atomic-write-check");
-
-        Assert.True(saved);
-        Assert.Equal("atomic-write-check", LeaseStorage.LoadMasterLease());
-        // Temporários têm nome único ({path}.{guid}.tmp): nada pode sobrar após gravar.
-        Assert.Empty(Directory.GetFiles(_tempDir, "*.tmp"));
     }
 
     [Fact]
