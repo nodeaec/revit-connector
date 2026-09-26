@@ -1,18 +1,24 @@
-<#
+﻿<#
 .SYNOPSIS
-  Builds, stages, zips, optionally compiles the Inno Setup installer (.exe),
-  and optionally installs the Node.aec Connector Revit add-in.
+  Builds, stages, zips, optionally compiles the Inno Setup installer (.exe) for
+  ONE Revit year, and optionally installs the Node.aec Connector Revit add-in.
+
+.DESCRIPTION
+  One year per invocation (-RevitYear, default 2026, supported 2023..2027).
+  The Setup is named NodeAec.Connector-<version>-R<year>-Setup.exe and installs
+  only into %ProgramData%\Autodesk\Revit\Addins\<year>\, so each Revit year has
+  an independently downloadable installer that coexists with the others.
 
 .NOTES
   Setup.exe generation requires Inno Setup 6 (ISCC.exe on PATH-adjacent
   standard location). Without it, only the .zip is produced - no failure.
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.1.1
-  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.1.1 -Install
+  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.1.2 -RevitYear 2026
+  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.1.2 -RevitYear 2026 -Install
 #>
 param(
-  [string]$Version = "0.1.1",
+  [string]$Version = "0.1.2",
   [string]$RevitYear = "2026",
   [string]$Configuration = "Release",
   [switch]$Install,
@@ -20,6 +26,37 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# -File nao vincula "-Param=valor": o token sobra em $args e o script seguiria
+# com os defaults. Falhar alto para qualquer sobra e exigir a sintaxe correta:
+# -RevitYear 2023. (Com aspas o token vira o primeiro posicional e e barrado
+# pela validação de $Version logo abaixo.)
+if ($args.Count -gt 0) {
+  throw "Argumentos não reconhecidos: $($args -join ' '). Use -RevitYear <ano> (ex.: -RevitYear 2023)."
+}
+
+# Um token posicional inesperado — ex.: "-RevitYear=2023" passado entre aspas em
+# vez de -RevitYear 2023 — cai no primeiro parâmetro ($Version) e seguiria para
+# o build sem aviso. Validar o formato falha alto antes de qualquer trabalho.
+if ($Version -notmatch '^\d+\.\d+(\.\d+){0,2}([.-][0-9A-Za-z]+)*$') {
+  throw "Versão inválida: '$Version'. Use o formato SemVer (ex.: 0.1.2 ou 0.1.2-rc1) e passe o ano com -RevitYear <ano>."
+}
+
+# Um AppId determinístico por ano do Revit: identidade de instalação distinta
+# permite que anos diferentes coexistam e sejam desinstalados de forma
+# independente em Aplicativos. O installer.iss escapa as chaves e deriva a
+# chave de desinstalação do mesmo /DAppId.
+$RevitYearAppIds = @{
+  "2023" = "{B0438DCE-26F6-42C9-BDC2-710A6D0C1F0E}"
+  "2024" = "{4056654E-C440-4A44-9A5D-DEAA238858FA}"
+  "2025" = "{63CC4A1D-1937-4BD0-A8A4-C05D36AA20DB}"
+  "2026" = "{5A4626FE-9563-4ED3-9C66-EA4567152F01}"
+  "2027" = "{C105DE2F-78B0-467C-A1A4-02F9C86BC6BA}"
+}
+if (-not $RevitYearAppIds.ContainsKey($RevitYear)) {
+  throw "RevitYear '$RevitYear' não suportado: use 2023, 2024, 2025, 2026 ou 2027."
+}
+$AppId = $RevitYearAppIds[$RevitYear]
 
 $ConnectorRoot = Split-Path $PSScriptRoot -Parent
 $RepoRoot = Split-Path $ConnectorRoot -Parent
@@ -78,7 +115,7 @@ if (Test-Path (Join-Path $RepoRoot "README.md")) {
   Copy-Item (Join-Path $RepoRoot "README.md") (Join-Path $StageDir "README.md") -Force
 }
 
-# Stage the .addin with absolute path
+# Stage the .addin with the absolute path for THIS year
 $installDir = "C:\ProgramData\Autodesk\Revit\Addins\$RevitYear\NodeAec.Connector"
 [xml]$addin = Get-Content $AddinTemplate
 $addin.RevitAddIns.AddIn.Assembly = "$installDir\$DllName"
@@ -93,10 +130,12 @@ $hash = (Get-FileHash $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Host "==> release: $ZipPath"
 Write-Host "    sha256: $hash"
 
-# Optional: Inno Setup .exe installer (double-click friendly for end users).
-# Requires Inno Setup 6 (https://jrsoftware.org/isdl.php). When ISCC.exe is
-# not found the .zip above remains the only artifact - no failure.
-$setupName = "NodeAec.Connector-$Version-Setup.exe"
+# Optional: Inno Setup .exe installer for THIS Revit year (double-click friendly
+# for end users). Requires Inno Setup 6 (https://jrsoftware.org/isdl.php). When
+# ISCC.exe is not found the .zip above remains the only artifact - no failure.
+# The per-year AppId keeps different years side by side and independently
+# uninstallable in Windows Settings > Apps.
+$setupName = "NodeAec.Connector-$Version-R$RevitYear-Setup.exe"
 $iscc = @(
   "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
   "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
@@ -106,8 +145,8 @@ $iscc = @(
 if ($iscc) {
   $versionNum = if ($Version -match '^\d+\.\d+$') { "$Version.0" } else { $Version }
   $iss = Join-Path $PSScriptRoot "installer.iss"
-  Write-Host "==> ISCC $iss"
-  & $iscc "/DAppVersion=$Version" "/DAppVersionNum=$versionNum" "/DRevitYear=$RevitYear" "/DPayloadStage=$StageDir" "/O$ReleaseDir" $iss
+  Write-Host "==> ISCC $iss (Revit $RevitYear, AppId $AppId)"
+  & $iscc "/DAppVersion=$Version" "/DAppVersionNum=$versionNum" "/DRevitYear=$RevitYear" "/DAppId=$AppId" "/DPayloadStage=$StageDir" "/O$ReleaseDir" $iss
   if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
 
   $setupPath = Join-Path $ReleaseDir $setupName

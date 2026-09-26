@@ -1,16 +1,23 @@
 ; Node.aec Connector - Inno Setup installer script (requires Inno Setup 6).
 ;
-; Compiled automatically by scripts/release.ps1 when ISCC.exe is available:
-;   ISCC.exe /DAppVersion=0.1.1 /DAppVersionNum=0.1.1 /DRevitYear=2026
+; ONE Setup.exe == ONE Revit year. Compiled automatically by scripts/release.ps1:
+;   ISCC.exe /DAppVersion=0.1.2 /DAppVersionNum=0.1.2 /DRevitYear=2026
+;            /DAppId={5A4626FE-9563-4ED3-9C66-EA4567152F01}
 ;            /DPayloadStage=<abs path>\release\stage\NodeAec.Connector
 ;            /O<abs path>\release scripts\installer.iss
 ;
-; Result: NodeAec.Connector-<version>-Setup.exe - double-click installer for
-; non-technical users. Detects every installed Revit year, copies the payload
-; into %ProgramData%\Autodesk\Revit\Addins\<year>\ and writes the .addin
-; manifest with the correct absolute Assembly path per year.
+; Result: NodeAec.Connector-<version>-R<RevitYear>-Setup.exe - double-click
+; installer for non-technical users. It installs the payload ONLY into
+; %ProgramData%\Autodesk\Revit\Addins\<RevitYear>\NodeAec.Connector\ and writes
+; the .addin manifest with the absolute Assembly path for that year. When the
+; target Revit year is not installed, Setup aborts before touching any file.
 ;
-; Rerun behavior: re-running Setup detects the previous install.
+; Each year has its own AppId, so different years install side by side and
+; uninstall independently in Windows Settings > Apps. release.ps1 owns the
+; year -> AppId table and always passes /DAppId; /DRevitYear defaults to 2026
+; and one Setup handles exactly that year (2023..2027).
+;
+; Rerun behavior: re-running Setup detects the previous install of THIS year.
 ; Yes = uninstall it and close (run Setup again to install).
 ; No = upgrade in place. Uninstall is also available in
 ; Windows Settings > Apps and in {app}\unins000.exe.
@@ -18,21 +25,32 @@
 ; NOTE: this file must stay plain ASCII (ISCC reads scripts as ANSI/UTF-8-BOM).
 
 #ifndef AppVersion
-  #define AppVersion "0.1.1"
+  #define AppVersion "0.1.2"
 #endif
 #ifndef AppVersionNum
-  #define AppVersionNum "0.1.1"
+  #define AppVersionNum "0.1.2"
 #endif
 #ifndef RevitYear
   #define RevitYear "2026"
+#endif
+#ifndef AppId
+  #error AppId is required: compile with /DAppId={GUID} (one distinct GUID per Revit year).
 #endif
 #ifndef PayloadStage
   #define PayloadStage "..\release\stage\NodeAec.Connector"
 #endif
 
+; Guard rail: one Setup installs exactly one supported Revit year.
+#if (RevitYear != "2023") && (RevitYear != "2024") && (RevitYear != "2025") && (RevitYear != "2026") && (RevitYear != "2027")
+  #error RevitYear must be one of 2023, 2024, 2025, 2026 or 2027.
+#endif
+
 [Setup]
-AppId={{CA728E7B-B193-47B0-B501-83A3CDECDD09}}
-AppName=Node.aec Connector
+; Distinct AppId per year (release.ps1 passes a bare {GUID} via /DAppId), so two
+; years coexist and uninstall independently in Apps & Features. Inno's constant
+; parser needs the literal "{" escaped as "{{".
+AppId={#StringChange(AppId, "{", "{{")}
+AppName=Node.aec Connector - Revit {#RevitYear}
 AppVersion={#AppVersion}
 AppPublisher=Node.aec
 AppPublisherURL=https://nodeaec.com.br
@@ -40,8 +58,9 @@ AppSupportURL=https://nodeaec.com.br
 AppUpdatesURL=https://nodeaec.com.br/products
 VersionInfoVersion={#AppVersionNum}
 VersionInfoProductVersion={#AppVersion}
-VersionInfoDescription=Node.aec Connector Revit add-in installer
-DefaultDirName={autopf}\Node.aec Connector
+VersionInfoProductName=Node.aec Connector - Revit {#RevitYear}
+VersionInfoDescription=Node.aec Connector Revit {#RevitYear} add-in installer
+DefaultDirName={autopf}\Node.aec Connector\Revit {#RevitYear}
 DisableProgramGroupPage=yes
 DisableDirPage=yes
 PrivilegesRequired=admin
@@ -50,22 +69,26 @@ ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
 Compression=lzma2/max
 SolidCompression=yes
-OutputBaseFilename=NodeAec.Connector-{#AppVersion}-Setup
+OutputBaseFilename=NodeAec.Connector-{#AppVersion}-R{#RevitYear}-Setup
 InfoAfterFile=installer-after.txt
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
-; All user-facing custom strings, localized. Code reads them with
-; CustomMessage('Name'), which follows the wizard language.
+; All user-facing custom strings, localized and scoped to this Revit year.
+; Code reads them with CustomMessage('Name'), which follows the wizard language.
 [CustomMessages]
-brazilianportuguese.PreviousFound=Uma instalacao anterior do Node.aec Connector foi encontrada.%n%nSim = desinstalar a versao anterior e fechar o instalador.%n(Depois, execute o instalador novamente para instalar.)%nNao = atualizar por cima, sem desinstalar.%nCancelar = sair sem alterar nada.
-english.PreviousFound=A previous Node.aec Connector install was found.%n%nYes = uninstall the previous version and close Setup.%n(Then run Setup again to install.)%nNo = upgrade in place without uninstalling.%nCancel = exit without changing anything.
+brazilianportuguese.PreviousFound=Uma instalacao anterior do Node.aec Connector para o Revit {#RevitYear} foi encontrada.%n%nSim = desinstalar a versao anterior e fechar o instalador.%n(Depois, execute o instalador novamente para instalar.)%nNao = atualizar por cima, sem desinstalar.%nCancelar = sair sem alterar nada.
+english.PreviousFound=A previous Node.aec Connector install for Revit {#RevitYear} was found.%n%nYes = uninstall the previous version and close Setup.%n(Then run Setup again to install.)%nNo = upgrade in place without uninstalling.%nCancel = exit without changing anything.
 brazilianportuguese.UninstalledDone=A versao anterior foi desinstalada. Execute o instalador novamente para instalar a nova versao.
 english.UninstalledDone=The previous version was uninstalled. Run Setup again to install the new version.
 brazilianportuguese.RevitMustClose=Feche o Autodesk Revit antes de continuar.%nO instalador precisa substituir os arquivos do add-in, que estao em uso.
 english.RevitMustClose=Close Autodesk Revit before continuing.%nSetup needs to replace the add-in files, which are in use.
+brazilianportuguese.RevitMustCloseUninstall=Feche o Autodesk Revit antes de desinstalar.%nO desinstalador precisa remover os arquivos do add-in, que estao em uso.
+english.RevitMustCloseUninstall=Close Autodesk Revit before uninstalling.%nThe uninstaller needs to remove the add-in files, which are in use.
+brazilianportuguese.RevitYearMissing=O Autodesk Revit {#RevitYear} nao foi encontrado em C:\Program Files\Autodesk\Revit {#RevitYear}.%n%nInstale o Autodesk Revit {#RevitYear} ou execute o instalador correspondente a outra versao do Revit.%nNenhum arquivo foi alterado.
+english.RevitYearMissing=Autodesk Revit {#RevitYear} was not found at C:\Program Files\Autodesk\Revit {#RevitYear}.%n%nInstall Autodesk Revit {#RevitYear} or run the installer that matches another Revit version.%nNo files were changed.
 brazilianportuguese.CopyFailed=Nao foi possivel substituir os arquivos do add-in. Feche o Autodesk Revit e execute o instalador novamente.
 english.CopyFailed=Could not replace the add-in files. Close Autodesk Revit and run Setup again.
 brazilianportuguese.FinishFailedHeading=A instalacao nao foi concluida
@@ -76,7 +99,7 @@ brazilianportuguese.AfterText=Instalacao concluida!%n%nAbra o Autodesk Revit, cl
 english.AfterText=Installation finished!%n%nOpen Autodesk Revit, click the "Node.aec" tab and then "My Account" to sign in and unlock your plugins.%n%nIf anything goes wrong, see the user manual in plugin/docs/USER_MANUAL.md or contact Node.aec support: https://nodeaec.com.br
 
 ; Payload staged by release.ps1 (plugin DLL, DPAPI dependency, Resources, README).
-; The staged .addin is excluded: per-year manifests are generated in [Code].
+; The staged .addin is excluded: the per-year manifest is generated in [Code].
 [Files]
 Source: "{#PayloadStage}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion; Excludes: "*.addin"
 
@@ -88,8 +111,15 @@ Source: "installer-after-en.txt"; Flags: dontcopy
 [Code]
 const
   ConnectorAddInId = '4B8E1A2C-9F3D-4E5A-8B7C-1D2E3F4A5B6C';
-  UninstallKeySingle = '{CA728E7B-B193-47B0-B501-83A3CDECDD09}_is1';
-  UninstallKeyLegacy = '{CA728E7B-B193-47B0-B501-83A3CDECDD09}}_is1';
+  // Single target Revit year, fixed at compile time by /DRevitYear=<year>.
+  TargetRevitYear = '{#RevitYear}';
+  // Revit installation root. Revit's default layout is
+  // "C:\Program Files\Autodesk\Revit <year>" (space); some deployments use
+  // "C:\Program Files\Autodesk\Revit\<year>". Both layouts are accepted.
+  AutodeskRoot = 'C:\Program Files\Autodesk';
+  // This year's uninstall key. release.ps1 passes one distinct GUID per year
+  // via /DAppId; Inno writes the uninstall entry under "{GUID}_is1".
+  UninstallKey = '{#AppId}_is1';
   AddInTemplate =
     '<?xml version="1.0" encoding="utf-8"?>' + #13#10 +
     '<RevitAddIns>' + #13#10 +
@@ -106,28 +136,20 @@ const
 var
   InstallFailed: Boolean;
 
-// Collects installed Revit years by scanning the default install folder.
-// Falls back to the compile-time {#RevitYear} when nothing is detected.
-procedure GetRevitYears(Years: TStringList);
+// True when this Setup's Revit year is installed. Accepts the default install
+// folders ("Revit <year>" and "Revit\<year>") and the Autodesk registry signal
+// ("SOFTWARE\Autodesk\Revit\<year>"), so a non-default install folder does not
+// cause a false abort.
+function IsTargetRevitInstalled(): Boolean;
 var
-  FindRec: TFindRec;
-  Base: string;
+  InstallLocation: string;
 begin
-  Years.Clear;
-  Base := 'C:\Program Files\Autodesk\Revit\';
-  if FindFirst(Base + '*', FindRec) then
-  try
-    repeat
-      if (FindRec.Name <> '.') and (FindRec.Name <> '..') then
-        if DirExists(Base + FindRec.Name) and (Length(FindRec.Name) = 4) then
-          if StrToIntDef(FindRec.Name, -1) >= 2015 then
-            Years.Add(FindRec.Name);
-    until not FindNext(FindRec);
-  finally
-    FindClose(FindRec);
-  end;
-  if Years.Count = 0 then
-    Years.Add('{#RevitYear}');
+  Result :=
+    DirExists(AutodeskRoot + '\Revit ' + TargetRevitYear) or
+    DirExists(AutodeskRoot + '\Revit\' + TargetRevitYear) or
+    RegKeyExists(HKLM64, 'SOFTWARE\Autodesk\Revit\' + TargetRevitYear) or
+    RegKeyExists(HKLM32, 'SOFTWARE\Autodesk\Revit\' + TargetRevitYear) or
+    RegQueryStringValue(HKLM64, 'SOFTWARE\Autodesk\Revit\Autodesk Revit ' + TargetRevitYear, 'InstallLocation', InstallLocation);
 end;
 
 // Recursively copies SrcDir into DstDir. Returns the number of copy failures
@@ -209,19 +231,17 @@ begin
   end;
 end;
 
-// Finds a previous install's uninstall command, checking the canonical key
-// and one legacy spelling. Returns True when found.
+// Finds THIS year's previous install (same AppId) uninstall command.
+// Returns True when found.
 function GetPreviousUninstallString(var UninstallString: string): Boolean;
 begin
   Result := True;
-  if RegQueryStringValue(HKLM64, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\' + UninstallKeySingle, 'UninstallString', UninstallString) then Exit;
-  if RegQueryStringValue(HKLM32, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\' + UninstallKeySingle, 'UninstallString', UninstallString) then Exit;
-  if RegQueryStringValue(HKLM64, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\' + UninstallKeyLegacy, 'UninstallString', UninstallString) then Exit;
-  if RegQueryStringValue(HKLM32, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\' + UninstallKeyLegacy, 'UninstallString', UninstallString) then Exit;
+  if RegQueryStringValue(HKLM64, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\' + UninstallKey, 'UninstallString', UninstallString) then Exit;
+  if RegQueryStringValue(HKLM32, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\' + UninstallKey, 'UninstallString', UninstallString) then Exit;
   Result := False;
 end;
 
-// Offers uninstall-first when re-running over a previous install.
+// Offers uninstall-first when re-running over a previous install of this year.
 // Yes = uninstall the previous version and close (does NOT continue
 // installing; run Setup again to install). No = upgrade in place.
 // Silent installs skip the prompt and upgrade in place.
@@ -249,13 +269,15 @@ begin
   Result := False;
 end;
 
-// Clean pre-flight abort (no files touched, no success page): refuse to
-// install while Revit holds the add-in DLLs locked.
+// Clean pre-flight abort (no files touched, no success page): the target
+// Revit year must be installed and Revit must be closed before any copy.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   NeedsRestart := False;
   Result := '';
-  if IsProcessRunning('Revit.exe') then
+  if not IsTargetRevitInstalled() then
+    Result := CustomMessage('RevitYearMissing')
+  else if IsProcessRunning('Revit.exe') then
     Result := CustomMessage('RevitMustClose');
 end;
 
@@ -265,56 +287,62 @@ begin
   Result := (PageID = wpInfoAfter) and InstallFailed;
 end;
 
+// Silent/automation runs must not read a failed copy as success: any non-zero
+// code fails the build pipeline, while 0 keeps Inno's normal exit code.
+function GetCustomSetupExitCode: Integer;
+begin
+  if InstallFailed then
+    Result := 1
+  else
+    Result := 0;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  Years: TStringList;
-  I, Failures: Integer;
-Base: string;
+  Base: string;
+  Failures: Integer;
 begin
   if CurStep = ssPostInstall then
   begin
-    Years := TStringList.Create;
-    try
-      GetRevitYears(Years);
-      Failures := 0;
-      for I := 0 to Years.Count - 1 do
-      begin
-        Base := ExpandConstant('{commonappdata}\Autodesk\Revit\Addins\' + Years[I]);
-        ForceDirectories(Base);
-        Failures := Failures + CopyDirTree(ExpandConstant('{app}'), Base + '\NodeAec.Connector');
-        if not WriteAddInManifest(Base) then
-          Failures := Failures + 1;
-        // Repair: older installers copied the Setup uninstaller
-        // (unins*.*) into the Revit folders; remove those strays.
-        DeleteUninstallerStrays(Base + '\NodeAec.Connector');
-      end;
-      // NOTE: no RaiseException here on purpose. A raised exception inside
-      // ssPostInstall does not roll back and Setup still reaches ssDone,
-      // which would show the InfoAfter success page. Flag the failure
-      // instead: the success page is skipped and the Finished page reports it.
-      if Failures > 0 then
-      begin
-        InstallFailed := True;
+    Base := ExpandConstant('{commonappdata}\Autodesk\Revit\Addins\' + TargetRevitYear);
+    ForceDirectories(Base);
+    Failures := CopyDirTree(ExpandConstant('{app}'), Base + '\NodeAec.Connector');
+    if not WriteAddInManifest(Base) then
+      Failures := Failures + 1;
+    // Repair: older installers copied the Setup uninstaller
+    // (unins*.*) into the Revit folders; remove those strays.
+    DeleteUninstallerStrays(Base + '\NodeAec.Connector');
+    // NOTE: no RaiseException here on purpose. A raised exception inside
+    // ssPostInstall does not roll back and Setup still reaches ssDone,
+    // which would show the InfoAfter success page. Flag the failure
+    // instead: the success page is skipped and the Finished page reports it.
+    if Failures > 0 then
+    begin
+      InstallFailed := True;
+      // /SUPPRESSMSGBOXES does not cover [Code] MsgBox calls: in a silent run
+      // (no user) the box would block forever. Silent runs are told about the
+      // failure by the log and by GetCustomSetupExitCode instead.
+      if WizardSilent() then
+        Log('Copy failed: some add-in files could not be replaced (locked?).')
+      else
         MsgBox(CustomMessage('CopyFailed'), mbError, MB_OK);
-      end;
-    finally
-      Years.Free;
     end;
-  end;
-  if (CurStep = ssDone) and InstallFailed then
-  begin
-    WizardForm.FinishedHeadingLabel.Caption := CustomMessage('FinishFailedHeading');
-    WizardForm.FinishedLabel.Caption := CustomMessage('FinishFailedText');
   end;
 end;
 
-// Runs when the InfoAfter page is shown (after any internal file load),
-// so the localized note cannot be clobbered.
+// Runs when a wizard page is shown. The Finished page is where a failed copy
+// must surface: ssDone fires after the wizard is hidden, so setting the
+// captions there has no visible effect.
 procedure CurPageChanged(CurPageID: Integer);
 var
   AfterFile, AfterText: string;
   Note: AnsiString;
 begin
+  if (CurPageID = wpFinished) and InstallFailed then
+  begin
+    WizardForm.FinishedHeadingLabel.Caption := CustomMessage('FinishFailedHeading');
+    WizardForm.FinishedLabel.Caption := CustomMessage('FinishFailedText');
+  end;
   if (CurPageID <> wpInfoAfter) or InstallFailed then
     Exit;
   // InfoAfterFile is a single static file; load the note matching the
@@ -334,25 +362,26 @@ begin
   end;
 end;
 
+// Refuses to uninstall while Revit holds the add-in DLLs locked, mirroring the
+// install pre-flight. Returning False aborts the uninstall before any file is
+// touched; silent runs have no user, so the abort is reported by the exit code
+// and by the untouched files instead of a blocking message box.
+function InitializeUninstall(): Boolean;
+begin
+  Result := not IsProcessRunning('Revit.exe');
+  if (not Result) and (not UninstallSilent()) then
+    MsgBox(CustomMessage('RevitMustCloseUninstall'), mbError, MB_OK);
+end;
+
+// Removes ONLY this year's add-in folder and .addin manifest. Other Revit
+// years are independent installations with their own uninstall entries.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
-  Years: TStringList;
-  I: Integer;
   Base: string;
 begin
   if CurUninstallStep <> usUninstall then
     Exit;
-  Years := TStringList.Create;
-  try
-    GetRevitYears(Years);
-    for I := 0 to Years.Count - 1 do
-    begin
-      Base := ExpandConstant('{commonappdata}\Autodesk\Revit\Addins\' + Years[I]);
-      if DirExists(Base + '\NodeAec.Connector') then
-        DelTree(Base + '\NodeAec.Connector', True, True, True);
-      DeleteFile(Base + '\NodeAec.Connector.addin');
-    end;
-  finally
-    Years.Free;
-  end;
+  Base := ExpandConstant('{commonappdata}\Autodesk\Revit\Addins\' + TargetRevitYear);
+  DelTree(Base + '\NodeAec.Connector', True, True, True);
+  DeleteFile(Base + '\NodeAec.Connector.addin');
 end;

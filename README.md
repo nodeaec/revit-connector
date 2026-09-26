@@ -1,6 +1,6 @@
 # Node.aec Connector — Autodesk Revit Add-in
 
-Add-in central de governança desktop, gerenciamento de licenças e Ribbon unificada para **Autodesk Revit 2026** (compatível com Revit 2025+).
+Add-in central de governança desktop, gerenciamento de licenças e Ribbon unificada para **Autodesk Revit 2023–2027**, com um instalador independente por ano (matriz de compilação).
 
 O **Node.aec Connector** atua como o Hub no modelo **Hub & Micro-Gate**: o usuário final realiza login uma única vez no navegador (Browser SSO com loopback local RFC 8252) e tem todos os seus plugins, templates e famílias licenciados e sincronizados automaticamente na estação de trabalho com tolerância de até 30 dias offline.
 
@@ -100,7 +100,7 @@ revit-connector/
 ├── README.md                          # Este documento (documentação completa do Connector)
 └── plugin/                           # Add-in Hub central de governança desktop e Ribbon unificada
     ├── docs/                          # Manual do usuário e contrato da API de licenciamento
-    ├── NodeAec.Connector.sln          # Solution (.NET 8 / Revit 2026)
+    ├── NodeAec.Connector.sln          # Solution (matriz .NET/Revit 2023–2027)
     ├── scripts/
     │   └── release.ps1                # Script de compilação, empacotamento e deploy local
     ├── src/NodeAec.Connector/
@@ -120,7 +120,7 @@ revit-connector/
 Para compilar e contribuir com o add-in:
 
 - **Sistema Operacional**: Windows 10 ou 11 (64-bit)
-- **Autodesk Revit**: 2026 instalado no caminho padrão (`C:\Program Files\Autodesk\Revit 2026`) ou 2025+
+- **Autodesk Revit**: 2023 a 2027 instalado no caminho padrão (`C:\Program Files\Autodesk\Revit <ano>`) — compilação e empacotamento são feitos um ano por vez (`-RevitYear`)
 - **SDK .NET**: [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 - **Shell**: PowerShell 5.1 ou PowerShell 7+
 
@@ -135,11 +135,11 @@ dotnet build plugin\NodeAec.Connector.sln -c Release
 # Executar os testes unitários (headless, sem Revit)
 dotnet test plugin\tests\NodeAec.Connector.Tests\NodeAec.Connector.Tests.csproj
 
-# Empacotar em .zip e instalar automaticamente no Revit 2026
-powershell -ExecutionPolicy Bypass -File plugin\scripts\release.ps1 -Version 0.1.1 -Install
+# Empacotar o .zip e o instalador de UM ano do Revit e instalar localmente
+powershell -ExecutionPolicy Bypass -File plugin\scripts\release.ps1 -Version 0.1.2 -RevitYear 2026 -Install
 ```
 
-O script de release também gera `plugin/release/NodeAec.Connector-<versão>-Setup.exe` (instalador com duplo clique para usuários finais, compilado via `plugin/scripts/installer.iss`) quando o [Inno Setup 6](https://jrsoftware.org/isdl.php) está instalado; sem ele, apenas o `.zip` é produzido.
+Cada execução do script gera artefatos de **um único ano** do Revit (`-RevitYear`, padrão `2026`): o `.zip` `plugin/release/NodeAec.Connector-<versão>-R<ano>.zip` e, quando o [Inno Setup 6](https://jrsoftware.org/isdl.php) está instalado, o instalador `plugin/release/NodeAec.Connector-<versão>-R<ano>-Setup.exe`. Cada instalador atende apenas `%ProgramData%\Autodesk\Revit\Addins\<ano>\` e pode ser desinstalado de forma independente em Aplicativos. Repita com `-RevitYear 2023`..`2027` para gerar os cinco instaladores; sem o Inno Setup, apenas o `.zip` é produzido.
 
 ---
 
