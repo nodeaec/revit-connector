@@ -59,11 +59,11 @@ conta, emitido para a máquina informada.
   "machineId": "3b7c89f1a0e4d2...",
   "deviceName": "ESTACAO-PROJETO-01",
   "platform": "Windows / Revit 2026",
-  "connectorVersion": "0.1.1"
+  "connectorVersion": "0.1.2"
 }
 ```
 
-`platform` é `ConnectorConfig.PlatformDescription` e `connectorVersion` é
+`platform` é `ConnectorConfig.PlatformDescription` (o ano do Revit compilado, ex.: `Windows / Revit 2026`) e `connectorVersion` é
 `ConnectorConfig.Version`; `machineId` é o hash SHA-256 do `MachineGuid` do Windows
 (64 caracteres hexadecimais minúsculos). O nome da máquina **não** entra no hash — ele é
 renomeável e invalidaria a licença a cada rename. Sem `MachineGuid` legível o Connector
@@ -129,7 +129,7 @@ Ativa uma chave manual `NAEC-XXXX-XXXX-XXXX-XXXX`.
   "machineId": "3b7c89f1a0e4d2...",
   "deviceName": "ESTACAO-PROJETO-01",
   "platform": "Windows / Revit 2026",
-  "clientVersion": "0.1.1"
+  "clientVersion": "0.1.2"
 }
 ```
 

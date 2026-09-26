@@ -77,4 +77,27 @@ public class ConnectorConfigTests
 
         Assert.Equal("https://api.example.test", result);
     }
+
+    /// <summary>
+    /// O <c>platform</c> enviado à API acompanha o ano do Revit compilado. O build de
+    /// testes herda REVIT20xx do Directory.Build.props (padrão 2026); o ramo <c>#else</c>
+    /// cobre compilações sem o define. O esperado é espelhado aqui de propósito: um erro
+    /// de digitação no ano precisa falhar o teste em vez de concordar com o fonte.
+    /// </summary>
+    [Fact]
+    public void PlatformDescription_MatchesCompiledRevitYear()
+    {
+#if REVIT2023
+        const string expected = "Windows / Revit 2023";
+#elif REVIT2024
+        const string expected = "Windows / Revit 2024";
+#elif REVIT2025
+        const string expected = "Windows / Revit 2025";
+#elif REVIT2027
+        const string expected = "Windows / Revit 2027";
+#else
+        const string expected = "Windows / Revit 2026";
+#endif
+        Assert.Equal(expected, ConnectorConfig.PlatformDescription);
+    }
 }

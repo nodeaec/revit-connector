@@ -11,8 +11,25 @@ namespace NodeAec.Connector.Config;
 /// </summary>
 public static class ConnectorConfig
 {
-    public const string Version = "0.1.1";
+    public const string Version = "0.1.2";
+
+    /// <summary>
+    /// Plataforma do host enviada à API (<c>platform</c>). Reflete o ano do Revit em que
+    /// este assembly foi compilado: o Directory.Build.props define REVIT2023..REVIT2027 a
+    /// partir de <c>-p:RevitYear</c>. Compilações sem o define (ex.: testes headless ou
+    /// consumidores que recompilam este arquivo) caem no padrão 2026.
+    /// </summary>
+#if REVIT2023
+    public const string PlatformDescription = "Windows / Revit 2023";
+#elif REVIT2024
+    public const string PlatformDescription = "Windows / Revit 2024";
+#elif REVIT2025
+    public const string PlatformDescription = "Windows / Revit 2025";
+#elif REVIT2027
+    public const string PlatformDescription = "Windows / Revit 2027";
+#else
     public const string PlatformDescription = "Windows / Revit 2026";
+#endif
 
     /// <summary>Opt-in explícito que autoriza <c>http://</c> em endpoints configurados.</summary>
     private const string AllowInsecureVariable = "NODEAEC_ALLOW_INSECURE_DEV";
