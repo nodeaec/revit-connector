@@ -33,9 +33,13 @@ public static class HardwareId
     /// <returns><c>true</c> quando o MachineGuid foi lido e o hash derivado.</returns>
     public static bool TryGetMachineId(out string machineId, out string? reason)
     {
-        if (!string.IsNullOrEmpty(_cachedMachineId))
+        // Checagem explícita de nulo/empty (em vez de string.IsNullOrEmpty) porque as
+        // referências do net48 não trazem [NotNullWhen]: sem ela o compilador só enxerga
+        // CS8601 nesse ano.
+        string? cached = _cachedMachineId;
+        if (cached != null && cached.Length > 0)
         {
-            machineId = _cachedMachineId;
+            machineId = cached;
             reason = null;
             return true;
         }
