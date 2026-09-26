@@ -11,12 +11,14 @@ namespace NodeAec.Connector.Cryptography;
 
 /// <summary>
 /// Verifica a assinatura Ed25519 (RFC 8032) de tokens de lease emitidos pela plataforma Node.aec
-/// antes de qualquer claim ser confiável. As chaves públicas candidatas vêm, nesta ordem:
-/// 1) JWKS em cache local (<c>%APPDATA%\NodeAec\license-jwks.json</c>, atualizado pelo Connector
-///    a cada sincronização/validação via <c>GET /license/jwks</c>);
-/// 2) âncora SPKI opcional definida em <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c> (operações que
-///    preferem chave fixa em vez de rotação por JWKS).
-/// Falha sempre em modo fechado: sem chave ou com assinatura inválida, o lease não é aceito.
+/// antes de qualquer claim ser confiável. A única chave candidata é a âncora compilada no
+/// add-in (<see cref="ConnectorConfig.DefaultLicensePublicKeySpkiBase64"/>), substituível
+/// pela operação via <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>.
+/// O JWKS em cache (<c>%APPDATA%\NodeAec\license-jwks.json</c>, atualizado por
+/// <c>GET /license/jwks</c>) deixa de ser fonte de confiança: serve para descoberta de
+/// <c>kid</c> e para sinalizar rotação, e uma chave fora da âncora nunca verifica.
+/// Falha sempre em modo fechado: sem âncora utilizável ou com assinatura inválida, o lease
+/// não é aceito.
 /// </summary>
 public static class LeaseSignatureVerifier
 {
@@ -34,6 +36,12 @@ public static class LeaseSignatureVerifier
     {
         0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
     };
+
+    /// <summary>
+    /// Garante um único aviso de rotação por processo — a verificação roda a cada comando de
+    /// plugin e o JWKS continua com a chave antiga depois de uma rotação.
+    /// </summary>
+    private static bool _rotationSignalLogged;
 
     /// <summary>
     /// Desfecho granular da verificação de assinatura. Permite ao chamador distinguir
@@ -89,7 +97,7 @@ public static class LeaseSignatureVerifier
             return VerificationOutcome.Rejected;
         }
 
-        if (!TryReadHeader(parts[0], out string? algorithm, out string? kid, out reason))
+        if (!TryReadHeader(parts[0], out string? algorithm, out reason))
         {
             return VerificationOutcome.Rejected;
         }
@@ -107,22 +115,15 @@ public static class LeaseSignatureVerifier
             return VerificationOutcome.Rejected;
         }
 
-        // Disponibilidade de chave ANTES de julgar: sem nenhuma chave (cache vazio e sem
-        // âncora fixa) a ausência de confirmação é indisponibilidade, não adulteração.
-        // Com chave disponível, tudo que não seja confirmação é rejeição firme.
+        // A chave de verificação é a âncora, não o JWKS: sem âncora utilizável (build sem pin
+        // ou override inválido) a verificação falha fechada. O cache só serve para descobrir
+        // o kid e para sinalizar rotação.
         var cached = SigningKeyStore.LoadVerificationKeys();
-        var candidates = OrderCandidates(kid, cached);
+        var candidates = OrderCandidates(cached, out string? anchorReason);
         if (candidates.Count == 0)
         {
-            if (cached.Count == 0 && !HasPinnedKey())
-            {
-                reason = "chave pública de verificação indisponível (JWKS ausente)";
-                return VerificationOutcome.NoKeysAvailable;
-            }
-
-            reason = kid == null ? "token sem kid, sem chave correspondente"
-                                 : $"nenhuma chave disponível para o kid {kid}";
-            return VerificationOutcome.Rejected;
+            reason = anchorReason ?? "âncora pública de verificação indisponível";
+            return VerificationOutcome.NoKeysAvailable;
         }
 
         byte[] data = Encoding.ASCII.GetBytes($"{parts[0]}.{parts[1]}");
@@ -135,19 +136,34 @@ public static class LeaseSignatureVerifier
             }
         }
 
-        reason = kid == null ? "assinatura não corresponde a nenhuma chave conhecida"
-                             : $"assinatura não corresponde à chave {kid}";
+        reason = "assinatura não corresponde à âncora de verificação do Connector";
         return VerificationOutcome.Rejected;
     }
 
     /// <summary>
-    /// Indica se existe âncora SPKI fixa utilizável (<c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>),
-    /// usada para classificar a ausência de candidatos como indisponibilidade de chave.
+    /// Resolve a âncora efetiva de verificação: o override de operação
+    /// (<c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>) quando definido e válido; senão a chave
+    /// compilada no add-in. Override definido e inválido é falha fechada — nunca cai
+    /// silenciosamente para a chave compilada.
     /// </summary>
-    private static bool HasPinnedKey()
+    /// <param name="rawKey">Chave bruta Ed25519 (32 bytes) quando o retorno é <c>true</c>.</param>
+    /// <param name="reason">Motivo legível quando o retorno é <c>false</c> (para log).</param>
+    /// <returns><c>true</c> quando existe âncora utilizável.</returns>
+    private static bool TryGetAnchorKey(out byte[] rawKey, out string? reason)
     {
-        string? pinnedSpki = ConnectorConfig.LicensePublicKeySpkiBase64;
-        return !string.IsNullOrWhiteSpace(pinnedSpki) && TryDecodeSpkiBase64(pinnedSpki, out _, out _);
+        string? overrideSpki = ConnectorConfig.LicensePublicKeySpkiOverride;
+        if (!string.IsNullOrWhiteSpace(overrideSpki))
+        {
+            if (TryDecodeSpkiBase64(overrideSpki, out rawKey, out reason))
+            {
+                return true;
+            }
+
+            reason = $"âncora NODEAEC_LICENSE_PUBLIC_KEY_SPKI inválida ({reason})";
+            return false;
+        }
+
+        return TryDecodeSpkiBase64(ConnectorConfig.DefaultLicensePublicKeySpkiBase64, out rawKey, out reason);
     }
 
     /// <summary>
@@ -202,52 +218,79 @@ public static class LeaseSignatureVerifier
     }
 
     /// <summary>
-    /// Monta a lista de chaves candidatas: primeiro as que batem com o <c>kid</c> do header,
-    /// depois as âncoras fixas sem <c>kid</c> (ex.: <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>).
+    /// Monta os candidatos de verificação: **apenas a âncora efetiva** (H4). O JWKS em cache
+    /// deixa de ser fonte de confiança — chaves fora da âncora geram um aviso de rotação
+    /// (uma vez por processo) e jamais verificam.
     /// </summary>
-    private static List<PublicKeyCandidate> OrderCandidates(string? kid, IReadOnlyList<(string? Kid, byte[] RawKey)> cached)
+    /// <param name="cached">Chaves do JWKS em cache, usadas só para diagnóstico/rotação.</param>
+    /// <param name="anchorReason">Motivo legível quando não há âncora utilizável.</param>
+    private static List<PublicKeyCandidate> OrderCandidates(
+        IReadOnlyList<(string? Kid, byte[] RawKey)> cached,
+        out string? anchorReason)
     {
         var ordered = new List<PublicKeyCandidate>();
 
-        string? pinnedSpki = ConnectorConfig.LicensePublicKeySpkiBase64;
-        string? decodeReason = null;
-        if (!string.IsNullOrWhiteSpace(pinnedSpki) &&
-            TryDecodeSpkiBase64(pinnedSpki, out byte[] pinnedRaw, out decodeReason))
+        if (!TryGetAnchorKey(out byte[] anchor, out anchorReason))
         {
-            ordered.Add(new PublicKeyCandidate(null, pinnedRaw));
-        }
-        else if (!string.IsNullOrWhiteSpace(pinnedSpki))
-        {
-            Diagnostics.ConnectorLog.Write("WARN", $"Chave SPKI fixa ignorada: {decodeReason}.");
+            return ordered;
         }
 
-        if (kid != null)
+        SignalJwksOutsideAnchor(cached, anchor);
+        ordered.Add(new PublicKeyCandidate(null, anchor));
+        return ordered;
+    }
+
+    /// <summary>
+    /// Registra (uma vez por processo) quando o JWKS em cache traz chave diferente da âncora
+    /// compilada — sinal de rotação: o Connector instalado precisa de uma release que confie
+    /// na nova chave.
+    /// </summary>
+    private static void SignalJwksOutsideAnchor(IReadOnlyList<(string? Kid, byte[] RawKey)> cached, byte[] anchor)
+    {
+        if (_rotationSignalLogged)
         {
-            foreach (var candidate in cached)
-            {
-                if (string.Equals(candidate.Kid, kid, StringComparison.Ordinal))
-                {
-                    ordered.Add(new PublicKeyCandidate(candidate.Kid, candidate.RawKey));
-                }
-            }
+            return;
         }
 
         foreach (var candidate in cached)
         {
-            if (candidate.Kid == null)
+            if (!KeysEqual(candidate.RawKey, anchor))
             {
-                ordered.Add(new PublicKeyCandidate(candidate.Kid, candidate.RawKey));
+                _rotationSignalLogged = true;
+                Diagnostics.ConnectorLog.Write(
+                    "WARN",
+                    $"JWKS contém chave fora da âncora compilada (kid {candidate.Kid ?? "sem kid"}): possível rotação — atualize o Connector.");
+                return;
+            }
+        }
+    }
+
+    /// <summary>Compara duas chaves brutas byte a byte (evita Span, ausente no net48).</summary>
+    private static bool KeysEqual(byte[] left, byte[] right)
+    {
+        if (left.Length != right.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < left.Length; i++)
+        {
+            if (left[i] != right[i])
+            {
+                return false;
             }
         }
 
-        return ordered;
+        return true;
     }
 
-    /// <summary>Decodifica o header JWT e extrai <c>alg</c> e <c>kid</c>.</summary>
-    private static bool TryReadHeader(string headerB64, out string? algorithm, out string? kid, out string? reason)
+    /// <summary>
+    /// Decodifica o header JWT e extrai <c>alg</c>. O <c>kid</c> não é lido: sob H4 a única
+    /// chave de verificação é a âncora compilada, então o header não participa da confiança.
+    /// </summary>
+    private static bool TryReadHeader(string headerB64, out string? algorithm, out string? reason)
     {
         algorithm = null;
-        kid = null;
 
         byte[]? headerBytes = TryFromBase64Url(headerB64);
         if (headerBytes == null)
@@ -262,9 +305,6 @@ public static class LeaseSignatureVerifier
             var root = doc.RootElement;
             algorithm = root.TryGetProperty("alg", out var alg) && alg.ValueKind == JsonValueKind.String
                 ? alg.GetString()
-                : null;
-            kid = root.TryGetProperty("kid", out var kidEl) && kidEl.ValueKind == JsonValueKind.String
-                ? kidEl.GetString()
                 : null;
         }
         catch (JsonException)

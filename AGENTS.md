@@ -75,7 +75,7 @@ Este repositório disponibiliza habilidades modulares especializadas para agente
 
 ### 3. Integração com a Plataforma Node.aec
 - **Endpoint Fixo de Produção**: Todas as chamadas para a API Node.aec utilizam o endpoint oficial de produção: `https://api.nodeaec.com.br`.
-- **Segurança de Chaves**: NUNCA armazene chaves privadas no código do cliente. O repositório lida apenas com a chave pública SPKI (`DefaultPublicKeyPem`) para verificação de assinaturas Ed25519.
+- **Segurança de Chaves**: NUNCA armazene chaves privadas no código do cliente. O repositório lida apenas com a chave pública SPKI compilada (`ConnectorConfig.DefaultLicensePublicKeySpkiBase64`) — a única âncora aceita na verificação de assinaturas Ed25519.
 - **Não-Bloqueante (UI Thread Safe)**: Nenhuma chamada de rede ou I/O pesado deve ser executada de forma síncrona na thread principal do Revit (`OnStartup` ou início de comando). Inicializações de background devem ser assíncronas e à prova de falhas de rede.
 
 ### 4. Estrutura de Código e Estilo

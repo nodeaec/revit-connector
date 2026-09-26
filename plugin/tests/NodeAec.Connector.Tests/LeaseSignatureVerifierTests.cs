@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using NodeAec.Connector.Config;
 using NodeAec.Connector.Cryptography;
 using NodeAec.Connector.Models;
 using NodeAec.Connector.Storage;
@@ -15,16 +16,20 @@ namespace NodeAec.Connector.Tests;
 public class LeaseSignatureVerifierTests : IDisposable
 {
     private readonly string _tempDir;
+    private readonly IDisposable _testPin;
 
     public LeaseSignatureVerifierTests()
     {
         _tempDir = Path.Combine(Path.GetTempPath(), "NodeAecVerifierTests_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_tempDir);
         LeaseStorage.SetCustomBasePath(_tempDir);
+        // H4: a verificação usa a âncora compilada; os testes injetam a chave RFC 8032 como pin.
+        _testPin = TestHelpers.WithTestLicensePin();
     }
 
     public void Dispose()
     {
+        _testPin.Dispose();
         LeaseStorage.SetCustomBasePath(null);
         if (Directory.Exists(_tempDir))
         {
@@ -59,7 +64,7 @@ public class LeaseSignatureVerifierTests : IDisposable
     [Fact]
     public void TryVerify_ValidSignedToken_ReturnsTrue()
     {
-        TestHelpers.InstallTestSigningKey();
+        // H4: verifica só com o pin — nenhum JWKS em cache é necessário.
         string jwt = CreateToken();
 
         bool valid = LeaseSignatureVerifier.TryVerify(jwt, out string? reason);
@@ -71,7 +76,6 @@ public class LeaseSignatureVerifierTests : IDisposable
     [Fact]
     public void TryVerify_TamperedPayload_ReturnsFalse()
     {
-        TestHelpers.InstallTestSigningKey();
         string jwt = CreateToken();
 
         string[] parts = jwt.Split('.');
@@ -88,9 +92,7 @@ public class LeaseSignatureVerifierTests : IDisposable
     [Fact]
     public void TryVerify_SignedByUnknownKey_ReturnsFalse()
     {
-        TestHelpers.InstallTestSigningKey();
-
-        // Chave de produção forjada: assinatura válida em si, mas não é a chave publicada.
+        // Chave de produção forjada: assinatura válida em si, mas não é a âncora.
         byte[] attackerSeed = SHA256Of("attacker-seed");
         string jwt = TestHelpers.CreateSignedJwt(
             new { iss = "node-aec", scope = "master-lease" },
@@ -105,8 +107,6 @@ public class LeaseSignatureVerifierTests : IDisposable
     [Fact]
     public void TryVerify_AlgorithmConfusion_RejectedBeforeAnything()
     {
-        TestHelpers.InstallTestSigningKey();
-
         string header = ToBase64Url("{\"alg\":\"HS256\",\"typ\":\"JWT\",\"kid\":\"node-aec-test-1\"}");
         string payload = ToBase64Url("{\"iss\":\"node-aec\"}");
         string jwt = $"{header}.{payload}.c2lnbmF0dXJl";
@@ -118,35 +118,50 @@ public class LeaseSignatureVerifierTests : IDisposable
     }
 
     [Fact]
-    public void TryVerify_WithoutJwksCache_FailsClosed()
+    public void TryVerify_InvalidPinOverride_FailsClosed()
     {
+        using var badPin = TestHelpers.WithLicensePin("não-é-base64!!");
         string jwt = CreateToken();
 
         bool valid = LeaseSignatureVerifier.TryVerify(jwt, out string? reason);
 
         Assert.False(valid);
-        Assert.Contains("indisponível", reason);
+        Assert.Contains("âncora", reason);
+    }
+
+    [Fact]
+    public void TryVerify_WithoutOverride_UsesCompiledPinAndRejectsCachedTestKey()
+    {
+        // Núcleo do H4: o JWKS em cache tem a chave de teste e a assinatura confere com ela,
+        // mas a âncora compilada é outra — a verificação precisa recusar mesmo assim.
+        using var noOverride = TestHelpers.WithLicensePin(null);
+        TestHelpers.InstallTestSigningKey();
+
+        bool valid = LeaseSignatureVerifier.TryVerify(CreateToken(), out string? reason);
+
+        Assert.False(valid);
+        Assert.False(string.IsNullOrWhiteSpace(reason));
     }
 
     // ---- M1: desfecho granular (Verified / NoKeysAvailable / Rejected) ----
 
     [Fact]
-    public void Evaluate_WithoutJwksCache_ReturnsNoKeysAvailable()
+    public void Evaluate_InvalidPinOverride_ReturnsNoKeysAvailable()
     {
+        using var badPin = TestHelpers.WithLicensePin("não-é-base64!!");
         string jwt = CreateToken();
 
         var outcome = LeaseSignatureVerifier.Evaluate(jwt, out string? reason);
 
-        // Sem chave nenhuma não há como verificar: indisponibilidade, não adulteração.
+        // Override inválido = âncora inutilizável: indisponibilidade explícita, nunca um
+        // silencioso "cai para o JWKS".
         Assert.Equal(LeaseSignatureVerifier.VerificationOutcome.NoKeysAvailable, outcome);
-        Assert.Contains("indisponível", reason);
+        Assert.Contains("âncora", reason);
     }
 
     [Fact]
     public void Evaluate_ValidSignedToken_ReturnsVerified()
     {
-        TestHelpers.InstallTestSigningKey();
-
         var outcome = LeaseSignatureVerifier.Evaluate(CreateToken(), out string? reason);
 
         Assert.Equal(LeaseSignatureVerifier.VerificationOutcome.Verified, outcome);
@@ -156,8 +171,6 @@ public class LeaseSignatureVerifierTests : IDisposable
     [Fact]
     public void Evaluate_SignedByUnknownKey_ReturnsRejected()
     {
-        TestHelpers.InstallTestSigningKey();
-
         byte[] attackerSeed = SHA256Of("attacker-seed");
         string jwt = TestHelpers.CreateSignedJwt(
             new { iss = "node-aec", scope = "master-lease" },
@@ -165,23 +178,54 @@ public class LeaseSignatureVerifierTests : IDisposable
 
         var outcome = LeaseSignatureVerifier.Evaluate(jwt, out string? reason);
 
-        // Há chave disponível e ela não confirma: rejeição firme.
+        // Há âncora disponível e ela não confirma: rejeição firme.
         Assert.Equal(LeaseSignatureVerifier.VerificationOutcome.Rejected, outcome);
         Assert.False(string.IsNullOrWhiteSpace(reason));
     }
 
     [Fact]
-    public void Evaluate_KidMismatchWithCachedKeys_ReturnsRejectedNotUnavailable()
+    public void Evaluate_ForeignCachedKey_IsNotACandidate()
     {
-        // Chaves existem no cache, mas nenhuma atende ao kid do token: um lease forjado
-        // com kid desconhecido NÃO pode entrar pela porta de "JWKS ausente".
-        TestHelpers.InstallTestSigningKey();
-        string jwt = CreateTokenWithKid("kid-desconhecido");
+        // JWKS em cache com chave de atacante + lease assinado por ela: o cache não é fonte
+        // de confiança (H4), então a verificação rejeita mesmo com a assinatura conferindo lá.
+        byte[] attackerSeed = SHA256Of("attacker-seed");
+        var attackerPublic = new Ed25519PrivateKeyParameters(attackerSeed, 0).GeneratePublicKey().GetEncoded();
+        string attackerJwks =
+            $"{{\"keys\":[{{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"{TestHelpers.EncodeBase64Url(attackerPublic)}\",\"kid\":\"attacker\"}}]}}";
+        Assert.True(SigningKeyStore.SaveCachedJwks(attackerJwks));
+
+        string jwt = TestHelpers.CreateSignedJwt(
+            new { iss = "node-aec", scope = "master-lease" },
+            new Ed25519PrivateKeyParameters(attackerSeed, 0));
 
         var outcome = LeaseSignatureVerifier.Evaluate(jwt, out string? reason);
 
         Assert.Equal(LeaseSignatureVerifier.VerificationOutcome.Rejected, outcome);
         Assert.False(string.IsNullOrWhiteSpace(reason));
+    }
+
+    [Fact]
+    public void Evaluate_TokenWithUnknownKid_SignedByPinnedKey_Verifies()
+    {
+        // O kid é dica de descoberta, não fonte de confiança: sob H4 só a assinatura importa.
+        string jwt = CreateTokenWithKid("kid-desconhecido");
+
+        var outcome = LeaseSignatureVerifier.Evaluate(jwt, out string? reason);
+
+        Assert.Equal(LeaseSignatureVerifier.VerificationOutcome.Verified, outcome);
+        Assert.Null(reason);
+    }
+
+    [Fact]
+    public void DefaultLicensePublicKeySpki_IsAValidEd25519Key()
+    {
+        // Guarda de build: a âncora compilada precisa ser uma chave Ed25519 utilizável.
+        Assert.True(LeaseSignatureVerifier.TryDecodeSpkiBase64(
+            ConnectorConfig.DefaultLicensePublicKeySpkiBase64,
+            out byte[] rawKey,
+            out string? reason), reason);
+        Assert.Equal(32, rawKey.Length);
+        Assert.NotEqual(TestHelpers.Rfc8032TestPublicKey, rawKey);
     }
 
     [Theory]
@@ -191,8 +235,6 @@ public class LeaseSignatureVerifierTests : IDisposable
     [InlineData("a.b.c.d")]
     public void TryVerify_MalformedInput_ReturnsFalse(string? jwt)
     {
-        TestHelpers.InstallTestSigningKey();
-
         Assert.False(LeaseSignatureVerifier.TryVerify(jwt, out string? reason));
         Assert.False(string.IsNullOrWhiteSpace(reason));
     }

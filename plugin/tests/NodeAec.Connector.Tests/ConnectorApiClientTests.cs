@@ -17,16 +17,20 @@ namespace NodeAec.Connector.Tests;
 public class ConnectorApiClientTests : IDisposable
 {
     private readonly string _tempDir;
+    private readonly IDisposable _testPin;
 
     public ConnectorApiClientTests()
     {
         _tempDir = Path.Combine(Path.GetTempPath(), "NodeAecApiTests_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_tempDir);
         LeaseStorage.SetCustomBasePath(_tempDir);
+        // H4: a verificação usa a âncora compilada; os testes injetam a chave RFC 8032 como pin.
+        _testPin = TestHelpers.WithTestLicensePin();
     }
 
     public void Dispose()
     {
+        _testPin.Dispose();
         LeaseStorage.SetCustomBasePath(null);
         if (Directory.Exists(_tempDir))
         {

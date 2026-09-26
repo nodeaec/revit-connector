@@ -57,13 +57,21 @@ public static class ConnectorConfig
     }
 
     /// <summary>
-    /// Âncora pública SPKI (Ed25519, base64) opcional para verificação offline de leases,
-    /// definida pela operação em <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>.
-    /// Quando ausente (padrão), a verificação usa o JWKS em cache local
-    /// (<c>license-jwks.json</c>) atualizado automaticamente pelo Connector via
-    /// <c>GET /license/jwks</c>. Nunca há chave privada neste repositório.
+    /// Chave pública SPKI (Ed25519, base64) compilada no add-in: o trust root da
+    /// verificação offline de leases. A chave privada correspondente nunca sai do servidor
+    /// e nenhuma outra chave é aceita, mesmo que apareça no JWKS em cache.
     /// </summary>
-    public static string? LicensePublicKeySpkiBase64 =>
+    public const string DefaultLicensePublicKeySpkiBase64 =
+        "MCowBQYDK2VwAyEArMYcaZMAlBeimfR6twrHZndEWOSaIHlSURYFhTjalMg=";
+
+    /// <summary>
+    /// Substituição de operação da âncora compilada, definida em
+    /// <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c> (base64 SPKI Ed25519).
+    /// Quando presente tem precedência sobre <see cref="DefaultLicensePublicKeySpkiBase64"/>;
+    /// quando inválida a verificação falha fechada — nunca cai silenciosamente para a
+    /// chave compilada. Nunca há chave privada neste repositório.
+    /// </summary>
+    public static string? LicensePublicKeySpkiOverride =>
         Environment.GetEnvironmentVariable("NODEAEC_LICENSE_PUBLIC_KEY_SPKI");
 
     /// <summary>

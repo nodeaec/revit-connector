@@ -12,7 +12,8 @@ This skill defines the security-by-design requirements for Autodesk Revit add-in
 ## 🛡️ Core Security Pillars
 
 ### 1. Asymmetric Cryptography (Ed25519 SPKI)
-- **Zero Private Key Exposure**: The client application and repository must **NEVER** contain or transport private signing keys. The client ships only the public Ed25519 SPKI key (`DefaultPublicKeyPem`).
+- **Zero Private Key Exposure**: The client application and repository must **NEVER** contain or transport private signing keys. The client ships only the public Ed25519 SPKI key (`ConnectorConfig.DefaultLicensePublicKeySpkiBase64`).
+- **Pinned Trust Root**: The compiled SPKI is the **only** key a lease may verify against. The JWKS cache (`license-jwks.json`) is discovery/diagnostics and must never add or replace a verification key; a cached key outside the anchor is a rotation signal that requires a new add-in release (or a pin-signed delegation, once implemented). `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` is an ops override — invalid values fail closed.
 - **Signature Integrity (RFC 8032)**: Leases are signed by the Node.aec server using Ed25519. The client verifies the signature before trusting any payload fields (`exp`, `mid`, `prd`, `seats`).
 - **Offline Tamper Resistance**: Any tampering with the cached lease token or expiration date invalidates the cryptographic signature, causing verification to fail closed.
 

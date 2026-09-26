@@ -35,6 +35,26 @@ public static class TestHelpers
     /// <summary>Kid usado no JWKS de teste e no header dos tokens de teste.</summary>
     public const string TestKeyId = "node-aec-test-1";
 
+    /// <summary>Prefixo DER de um SPKI Ed25519 (RFC 8410), usado para montar o pin de teste.</summary>
+    private static readonly byte[] SpkiEd25519Prefix =
+    {
+        0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
+    };
+
+    /// <summary>
+    /// Pin de teste (SPKI base64) da chave RFC 8032: é o valor injetado em
+    /// <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c> pelos testes que verificam assinatura.
+    /// </summary>
+    public static string TestLicensePinSpkiBase64 { get; } = CreateTestLicensePin();
+
+    private static string CreateTestLicensePin()
+    {
+        byte[] der = new byte[SpkiEd25519Prefix.Length + Rfc8032TestPublicKey.Length];
+        SpkiEd25519Prefix.CopyTo(der, 0);
+        Rfc8032TestPublicKey.CopyTo(der, SpkiEd25519Prefix.Length);
+        return Convert.ToBase64String(der);
+    }
+
     private static Ed25519PrivateKeyParameters TestPrivateKey => new(Rfc8032TestSeed, 0);
 
     /// <summary>
@@ -140,6 +160,36 @@ public static class TestHelpers
         HardwareId.ResetCacheForTests();
 
         return new MachineGuidScope(previous);
+    }
+
+    /// <summary>
+    /// Define o pin de teste (chave RFC 8032) como âncora durante o escopo e restaura o valor
+    /// anterior ao final. Use sempre com <c>using</c>; o pin real é compilado no add-in.
+    /// </summary>
+    public static IDisposable WithTestLicensePin() => WithLicensePin(TestLicensePinSpkiBase64);
+
+    /// <summary>
+    /// Define a âncora de verificação (<c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>) durante o escopo
+    /// e restaura o valor anterior ao final. <c>null</c> remove o override (volta ao pin
+    /// compilado); string inválida exercita a falha fechada.
+    /// </summary>
+    public static IDisposable WithLicensePin(string? spkiBase64)
+    {
+        const string variable = "NODEAEC_LICENSE_PUBLIC_KEY_SPKI";
+        string? previous = Environment.GetEnvironmentVariable(variable);
+        Environment.SetEnvironmentVariable(variable, spkiBase64);
+
+        return new LicensePinScope(previous);
+    }
+
+    private sealed class LicensePinScope : IDisposable
+    {
+        private readonly string? _previous;
+
+        public LicensePinScope(string? previous) => _previous = previous;
+
+        public void Dispose() =>
+            Environment.SetEnvironmentVariable("NODEAEC_LICENSE_PUBLIC_KEY_SPKI", _previous);
     }
 
     private sealed class MachineGuidScope : IDisposable

@@ -24,7 +24,7 @@ Para a visão de usuário final (instalação, janelas, mensagens) veja o
 | `NODEAEC_API_URL` | `https://api.nodeaec.com.br` | Base de todos os endpoints `/license/*` e `/account/*` |
 | `NODEAEC_AUTH_URL` | `https://nodeaec.com.br/auth/desktop` | Página de login aberta no navegador |
 | `NODEAEC_CATALOG_URL` | `https://nodeaec.com.br/products` | Catálogo aberto pelo botão *Explorar Catálogo* |
-| `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` | *(ausente)* | Âncora pública Ed25519 fixa. Quando presente, tem prioridade sobre o JWKS em cache |
+| `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` | *(ausente)* | Override de operação da âncora compilada no add-in. A âncora é a única chave de verificação; o JWKS em cache é apenas descoberta/diagnóstico. Override inválido faz a verificação falhar fechada |
 
 Endpoint fixo de produção: **`https://api.nodeaec.com.br`**. Não há chave privada neste
 repositório — o cliente só possui a chave pública usada para **verificar** assinaturas.
@@ -39,7 +39,7 @@ repositório — o cliente só possui a chave pública usada para **verificar** 
 | `POST` | `/license/validate` | `Bearer <leaseToken>` | Heartbeat de abertura do Revit e *Atualizar minhas licenças* |
 | `POST` | `/license/activate` | *(pública)* — identifica por `licenseKey` + `machineId` | Ativação manual de chave `NAEC-XXXX-...` |
 | `POST` | `/license/deactivate` | *(pública)* — identifica por `licenseKey` + `machineId` | Liberação de assento |
-| `GET` | `/license/jwks` | *(pública)* | Cache de chaves públicas (`SigningKeyStore`) |
+| `GET` | `/license/jwks` | *(pública)* | JWKS informativo (descoberta de `kid` e sinal de rotação; não é fonte de confiança) |
 
 Endpoints do portal (`/workspace#licenses`) e a troca de sessão web por token de desktop são
 executados **no servidor**, não pelo Connector — ficam fora deste contrato.
@@ -87,7 +87,7 @@ falha fechado e não chama a API (ver [HardwareId.cs](../src/NodeAec.Connector/H
 
 **Sequência obrigatória pós-resposta**, nesta ordem:
 
-1. `GET /license/jwks` — atualiza o cache de chaves públicas **antes** de confiar no lease;
+1. `GET /license/jwks` — atualiza o cache informativo de chaves (descoberta de `kid`/rotação; a verificação usa a âncora compilada);
 2. grava `leaseToken` em `%APPDATA%\NodeAec\entitlements.lease` via DPAPI;
 3. falha de gravação ⇒ a sincronização inteira falha (*fail-closed*, nunca texto puro).
 
@@ -166,9 +166,12 @@ Fornece as chaves públicas usadas na verificação Ed25519 (RFC 7517 / RFC 8032
 ```
 
 O cliente só aceita chaves com `kty = OKP`, `crv = Ed25519` e `x` decodificando para 32
-bytes. O resultado é cacheado em `%APPDATA%\NodeAec\license-jwks.json` (escrita atômica) e
-revalidado contra a âncora `NODEAEC_LICENSE_PUBLIC_KEY_SPKI`, quando definida. Sem chave
-utilizável, **o gate falha fechado**.
+bytes. O resultado é cacheado em `%APPDATA%\NodeAec\license-jwks.json` (escrita atômica)
+apenas para descoberta de `kid` e diagnóstico: **a verificação de assinatura usa
+exclusivamente a âncora compilada no add-in** (`ConnectorConfig.DefaultLicensePublicKeySpkiBase64`,
+sobreponível por `NODEAEC_LICENSE_PUBLIC_KEY_SPKI`). Uma chave do JWKS diferente da âncora
+é registrada como sinal de rotação e **nunca** verifica um lease. Sem âncora utilizável,
+**o gate falha fechado**.
 
 ---
 
@@ -206,7 +209,7 @@ redirecionamento local, protegido pelo `state` anti-CSRF.
 **Ordem de verificação em `NodeAecGate.Validate(slug)`** — nenhuma etapa avança se a
 anterior falhar:
 
-1. assinatura Ed25519 (JWKS/âncora) → 2. `iss` → 3. `scope` → 4. `aud` → 5. `iat`
+1. assinatura Ed25519 (âncora compilada / override) → 2. `iss` → 3. `scope` → 4. `aud` → 5. `iat`
 (skew de 5 min) → 6. `mid` (amarração de hardware) → 7. `exp` (tolerância offline) →
 8. presença e status do `slug` pedido.
 

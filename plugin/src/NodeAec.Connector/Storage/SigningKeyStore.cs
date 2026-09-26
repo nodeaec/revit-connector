@@ -11,11 +11,10 @@ namespace NodeAec.Connector.Storage;
 
 /// <summary>
 /// Cache local do JWKS público da plataforma Node.aec (<c>GET /license/jwks</c>).
-/// O Connector atualiza o cache a cada sincronização/validação de lease e o gate
-/// (<c>LeaseSignatureVerifier</c>) lê apenas deste cache — nunca baixa chaves em
-/// tempo de validação offline. O JWKS é material público, portanto é gravado em
-/// texto simples (sem DPAPI); a segurança vem da assinatura do lease, não do
-/// armazenamento da chave.
+/// O Connector atualiza o cache a cada sincronização/validação de lease e o gate usa o
+/// conteúdo apenas para descoberta de <c>kid</c> e diagnóstico de rotação — a chave que
+/// verifica assinaturas é a âncora compilada no add-in (H4), não este arquivo.
+/// O JWKS é material público, portanto é gravado em texto simples (sem DPAPI).
 /// </summary>
 public static class SigningKeyStore
 {
