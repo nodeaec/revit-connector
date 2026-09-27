@@ -58,8 +58,10 @@ if (-not $RevitYearAppIds.ContainsKey($RevitYear)) {
 }
 $AppId = $RevitYearAppIds[$RevitYear]
 
+# O script vive em <raiz do repositório>\scripts: a raiz do repositório É a raiz
+# do add-in (docs/, src/, tests/ e release/ ficam nela).
 $ConnectorRoot = Split-Path $PSScriptRoot -Parent
-$RepoRoot = Split-Path $ConnectorRoot -Parent
+$RepoRoot = $ConnectorRoot
 $Sln = Join-Path $ConnectorRoot "NodeAec.Connector.sln"
 $Project = Join-Path $ConnectorRoot "src\NodeAec.Connector\NodeAec.Connector.csproj"
 $DllName = "NodeAec.Connector.dll"
