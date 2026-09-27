@@ -6,7 +6,7 @@ O **Node.aec Connector** atua como o Hub no modelo **Hub & Micro-Gate**: o usuá
 
 Repositório oficial: [github.com/nodeaec/revit-connector](https://github.com/nodeaec/revit-connector) · Issues: use o [issue tracker](https://github.com/nodeaec/revit-connector/issues) para relatar problemas com passo a passo.
 
-📖 **Documentação**: [Manual do Usuário](plugin/docs/USER_MANUAL.md) · [Contrato da API de Licenciamento](plugin/docs/licensing-api.md)
+📖 **Documentação**: [Manual do Usuário](docs/USER_MANUAL.md) · [Contrato da API de Licenciamento](docs/licensing-api.md)
 
 ---
 
@@ -74,7 +74,7 @@ o Node.aec concentra tudo num **Hub** e entrega aos plugins um **Micro-Gate** lo
 6. **Ribbon unificada** — tudo acontece na aba canônica `Node.aec`, sem abas fragmentadas.
 
 > Contrato HTTP consumido pelo Hub (endpoints, payloads, claims e códigos de erro):
-> [plugin/docs/licensing-api.md](plugin/docs/licensing-api.md).
+> [docs/licensing-api.md](docs/licensing-api.md).
 
 ---
 
@@ -97,20 +97,20 @@ o Node.aec concentra tudo num **Hub** e entrega aos plugins um **Micro-Gate** lo
 ```text
 revit-connector/
 ├── AGENTS.md                          # Diretrizes e regras para agentes de IA neste repositório
+├── Directory.Build.props              # Matriz de compilação por ano do Revit (2023–2027)
 ├── README.md                          # Este documento (documentação completa do Connector)
-└── plugin/                           # Add-in Hub central de governança desktop e Ribbon unificada
-    ├── docs/                          # Manual do usuário e contrato da API de licenciamento
-    ├── NodeAec.Connector.sln          # Solution (matriz .NET/Revit 2023–2027)
-    ├── scripts/
-    │   └── release.ps1                # Script de compilação, empacotamento e deploy local
-    ├── src/NodeAec.Connector/
-    │   ├── Auth/                      # DesktopAuthService (Browser SSO Loopback RFC 8252)
-    │   ├── Client/                    # ConnectorApiClient (Master Entitlements Lease)
-    │   ├── Gate/                      # NodeAecGate (Micro-SDK de validação local < 1ms)
-    │   ├── Storage/                   # LeaseStorage (Persistência DPAPI %APPDATA%\NodeAec)
-    │   ├── UI/                        # ConnectorWindow (Interface WPF moderna)
-    │   └── App.cs                     # IExternalApplication (Ribbon Node.aec e deduplicação)
-    └── tests/NodeAec.Connector.Tests/ # Testes unitários (net8.0, CI-safe)
+├── NodeAec.Connector.sln              # Solution (matriz .NET/Revit 2023–2027)
+├── docs/                              # Manual do usuário e contrato da API de licenciamento
+├── scripts/
+│   └── release.ps1                    # Script de compilação, empacotamento e deploy local
+├── src/NodeAec.Connector/
+│   ├── Auth/                          # DesktopAuthService (Browser SSO Loopback RFC 8252)
+│   ├── Client/                        # ConnectorApiClient (Master Entitlements Lease)
+│   ├── Gate/                          # NodeAecGate (Micro-SDK de validação local < 1ms)
+│   ├── Storage/                       # LeaseStorage (Persistência DPAPI %APPDATA%\NodeAec)
+│   ├── UI/                            # ConnectorWindow (Interface WPF moderna)
+│   └── App.cs                         # IExternalApplication (Ribbon Node.aec e deduplicação)
+└── tests/NodeAec.Connector.Tests/     # Testes unitários (net8.0, CI-safe)
 ```
 
 ---
@@ -130,16 +130,16 @@ Para compilar e contribuir com o add-in:
 
 ```powershell
 # Compilar a solution
-dotnet build plugin\NodeAec.Connector.sln -c Release
+dotnet build NodeAec.Connector.sln -c Release
 
 # Executar os testes unitários (headless, sem Revit)
-dotnet test plugin\tests\NodeAec.Connector.Tests\NodeAec.Connector.Tests.csproj
+dotnet test tests\NodeAec.Connector.Tests\NodeAec.Connector.Tests.csproj
 
 # Empacotar o .zip e o instalador de UM ano do Revit e instalar localmente
-powershell -ExecutionPolicy Bypass -File plugin\scripts\release.ps1 -Version 0.1.2 -RevitYear 2026 -Install
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.2 -RevitYear 2026 -Install
 ```
 
-Cada execução do script gera artefatos de **um único ano** do Revit (`-RevitYear`, padrão `2026`): o `.zip` `plugin/release/NodeAec.Connector-<versão>-R<ano>.zip` e, quando o [Inno Setup 6](https://jrsoftware.org/isdl.php) está instalado, o instalador `plugin/release/NodeAec.Connector-<versão>-R<ano>-Setup.exe`. Cada instalador atende apenas `%ProgramData%\Autodesk\Revit\Addins\<ano>\` e pode ser desinstalado de forma independente em Aplicativos. Repita com `-RevitYear 2023`..`2027` para gerar os cinco instaladores; sem o Inno Setup, apenas o `.zip` é produzido.
+Cada execução do script gera artefatos de **um único ano** do Revit (`-RevitYear`, padrão `2026`): o `.zip` `release/NodeAec.Connector-<versão>-R<ano>.zip` e, quando o [Inno Setup 6](https://jrsoftware.org/isdl.php) está instalado, o instalador `release/NodeAec.Connector-<versão>-R<ano>-Setup.exe`. Cada instalador atende apenas `%ProgramData%\Autodesk\Revit\Addins\<ano>\` e pode ser desinstalado de forma independente em Aplicativos. Repita com `-RevitYear 2023`..`2027` para gerar os cinco instaladores; sem o Inno Setup, apenas o `.zip` é produzido.
 
 ---
 

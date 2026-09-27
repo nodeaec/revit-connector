@@ -13,7 +13,7 @@ payloads, claims do lease, retorno do Browser SSO e mapeamento de erros.
 
 Para a visão de usuário final (instalação, janelas, mensagens) veja o
 [Manual do Usuário](USER_MANUAL.md). Para proteger um plugin parceiro com o Micro-SDK, veja
-[Como Integrar com `NodeAecGate`](../../README.md#-como-integrar-plugins-parceiros-com-o-nodeaecgate).
+[Como Integrar com `NodeAecGate`](../README.md#-como-integrar-plugins-parceiros-com-o-nodeaecgate).
 
 ---
 

@@ -76,7 +76,7 @@ Add Windows DPAPI and ensure dependency DLLs are staged:
 > unaffected on every target.
 
 ### Recipe 2: Core Files to Copy
-Copy from `github.com/nodeaec/revit-connector` (`plugin/src/NodeAec.Connector/`):
+Copy from `github.com/nodeaec/revit-connector` (`src/NodeAec.Connector/`):
 1. `Gate/NodeAecGate.cs` → Micro-SDK validation class.
 2. `Hardware/HardwareId.cs` → Machine SHA-256 fingerprint helper.
 3. Support types those two depend on: `Cryptography/` (Ed25519 lease verification),

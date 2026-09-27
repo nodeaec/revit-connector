@@ -90,13 +90,13 @@ Este repositório disponibiliza habilidades modulares especializadas para agente
 Todas as alterações devem ser validadas compilando a solution relevante e verificando ausência de erros:
 
 ```powershell
-# 1. Node.aec Connector (Hub Central)
+# 1. Node.aec Connector (Hub Central) — na raiz do repositório
 # Compilar e rodar testes unitários headless
-dotnet build plugin\NodeAec.Connector.sln -c Release
-dotnet test plugin\NodeAec.Connector.sln -c Release
+dotnet build NodeAec.Connector.sln -c Release
+dotnet test NodeAec.Connector.sln -c Release
 
 # Empacotar e instalar no Revit 2026 local (repita com -RevitYear 2023..2027 para os demais)
-powershell -ExecutionPolicy Bypass -File plugin\scripts\release.ps1 -Version 0.1.2 -RevitYear 2026 -Install
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.2 -RevitYear 2026 -Install
 ```
 
 > [!WARNING]

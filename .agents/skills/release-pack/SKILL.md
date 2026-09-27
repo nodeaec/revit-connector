@@ -29,7 +29,7 @@ five independently downloadable installers.
 ### 1. Basic Release Packaging (Generates `.zip` + SHA-256, plus the year's Setup.exe when ISCC is present)
 
 ```powershell
-Set-Location plugin
+# Run from the repository root
 powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.2 -RevitYear 2026
 ```
 
