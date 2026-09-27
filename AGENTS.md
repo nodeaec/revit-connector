@@ -15,7 +15,7 @@ A meta é acelerar o ecossistema de desenvolvedores AEC/BIM, padronizando a inte
 
 1. **`NodeAec.Connector`**:
    - O **Hub central de governança desktop** e Ribbon unificado da Node.aec para o Autodesk Revit.
-   - Gerencia autenticação SSO via navegador (RFC 8252 loopback), sincronização do lease mestre de entitlements (`entitlements.lease`), interface de usuário para ativação manual de chaves e importação de leases offline.
+   - Gerencia autenticação SSO via navegador (RFC 8252 loopback), sincronização do lease mestre de entitlements (`entitlements.lease`) e interface de usuário para ativação manual de chaves NAEC.
    - Fornece o micro-SDK `NodeAecGate` (`NodeAecGate.Validate(slug)`), permitindo que plugins de terceiros validem direitos em `< 1ms` de forma segura, local e sem chamadas de rede bloqueantes.
    - Gerencia a aba canônica **`Node.aec`** e deduplicação via `Autodesk.Windows.ComponentManager`.
 
