@@ -34,8 +34,9 @@ group to produce the three independently downloadable installers.
 During the wizard the user picks the Revit version from a dropdown (only the group's
 years installed on the machine, plus "all installed versions", the default). Silent
 installs skip the UI and target every installed year; pass `/RevitYear=<year>` to target
-one year. The uninstaller shows the same list (years where the add-in is present) and can
-remove a single year while keeping the Apps entry for the remaining ones.
+one year. The uninstaller shows the same list (years where the add-in is present; only when
+there is more than one) and can remove a single year while keeping the Apps entry
+for the remaining ones.
 
 ### 1. Basic Release Packaging (Generates `.zip` + SHA-256, plus the group's Setup.exe when ISCC is present)
 
@@ -88,7 +89,7 @@ every year of the group installed locally (the example below shows only 2026):
 - The post-install copy (`CurStepChanged`) writes the payload folder + `.addin`
   manifest into every installed year of the group.
 - Uninstall asks which year to remove (dropdown of the years where the add-in is
-  present) or removes everything: a single-year removal keeps the Apps entry so
+  present; skipped when only one year has it) or removes everything: a single-year removal keeps the Apps entry so
   the remaining years can be removed later; "all versions" and silent runs remove
   the `NodeAec.Connector` folder and `.addin` manifest from every year of the group.
 

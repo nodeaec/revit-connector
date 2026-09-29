@@ -329,7 +329,7 @@ O Connector foi desenhado para **funcionar sem internet** no dia a dia:
 ### Desinstalar
 
 1. Feche o Autodesk Revit.
-2. Em **Configurações → Aplicativos → Aplicativos instalados**, desinstale **Node.aec Connector - Revit <grupo>**. O desinstalador pergunta de qual versão do Revit remover o add-in (ou de todas); para remover das demais, execute-o novamente. Cada grupo de compatibilidade (2023-2024, 2025-2026, 2027) aparece como um item independente.
+2. Em **Configurações → Aplicativos → Aplicativos instalados**, desinstale **Node.aec Connector - Revit <grupo>**. Quando há mais de uma versão com o add-in, o desinstalador pergunta de qual remover (ou de todas); para remover das demais, execute-o novamente. Cada grupo de compatibilidade (2023-2024, 2025-2026, 2027) aparece como um item independente.
    Alternativa manual: apague a pasta `C:\ProgramData\Autodesk\Revit\Addins\<ano>\NodeAec.Connector\` e o arquivo `C:\ProgramData\Autodesk\Revit\Addins\<ano>\NodeAec.Connector.addin` de cada ano do grupo (substitua `<ano>` pelo ano do Revit).
 3. (Opcional) Apague a pasta `%APPDATA%\NodeAec\` para remover os dados locais de licença e sessão.
 4. Abra o Revit — a aba **Node.aec** (do Connector) não aparecerá mais.
