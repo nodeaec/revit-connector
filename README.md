@@ -135,11 +135,11 @@ dotnet build NodeAec.Connector.sln -c Release
 # Executar os testes unitários (headless, sem Revit)
 dotnet test tests\NodeAec.Connector.Tests\NodeAec.Connector.Tests.csproj
 
-# Empacotar o .zip e o instalador de UM ano do Revit e instalar localmente
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.2 -RevitYear 2026 -Install
+# Empacotar o .zip e o instalador de UM grupo de anos do Revit e instalar localmente
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.2 -RevitYear 2025-2026 -Install
 ```
 
-Cada execução do script gera artefatos de **um único ano** do Revit (`-RevitYear`, padrão `2026`): o `.zip` `release/NodeAec.Connector-<versão>-R<ano>.zip` e, quando o [Inno Setup 6](https://jrsoftware.org/isdl.php) está instalado, o instalador `release/NodeAec.Connector-<versão>-R<ano>-Setup.exe`. Cada instalador atende apenas `%ProgramData%\Autodesk\Revit\Addins\<ano>\` e pode ser desinstalado de forma independente em Aplicativos. Repita com `-RevitYear 2023`..`2027` para gerar os cinco instaladores; sem o Inno Setup, apenas o `.zip` é produzido.
+Cada execução do script gera artefatos de **um grupo de compatibilidade** do Revit (`-RevitYear`, padrão `2025-2026`; grupos `2023-2024`, `2025-2026` e `2027`, e um ano avulso é resolvido para o grupo dele): o `.zip` `release/NodeAec.Connector-<versão>-R<grupo>.zip` e, quando o [Inno Setup 6](https://jrsoftware.org/isdl.php) está instalado, o instalador `release/NodeAec.Connector-<versão>-R<grupo>-Setup.exe`. No assistente, o usuário escolhe a versão do Revit em uma lista com os anos do grupo instalados na máquina (ou mantém **todas as versões instaladas**); o payload é compilado com o ano-base do grupo (`2023`, `2025` ou `2027`) e cada ano recebe o manifesto próprio. Instalações silenciosas instalam em todos os anos instalados do grupo (`/RevitYear=<ano>` escolhe um). A desinstalação pergunta de qual versão remover (ou de todas), e cada grupo tem uma entrada independente em Aplicativos. Repita com `-RevitYear 2023-2024` e `-RevitYear 2027` para gerar os três instaladores; sem o Inno Setup, apenas o `.zip` é produzido.
 
 ---
 

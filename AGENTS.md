@@ -34,7 +34,7 @@ Este repositório disponibiliza habilidades modulares especializadas para agente
 | **`licensing-integrate`** | Integrar licenciamento Node.aec em plugins novos ou existentes, rodar Fase de Grilling, proteger comandos comerciais (`IExternalCommand`). | [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) |
 | **`ribbon-guard`** | Criar/modificar painéis e botões da Ribbon, garantir aba `Node.aec`, ícones não-bloqueantes e deduplicação via AdWindows. | [`.agents/skills/ribbon-guard`](.agents/skills/ribbon-guard/SKILL.md) |
 | **`revit-build-validate`** | Compilar via `dotnet build`, garantir 0 erros, isolar DLLs do RevitAPI e validar dependências do runtime. | [`.agents/skills/revit-build-validate`](.agents/skills/revit-build-validate/SKILL.md) |
-| **`release-pack`** | Empacotar releases `.zip` e o instalador de um ano do Revit via `release.ps1`, verificar SHA-256 e instalar no Revit local (`%ProgramData%`). | [`.agents/skills/release-pack`](.agents/skills/release-pack/SKILL.md) |
+| **`release-pack`** | Empacotar releases `.zip` e o instalador de um grupo de anos do Revit via `release.ps1`, verificar SHA-256 e instalar no Revit local (`%ProgramData%`). | [`.agents/skills/release-pack`](.agents/skills/release-pack/SKILL.md) |
 
 ### 2. Engenharia de Software, Qualidade & Workflow
 | Skill | Escopo e Gatilhos de Ativação | Caminho Canônico |
@@ -53,7 +53,7 @@ Este repositório disponibiliza habilidades modulares especializadas para agente
 
 - **Linguagem**: C# 12
 - **Framework Target**: matriz por ano do Revit — `net48` (2023/2024), `net8.0-windows` (2025/2026) e `net10.0-windows` (2027)
-- **Host Application**: Autodesk Revit 2023–2027 (um build/instalador por ano)
+- **Host Application**: Autodesk Revit 2023–2027 (build por ano; instalador por grupo de compatibilidade)
 - **Interface Gráfica**: WPF (`UseWPF = true`), código limpo em C# com layouts nativos
 - **Proteção de Dados**: Windows DPAPI (`System.Security.Cryptography.ProtectedData`)
 - **Criptografia Assimétrica**: Ed25519 (EdDSA / RFC 8032) para validação offline de leases assinados
@@ -95,8 +95,8 @@ Todas as alterações devem ser validadas compilando a solution relevante e veri
 dotnet build NodeAec.Connector.sln -c Release
 dotnet test NodeAec.Connector.sln -c Release
 
-# Empacotar e instalar no Revit 2026 local (repita com -RevitYear 2023..2027 para os demais)
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.2 -RevitYear 2026 -Install
+# Empacotar e instalar no Revit 2026 local via grupo 2025-2026 (repita com -RevitYear 2023-2024 e -RevitYear 2027 para os demais grupos)
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.2 -RevitYear 2025-2026 -Install
 ```
 
 > [!WARNING]

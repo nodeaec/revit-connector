@@ -2,7 +2,7 @@
 
 > **Produto:** Node.aec Connector — Add-in de governança e licenças para o Autodesk Revit
 > **Versão do add-in:** 0.1.2 · **Versão deste manual:** 0.1 · **Data:** setembro de 2026
-> **Plataforma:** Windows 10/11 (64-bit) · Autodesk Revit 2023–2027 (um instalador por ano)
+> **Plataforma:** Windows 10/11 (64-bit) · Autodesk Revit 2023–2027 (instalador por grupo de anos)
 > **Idioma da interface:** Português (Brasil)
 
 ---
@@ -70,7 +70,7 @@ Funciona segundo o modelo **Hub & Micro-Gate**:
 A instalação é normalmente feita pela equipe de TI/manager da sua empresa, mas o procedimento é simples:
 
 1. **Feche o Autodesk Revit** (se estiver aberto).
-2. Execute o instalador do **ano do seu Revit** — por exemplo `NodeAec.Connector-0.1.2-R2026-Setup.exe` (duplo clique → Avançar → Concluir). Cada instalador atende a um único ano e instala somente em `C:\ProgramData\Autodesk\Revit\Addins\<ano>\`; se o Revit correspondente não estiver instalado, ele avisa e encerra sem alterar nenhum arquivo. Alternativa para equipes de TI: extrair o `.zip` manualmente para a pasta de add-ins.
+2. Execute o instalador do **grupo de anos do seu Revit** — por exemplo `NodeAec.Connector-0.1.2-R2025-2026-Setup.exe` (duplo clique → Avançar). Na página **Versao do Autodesk Revit**, escolha para qual versão instalar ou mantenha **Todas as versoes instaladas**. O instalador lista apenas versões do grupo presentes no computador e, se nenhuma estiver instalada, avisa e encerra sem alterar nenhum arquivo. Alternativa para equipes de TI: extrair o `.zip` manualmente para a pasta de add-ins.
 3. Confirme que os arquivos foram copiados para a pasta de add-ins:
    - Pasta do add-in: `C:\ProgramData\Autodesk\Revit\Addins\<ano>\NodeAec.Connector\`
    - Manifesto (`.addin`): `C:\ProgramData\Autodesk\Revit\Addins\<ano>\NodeAec.Connector.addin`
@@ -329,8 +329,8 @@ O Connector foi desenhado para **funcionar sem internet** no dia a dia:
 ### Desinstalar
 
 1. Feche o Autodesk Revit.
-2. Em **Configurações → Aplicativos → Aplicativos instalados**, desinstale **Node.aec Connector - Revit <ano>**. Cada ano do Revit aparece como um item independente.
-   Alternativa manual: apague a pasta `C:\ProgramData\Autodesk\Revit\Addins\<ano>\NodeAec.Connector\` e o arquivo `C:\ProgramData\Autodesk\Revit\Addins\<ano>\NodeAec.Connector.addin` (substitua `<ano>` pelo ano do Revit).
+2. Em **Configurações → Aplicativos → Aplicativos instalados**, desinstale **Node.aec Connector - Revit <grupo>**. O desinstalador pergunta de qual versão do Revit remover o add-in (ou de todas); para remover das demais, execute-o novamente. Cada grupo de compatibilidade (2023-2024, 2025-2026, 2027) aparece como um item independente.
+   Alternativa manual: apague a pasta `C:\ProgramData\Autodesk\Revit\Addins\<ano>\NodeAec.Connector\` e o arquivo `C:\ProgramData\Autodesk\Revit\Addins\<ano>\NodeAec.Connector.addin` de cada ano do grupo (substitua `<ano>` pelo ano do Revit).
 3. (Opcional) Apague a pasta `%APPDATA%\NodeAec\` para remover os dados locais de licença e sessão.
 4. Abra o Revit — a aba **Node.aec** (do Connector) não aparecerá mais.
 
