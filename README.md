@@ -17,7 +17,7 @@ Official repository: [github.com/nodeaec/revit-connector](https://github.com/nod
 - **Master Entitlements Lease**: Fetches and renews consolidated grants for multiple products, with Ed25519 (RFC 8032) signature verification **before** trusting any claim.
 - **Compiled signature anchor (pin)**: The production Ed25519 public key is compiled into the add-in (`ConnectorConfig.DefaultLicensePublicKeySpkiBase64`) and is the **only** key accepted for verifying leases. The JWKS (`GET /license/jwks`, cached at `%APPDATA%\NodeAec\license-jwks.json`) serves `kid` discovery and rotation signaling, never as a trust source. Operations may override the anchor via `NODEAEC_LICENSE_PUBLIC_KEY_SPKI`; without a usable anchor the gate fails closed.
 - **Secure DPAPI Storage**: The `%APPDATA%\NodeAec\entitlements.lease` file is encrypted with `DataProtectionScope.CurrentUser`; a DPAPI failure on Windows never degrades to plaintext.
-- **Offline & Air-Gapped Mode**: Manual key entry (`NAEC-XXXX-...`). Importing `.lease` files is **deferred to a future iteration** and the corresponding link has been **removed from the UI** (the export/exchange format is not a stable contract yet).
+- **Offline & Air-Gapped Mode**: Manual key entry (`NAEC-XXXX-...`). Importing `.lease` files is **not available yet** — no import link appears in the UI because the export/exchange format is not a stable contract yet (the feature is planned for a future iteration).
 - **`NodeAecGate` Micro-SDK**: Canonical class for partner plugins to validate execution permission locally — no network requests on the critical path, in a few milliseconds.
 - **Local Diagnostics**: API errors mapped to stable codes and a sanitized log at `%APPDATA%\NodeAec\connector.log` (512 KB rotation, no tokens).
 
@@ -25,9 +25,9 @@ Official repository: [github.com/nodeaec/revit-connector](https://github.com/nod
 
 ## 🏛️ Architecture: Hub & Micro-Gate
 
-Instead of each partner plugin implementing its own HTTP client, showing activation
-screens, asking for individual keys (`NAEC-XXXX-...`), and managing machine encryption,
-Node.aec concentrates everything in a **Hub** and hands plugins a local **Micro-Gate**:
+Node.aec concentrates sign-in, activation, and encryption in a **Hub** and hands
+plugins a local **Micro-Gate**. A partner plugin carries no HTTP client, no activation
+screens, no individual keys (`NAEC-XXXX-...`), and no machine encryption of its own:
 
 ```
 +--------------------------------------------------------------------------+

@@ -1,4 +1,12 @@
-# Lite Core Adoption by the Connector (wave C1)
+# Lite Core Adoption by the Connector (wave C1) — Planning Document
+
+> ⚠️ **PLAN / PROPOSAL — NOT CURRENT BEHAVIOR.** This document is a migration plan
+> for a *possible future* delegation of license validation to the Lite core. Nothing
+> described here is active code. The Connector validates licenses with its own
+> `NodeAecGate.Validate(slug)` today, and that is the **current design** — the
+> sections below describe what a future swap would look like, not what the add-in
+> does now. Current behavior is documented in the [README](../README.md),
+> [AGENTS.md](../AGENTS.md), and [licensing-api.md](licensing-api.md).
 
 > Status on 2026-10-02: **delegation NOT active**. Adopted path: this document + the
 > parity test `tests/NodeAec.Connector.Tests/NodeAecGateVsLiteTests.cs`, **without
@@ -71,8 +79,8 @@ Against Lite `1.0.0-preview.1` (`src/NodeAec.Licensing.Lite/Gate.cs` and
   + silent no-op `OpenConnector()` via reflection — signatures and messages
   unchanged.
 - What the parity test covers today lives in
-  `NodeAecGateVsLiteTests.cs` (DPAPI-free per the `AGENTS.md` rule); what was
-  deferred is in section 5.
+  `NodeAecGateVsLiteTests.cs` (DPAPI-free per the `AGENTS.md` rule); the items
+  deferred to delegation time are in section 5.
 
 ## 3. Intentional divergences to preserve in the swap
 

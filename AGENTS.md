@@ -100,7 +100,7 @@ powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.2 -Rev
 ```
 
 > [!WARNING]
-> **DPAPI coverage is manual now.** `ProtectedData.Protect/Unprotect(..., DataProtectionScope.CurrentUser)` only works in a real logon session (SessionId ≥ 1). In an SSH/`services.exe` context the process runs in Session 0 with no Logon SID (`S-1-5-5-*`) and no `AuthenticationId`, and Windows returns `win32 = 5 Access denied` — the behavior is *fail-closed* by design. The unit tests that depended on that path were removed, so `dotnet test` must come back **100% green in any session (SSH or interactive)**. DPAPI persistence (writing/reading `entitlements.lease` and `session.json` under `%APPDATA%`) is now validated manually in the in-Revit add-in smoke test. Do not weaken storage or mark tests as Skip to compensate.
+> **DPAPI coverage is manual.** `ProtectedData.Protect/Unprotect(..., DataProtectionScope.CurrentUser)` only works in a real logon session (SessionId ≥ 1). In an SSH/`services.exe` context the process runs in Session 0 with no Logon SID (`S-1-5-5-*`) and no `AuthenticationId`, and Windows returns `win32 = 5 Access denied` — the behavior is *fail-closed* by design. That path has no unit-test coverage, so `dotnet test` must come back **100% green in any session (SSH or interactive)**. DPAPI persistence (writing/reading `entitlements.lease` and `session.json` under `%APPDATA%`) is validated manually in the in-Revit add-in smoke test. Do not weaken storage or mark tests as Skip to compensate.
 
 Acceptance Criteria for Changes:
 - Clean build: **0 Errors**.

@@ -17,7 +17,7 @@
 6. [Signing in (browser login)](#6-signing-in-browser-login)
 7. [Refreshing your licenses](#7-refreshing-your-licenses)
 8. [Manual key activation (NAEC keys)](#8-manual-key-activation-naec-keys)
-9. [Importing a `.lease` license file (deferred — see limitations)](#9-importing-a-license-lease-file)
+9. [Importing a `.lease` license file (not available — see limitations)](#9-importing-a-license-lease-file)
 10. [The "Meus Plugins" window](#10-the-meus-plugins-window)
 11. [Browsing the catalog](#11-browsing-the-catalog)
 12. [Offline mode and the 30-day grace period](#12-offline-mode-and-the-30-day-grace-period)
@@ -48,7 +48,7 @@ It follows the **Hub & Micro-Gate** model:
 | **Single sign-in (SSO)** | Sign in with Google/2FA in your default browser; no password is typed in Revit. |
 | **Licenses in one place** | All of your products listed with visible expiration dates. |
 | **Works offline** | Plugins open and validate licenses even without internet (30-day windows). |
-| **Isolated (air-gapped) workstations** | Activation via `NAEC-…` key (`.lease` file import is deferred). |
+| **Isolated (air-gapped) workstations** | Activation via `NAEC-…` key (`.lease` file import is not available yet). |
 | **Tidy Ribbon** | Everything on the official **Node.aec** tab, no duplicate or ghost tabs. |
 
 ---
@@ -71,14 +71,14 @@ Installation is normally done by your company's IT/manager team, but the procedu
 
 1. **Close Autodesk Revit** (if open).
 2. Run the installer for **your Revit year group** — e.g. `NodeAec.Connector-0.1.2-R2025-2026-Setup.exe` (double-click → Next). On the **Versao do Autodesk Revit** page, pick which version to install to or keep **Todas as versoes instaladas**. The installer lists only the group years present on the computer and, if none is installed, warns and exits without changing any file. Alternative for IT teams: manually extract the `.zip` into the add-ins folder.
-3. Confirm the files were copied to the add-ins folder:
+3. Confirm the files are in the add-ins folder:
    - Add-in folder: `C:\ProgramData\Autodesk\Revit\Addins\<year>\NodeAec.Connector\`
    - Manifest (`.addin`): `C:\ProgramData\Autodesk\Revit\Addins\<year>\NodeAec.Connector.addin`
 4. **Open the installed year's Autodesk Revit.** The **Node.aec** tab appears automatically on the Ribbon.
 
 > ✅ **Check:** when Revit opens, look for the **Node.aec** tab at the top of the Ribbon. If it does not show up, close Revit completely (including background processes) and open it again. If it persists, see [Troubleshooting](#15-troubleshooting).
 
-> 🔄 **Updating:** run the same year's installer again (it detects the previous install) or replace the files in the add-in folder and restart Revit. Your account and licenses are preserved.
+> 🔄 **Updating:** run the same year's installer again (it detects the existing install) or replace the files in the add-in folder and restart Revit. Your account and licenses are preserved.
 >
 > 🧩 **Multiple Revit years:** each year has its own installer and its own Programs entry; installing the Connector on Revit 2026 does not affect Revit 2025 (and vice versa).
 
@@ -113,9 +113,9 @@ When Revit opens, click the **Node.aec** tab. You will see the **Conector** pane
 1. Click **Minha Conta**.
 2. Click **Entrar com minha conta** and complete sign-in in the browser.
 3. Back in Revit — your licenses are already unlocked.
-4. Now click **Meus Plugins** to review what was unlocked.
+4. Click **Meus Plugins** to see the plugins that are unlocked.
 
-> 🧹 The Connector automatically cleans up legacy tabs and buttons (e.g. old tabs named "License" or "Licensing" and the "Conectar Conta" button), and removes duplicate **Node.aec** tabs. You need to do nothing for this.
+> 🧹 The Connector keeps the Ribbon tidy by itself: it removes duplicate **Node.aec** tabs and any stray tabs or buttons it finds (such as "License", "Licensing", or "Conectar Conta"). You need to do nothing for this.
 
 ---
 
@@ -198,7 +198,7 @@ Click **Atualizar minhas licenças** when:
 
 - **While signed in:** the Connector re-downloads all licenses on your account → *"Licenças atualizadas com sucesso."*
 - **Not signed in (active license only):** it only **renews** the local license → *"Licenças atualizadas com sucesso."*
-- **No internet:** *"Sem conexão no momento: …"* or *"Não foi possível atualizar agora: …"* appears. Your previous licenses stay valid until the date shown on the card.
+- **No internet:** *"Sem conexão no momento: …"* or *"Não foi possível atualizar agora: …"* appears. Your licenses stay valid until the date shown on the card.
 
 > 💡 **Automatic renewal:** every time Revit opens, the Connector renews your licenses in the background, silently and without freezing the UI. When offline that attempt fails silently — no errors getting in the way of your work.
 
@@ -206,7 +206,7 @@ Click **Atualizar minhas licenças** when:
 
 ## 8. Manual Key Activation (NAEC Keys)
 
-Handy when your company provides a license key instead of a login.
+Handy when your company provides a license key and you do not sign in with an account.
 
 1. Open **Minha Conta**.
 2. Click the **"Tenho uma chave de ativação"** expander.
@@ -215,10 +215,10 @@ Handy when your company provides a license key instead of a login.
 4. Click **Ativar**.
 5. Possible messages:
    - ✅ *"Chave ativada! Seus plugins foram liberados."*
-   - ⚠️ *"Digite a chave enviada para você (começa com NAEC-...)."* — the field was empty.
+   - ⚠️ *"Digite a chave enviada para você (começa com NAEC-...)."* — the key field is empty.
    - ⚠️ Specific error message (see [Troubleshooting](#15-troubleshooting)).
 
-> 🌐 Key activation **requires internet**, since it validates the key against the Node.aec server. For machines with no internet, talk to Node.aec support: `.lease` file import is still unavailable in this version.
+> 🌐 Key activation **requires internet**, since it validates the key against the Node.aec server. For machines with no internet, talk to Node.aec support: `.lease` file import is not available in this version.
 
 ---
 
@@ -226,14 +226,14 @@ Handy when your company provides a license key instead of a login.
 
 **This feature is unavailable in version 0.1.**
 
-The **"ou importar um arquivo de licença (.lease)"** link was removed from the **Minha Conta** window because the `.lease` file export/exchange format is not a stable platform contract yet. A file of unknown origin would be refused at (Ed25519) signature validation and would unlock no plugin.
+The **Minha Conta** window has no **"ou importar um arquivo de licença (.lease)"** link: the `.lease` file export/exchange format is not a stable platform contract yet. A file of unknown origin would be refused at (Ed25519) signature validation and would unlock no plugin.
 
 **Alternatives for an isolated (air-gapped) workstation:**
 
 1. Activate a manual `NAEC-XXXX-XXXX-XXXX-XXXX` key — activation itself does not require the lease to come over the internet, but syncing the other licenses does.
 2. Sign in on an internet-connected machine to sync the licenses, then repeat the same flow on this workstation.
 
-Signed `.lease` file import should return in a future iteration, once the exchange format is an officially defined contract.
+Signed `.lease` file import is planned for a future iteration, once the exchange format is an officially defined contract.
 
 ---
 
@@ -291,7 +291,7 @@ The Connector is designed to **work without internet** day to day:
 **Fully isolated (air-gapped) workstations:**
 
 - Use a [manual key](#8-manual-key-activation-naec-keys) on an internet-connected machine and sync the account.
-- The machine ID is fixed; the lease only works on the computer it was issued for.
+- The machine ID is fixed; the lease only works on the computer it is issued for.
 
 ---
 
@@ -332,7 +332,7 @@ The Connector is designed to **work without internet** day to day:
 2. Under **Settings → Apps → Installed apps**, uninstall **Node.aec Connector - Revit <grupo>**. When more than one version has the add-in, the uninstaller asks which one to remove (or all of them); to remove it from the others, run it again. Each compatibility group (2023-2024, 2025-2026, 2027) shows as its own entry.
    Manual alternative: delete the `C:\ProgramData\Autodesk\Revit\Addins\<year>\NodeAec.Connector\` folder and the `C:\ProgramData\Autodesk\Revit\Addins\<year>\NodeAec.Connector.addin` file for each year of the group (replace `<year>` with the Revit year).
 3. (Optional) Delete the `%APPDATA%\NodeAec\` folder to remove local license and session data.
-4. Open Revit — the **Node.aec** tab (from the Connector) will no longer appear.
+4. Open Revit — the **Node.aec** tab (from the Connector) does not appear.
 
 > ℹ️ Uninstalling the Connector does not cancel your account licenses. They remain available for reactivation on another install.
 
@@ -435,7 +435,7 @@ No. It does not touch Revit models — only the Ribbon, licenses, and its own wi
 - The Connector does **not install or auto-update** plugins: it unlocks the license; delivery and updates of the add-ins come from each product's own installer.
 - No visual pop-up notification when the offline grace lapses — the warning appears when you open **Minha Conta**.
 - The sign-in window may not bring focus back to Revit automatically; just switch windows.
-- **`.lease` file import is unavailable in this version** — the link was removed from the **Minha Conta** window; it should return once the exchange format is a stable platform contract (see [section 9](#9-importing-a-license-lease-file)).
+- **`.lease` file import is unavailable in this version** — there is no import link in the **Minha Conta** window; the feature is planned for once the exchange format is a stable platform contract (see [section 9](#9-importing-a-license-lease-file)).
 - The "N plugin(s) liberado(s)" counter refers to the last sync.
 
 ---
