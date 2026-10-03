@@ -3,26 +3,25 @@ using NodeAec.Connector.Storage;
 namespace NodeAec.Connector.Auth;
 
 /// <summary>
-/// Verificação headless de sessão para disponibilidade de comandos (ex.: botão "Meus Plugins").
-/// Lê apenas o armazenamento local, sem chamadas de rede, para rodar na Ribbon e em testes.
+/// Headless session check for command availability (e.g. the "Meus Plugins" button).
+/// Reads only local storage, with no network calls, so it can run on the ribbon and in tests.
 /// </summary>
 public static class LoginRequirement
 {
     /// <summary>
-    /// Retorna true quando existe uma sessão salva com e-mail (login já realizado).
-    /// </summary>
+    /// Returns true when a saved session with an email exists (login already done).    /// </summary>
     public static bool IsLoggedIn()
     {
         return HasLoginEmail(LeaseStorage.LoadSession());
     }
 
     /// <summary>
-    /// Decide se uma sessão carregada conta como login realizado: precisa existir e ter
-    /// e-mail não vazio — token sem e-mail não identifica ninguém. Puro, para teste
-    /// headless (o caminho completo passa por DPAPI e não é semear fora de sessão interativa).
+    /// Decides whether a loaded session counts as signed in: it must exist and carry a
+    /// non-empty email — a token without an email identifies nobody. Pure, for headless
+    /// testing (the full path goes through DPAPI and cannot be seeded outside an interactive session).
     /// </summary>
-    /// <param name="session">Sessão carregada, ou nula quando não há sessão salva.</param>
-    /// <returns><c>true</c> se há sessão com e-mail preenchido.</returns>
+    /// <param name="session">Loaded session, or null when no session is saved.</param>
+    /// <returns><c>true</c> when a session with a filled-in email exists.</returns>
     internal static bool HasLoginEmail((string? Name, string? Email, string? Token)? session)
     {
         return session.HasValue && !string.IsNullOrWhiteSpace(session.Value.Email);

@@ -19,10 +19,10 @@ using NodeAec.Connector.UI;
 namespace NodeAec.Connector;
 
 /// <summary>
-/// Ponto de entrada do plugin Node.aec Connector para Autodesk Revit.
-/// Configura a aba canônica 'Node.aec', painel 'Conector' (botão grande "Minha Conta"
-/// + botões pequenos empilhados "Meus Plugins" e "Explorar Catálogo"), deduplicação
-/// de abas via AdWindows e heartbeat em segundo plano.
+/// Plugin entry point for the Node.aec Connector for Autodesk Revit.
+/// Sets up the canonical 'Node.aec' tab, the 'Conector' panel (large "Minha Conta"
+/// button + small stacked "Meus Plugins" and "Explorar Catálogo" buttons), tab
+/// deduplication via AdWindows, and background heartbeat.
 /// </summary>
 public class App : IExternalApplication
 {
@@ -56,10 +56,10 @@ public class App : IExternalApplication
 
     public Result OnStartup(UIControlledApplication application)
     {
-        // M3: guarda de topo do add-in. Uma exceção escapando do OnStartup faz o Revit
-        // reportar "falha ao carregar o add-in" com uma ribbon meio montada e sem causa
-        // registrada; aqui a falha vira Result.Failed limpo, com o tipo da exceção (nunca
-        // o conteúdo da mensagem — pode conter caminhos/PII) no log local.
+        // M3: top-level add-in guard. An exception escaping OnStartup makes Revit
+        // report "failed to load the add-in" with a half-built ribbon and no recorded
+        // cause; here the failure becomes a clean Result.Failed, with the exception type
+        // (never the message content — it may contain paths/PII) in the local log.
         try
         {
             return Initialize(application);
@@ -72,17 +72,17 @@ public class App : IExternalApplication
     }
 
     /// <summary>
-    /// Corpo do <see cref="OnStartup"/>: aba canônica, deduplicação, painel "Conector",
-    /// botões, hooks AdWindows e heartbeat. Qualquer exceção não tratada propaga para o
-    /// guarda de topo de <c>OnStartup</c>, que a converte em <c>Result.Failed</c>.
+    /// Body of <see cref="OnStartup"/>: canonical tab, deduplication, "Conector" panel,
+    /// buttons, AdWindows hooks, and heartbeat. Any unhandled exception propagates to the
+    /// <c>OnStartup</c> top-level guard, which converts it into <c>Result.Failed</c>.
     /// </summary>
     private static Result Initialize(UIControlledApplication application)
     {
-        // 1. Cria a aba canônica "Node.aec" caso não exista. Só a exceção de "nome já em
-        //    uso"/nome inválido é tratada como estado esperado (reload do add-in); qualquer
-        //    outra falha propaga para o guarda de topo. Um catch sem filtro — como antes —
-        //    mascarava qualquer erro real e a causa reaparecia depois, sem rastro, como
-        //    ArgumentException do CreateRibbonPanel.
+        // 1. Creates the canonical "Node.aec" tab if missing. Only the "name already in
+        //    use"/invalid-name exception is treated as expected state (add-in reload); any
+        //    other failure propagates to the top-level guard. An unfiltered catch — as before —
+        //    masked any real error and the cause resurfaced later, untraced, as a
+        //    CreateRibbonPanel ArgumentException.
         try
         {
             application.CreateRibbonTab(TabName);
@@ -93,17 +93,17 @@ public class App : IExternalApplication
             Diagnostics.ConnectorLog.Write("INFO", $"Aba '{TabName}' já existia ou nome rejeitado: {ex.GetType().Name}.");
         }
 
-        // 2. Limpa elementos estranhos e remove abas duplicadas
+        // 2. Cleans up stray elements and removes duplicate tabs
         CleanRogueRibbonElements();
         DeduplicateRibbonTabs(TabName);
 
         string assemblyPath = typeof(App).Assembly.Location;
         string addInDir = Path.GetDirectoryName(assemblyPath) ?? AppDomain.CurrentDomain.BaseDirectory;
 
-        // 3. Obtém ou cria o painel de governança "Conector"
+        // 3. Gets or creates the "Conector" governance panel
         Autodesk.Revit.UI.RibbonPanel connectorPanel = GetOrCreatePanel(application, TabName, PanelName);
 
-        // 4. Botão principal (grande): "Minha Conta"
+        // 4. Primary (large) button: "Minha Conta"
         var btnManageData = new PushButtonData(
             "NodeAec_ManageConnector",
             "Minha\nConta",
@@ -115,8 +115,8 @@ public class App : IExternalApplication
         LoadButtonIcons(btnManageData, addInDir);
         AddButtonIfMissing(connectorPanel, btnManageData);
 
-        // 5-6. Botões secundários (pequenos, empilhados): "Meus Plugins" + "Explorar Catálogo".
-        // "Meus Plugins" fica desabilitado até o login (RequiresLoginAvailability).
+        // 5-6. Secondary buttons (small, stacked): "Meus Plugins" + "Explorar Catálogo".
+        // "Meus Plugins" stays disabled until login (RequiresLoginAvailability).
         var btnPluginsData = new PushButtonData(
             "NodeAec_ManagePlugins",
             "Meus\nPlugins",
@@ -141,9 +141,9 @@ public class App : IExternalApplication
         btnCatalogData.LargeImage = UiTheme.CatalogIcon(large: true);
         AddStackedButtonsIfMissing(connectorPanel, btnPluginsData, btnCatalogData);
 
-        // 7. Hooks defensivos de ciclo de vida do Revit Ribbon. Handlers nomeados e
-        // estáticos com "-=" antes do "+=": se o add-in recarregar no mesmo processo
-        // (Add-In Manager), os delegates não se acumulam (L10).
+        // 7. Defensive Revit ribbon lifecycle hooks. Named static handlers with "-="
+        // before "+=": if the add-in reloads in the same process (Add-In Manager),
+        // delegates do not accumulate (L10).
         try
         {
             application.ControlledApplication.ApplicationInitialized -= OnApplicationInitialized;
@@ -156,26 +156,26 @@ public class App : IExternalApplication
         {
         }
 
-        // 8. Heartbeat periódico em segundo plano (não bloqueante): dispara já na subida e
-        // renova o lease a cada 6 h — era one-shot, então uma máquina que iniciava offline
-        // nunca renovava na sessão inteira. Falha/offline espera simplesmente o próximo
-        // disparo. A troca atômica evita timers empilhados se o add-in recarregar no
-        // mesmo processo (o timer anterior é descartado).
+        // 8. Periodic background heartbeat (non-blocking): fires immediately on startup and
+        // renews the lease every 6 h — it used to be one-shot, so a machine that started offline
+        // never renewed for the whole session. Failure/offline simply waits for the next
+        // firing. The atomic swap avoids stacked timers if the add-in reloads in the
+        // same process (the previous timer is discarded).
         var heartbeatTimer = new Timer(_ => RunHeartbeat(), null, TimeSpan.Zero, HeartbeatPeriod);
         Interlocked.Exchange(ref _heartbeatTimer, heartbeatTimer)?.Dispose();
 
         return Result.Succeeded;
     }
 
-    /// <summary>Cadência do heartbeat de lease (4 disparos/dia — tráfego irrisório).</summary>
+    /// <summary>Lease heartbeat cadence (4 firings/day — negligible traffic).</summary>
     private static readonly TimeSpan HeartbeatPeriod = TimeSpan.FromHours(6);
 
     private static Timer? _heartbeatTimer;
 
     /// <summary>
-    /// Dispara uma rodada de heartbeat em background (fire-and-forget). Só lê armazenamento
-    /// local e fala com a API — nenhuma API do Revit na threadpool. Qualquer exceção vira
-    /// WARN com o tipo do erro (nunca mensagem crua).
+    /// Fires one background heartbeat round (fire-and-forget). Only reads local storage
+    /// and talks to the API — no Revit API on the thread pool. Any exception becomes a
+    /// WARN with the error type (never the raw message).
     /// </summary>
     private static void RunHeartbeat()
     {
@@ -189,8 +189,8 @@ public class App : IExternalApplication
                     var client = new ConnectorApiClient();
                     var heartbeat = await client.ValidateHeartbeatAsync(token).ConfigureAwait(false);
 
-                    // M7: a decisão de log (texto fixo nos ramos de chave/cache — nunca
-                    // mensagem crua do servidor) vive em HeartbeatLog, coberta por teste.
+                    // M7: the logging decision (fixed text on the key/cache branches — never
+                    // a raw server message) lives in HeartbeatLog, covered by tests.
                     string? warning = Diagnostics.HeartbeatLog.WarningMessage(heartbeat);
                     if (warning != null)
                     {
@@ -200,20 +200,20 @@ public class App : IExternalApplication
             }
             catch (Exception ex)
             {
-                // Silencioso se offline — mas deixa a causa rastreável no log local.
+                // Silent when offline — but leaves the cause traceable in the local log.
                 Diagnostics.ConnectorLog.Write("WARN", $"Heartbeat de lease interrompido: {ex.GetType().Name}.");
             }
         });
     }
 
-    /// <summary>Reação ao evento <c>ApplicationInitialized</c>: deduplica a aba e remove painéis fantasmas.</summary>
+    /// <summary>Reaction to the <c>ApplicationInitialized</c> event: deduplicates the tab and removes ghost panels.</summary>
     private static void OnApplicationInitialized(object? sender, EventArgs e)
     {
         DeduplicateRibbonTabs(TabName);
         CleanRogueRibbonElements();
     }
 
-    /// <summary>Reação à ativação de qualquer elemento da Ribbon: mantém a aba única.</summary>
+    /// <summary>Reaction to any ribbon element activation: keeps the tab unique.</summary>
     private static void OnUiElementActivated(object? sender, EventArgs e)
     {
         DeduplicateRibbonTabs(TabName);
@@ -301,8 +301,8 @@ public class App : IExternalApplication
         {
             var existing = panel.GetItems().Select(i => i.Name).ToList();
 
-            // M7: a decisão (empilhar / avulso / nada) é pura e testada em RibbonDecisions;
-            // aqui ficam somente os comandos de UI.
+            // M7: the decision (stack / standalone / nothing) is pure and tested in RibbonDecisions;
+            // only the UI commands remain here.
             switch (RibbonDecisions.PlanStackedInsertion(existing, first.Name, second.Name))
             {
                 case StackedInsertion.None:
@@ -367,8 +367,8 @@ public class App : IExternalApplication
     }
 
     /// <summary>
-    /// Remove elementos legados da Ribbon: abas "License"/"Licensing" e o botão
-    /// "Conectar Conta" (aposentado em favor de "Minha Conta" + "Meus Plugins").
+    /// Removes legacy ribbon elements: the "License"/"Licensing" tabs and the
+    /// "Conectar Conta" button (retired in favor of "Minha Conta" + "Meus Plugins").
     /// </summary>
     public static void CleanRogueRibbonElements()
     {
@@ -397,16 +397,16 @@ public class App : IExternalApplication
                 catch { }
             }
 
-            // Remove o botão legado "Conectar Conta" de qualquer painel onde persista.
+            // Removes the legacy "Conectar Conta" button wherever it persists.
             foreach (var tab in ribbon.Tabs)
             {
                 foreach (var panel in tab.Panels)
                 {
                     try
                     {
-                        // Captura a fonte uma única vez: `panel.Source` é anulável e dereferenciá-lo
-                        // dentro do laço repetia a checagem (CS8602) e abria espaço para uma corrida
-                        // caso a fonte fosse trocada entre as remoções.
+                        // Captures the source once: `panel.Source` is nullable and dereferencing it
+                        // inside the loop repeated the check (CS8602) and opened room for a race
+                        // if the source were swapped between removals.
                         var items = panel.Source?.Items;
                         if (items == null) continue;
 

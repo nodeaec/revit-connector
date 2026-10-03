@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 namespace NodeAec.Connector.Models;
 
 /// <summary>
-/// Representa uma concessão ou autorização individual de produto contida no Master Entitlements Lease.
+/// Represents a single product grant/authorization inside the Master Entitlements Lease.
 /// </summary>
 public class EntitlementItem
 {
@@ -25,9 +25,9 @@ public class EntitlementItem
     public string Status { get; set; } = "active";
 
     /// <summary>
-    /// Claim <c>granted</c> do token: o emissor só inclui concessões concedidas, mas o
-    /// valor é honrado por <see cref="IsActive"/> (L6) — <c>false</c> nega, mesmo que o
-    /// resto do item esteja válido. Ausente no token → padrão <c>true</c>.
+    /// Token <c>granted</c> claim: the issuer only includes granted grants, but the
+    /// value is honored by <see cref="IsActive"/> (L6) — <c>false</c> denies even when the
+    /// rest of the item is valid. Missing on the token → defaults to <c>true</c>.
     /// </summary>
     [JsonPropertyName("granted")]
     public bool Granted { get; set; } = true;
@@ -36,11 +36,11 @@ public class EntitlementItem
     public string? ExpiresAtString { get; set; }
 
     /// <summary>
-    /// Prazo de expiração interpretado de forma determinística: cultura invariante (uma
-    /// data no formato do servidor nunca depende do formato regional da máquina) e
-    /// <see cref="DateTimeStyles.AssumeUniversal"/> — sem offset explícito, a data vale
-    /// meia-noite UTC, não meia-noite local (a máquina não é adiantada/atrasada na
-    /// expiração pelo próprio fuso). Inválido/fora da faixa → <c>null</c>.
+    /// Deterministically parsed expiration: invariant culture (a
+    /// server-shaped date never depends on the machine's regional format) and
+    /// <see cref="DateTimeStyles.AssumeUniversal"/> — with no explicit offset, the date counts as
+    /// midnight UTC, not local midnight (the machine is not shifted forward/back on
+    /// expiry by its own time zone). Invalid/out-of-range → <c>null</c>.
     /// </summary>
     [JsonIgnore]
     public DateTimeOffset? ExpiresAt
@@ -60,13 +60,13 @@ public class EntitlementItem
     public int? ActiveActivations { get; set; }
 
     /// <summary>
-    /// Indica se a concessão está ativa e válida para uso imediato.
+    /// Whether the grant is active and valid for immediate use.
     /// </summary>
     public bool IsActive()
     {
-        // L6: o claim `granted` era deserializado e ignorado. Honrá-lo aqui mantém o
-        // modelo e o gate coerentes: concessão explicitamente não concedida nunca está
-        // ativa (fail-closed caso o emissor passe a emitir `granted: false`).
+        // L6: the `granted` claim used to be deserialized and ignored. Honoring it here keeps the
+        // model and the gate consistent: an explicitly ungranted grant is never
+        // active (fail-closed should the issuer start emitting `granted: false`).
         if (!Granted)
         {
             return false;

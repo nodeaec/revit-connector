@@ -1,121 +1,121 @@
-# AGENTS.md — Diretrizes de Engenharia e Governança para Agentes de IA
+# AGENTS.md — Engineering and Governance Guidelines for AI Agents
 
-Guia de engenharia canônico para agentes autônomos de IA (Antigravity, Claude Code, Cursor, OpenCode, Copilot) que desenvolvem, mantêm ou refatoram código dentro do repositório **`nodeaec/revit-connector`**.
+Canonical engineering guide for autonomous AI agents (Antigravity, Claude Code, Cursor, OpenCode, Copilot) that develop, maintain, or refactor code inside the **`nodeaec/revit-connector`** repository.
 
-Repositório oficial: [github.com/nodeaec/revit-connector](https://github.com/nodeaec/revit-connector)
+Official repository: [github.com/nodeaec/revit-connector](https://github.com/nodeaec/revit-connector)
 
 ---
 
-## 🎯 Escopo e Missão do Repositório
+## 🎯 Repository Scope and Mission
 
-O repositório `revit-connector` mantém o **Node.aec Connector** — o add-in oficial de governança desktop, licenciamento e Ribbon unificada da **Node.aec** para Autodesk Revit — e os contratos públicos de integração de plugins parceiros via `NodeAecGate`.
-A meta é acelerar o ecossistema de desenvolvedores AEC/BIM, padronizando a integração com a plataforma Node.aec (licenciamento, catálogo, atualizações) e servindo de referência de engenharia para plugins profissionais.
+The `revit-connector` repository maintains the **Node.aec Connector** — the official desktop governance, licensing, and unified-Ribbon add-in from **Node.aec** for Autodesk Revit — plus the public contracts for partner-plugin integration via `NodeAecGate`.
+The goal is to accelerate the AEC/BIM developer ecosystem by standardizing integration with the Node.aec platform (licensing, catalog, updates) and serving as an engineering reference for professional plugins.
 
-### Projeto Principal no Repositório
+### Primary Project in the Repository
 
 1. **`NodeAec.Connector`**:
-   - O **Hub central de governança desktop** e Ribbon unificado da Node.aec para o Autodesk Revit.
-   - Gerencia autenticação SSO via navegador (RFC 8252 loopback), sincronização do lease mestre de entitlements (`entitlements.lease`) e interface de usuário para ativação manual de chaves NAEC.
-   - Fornece o micro-SDK `NodeAecGate` (`NodeAecGate.Validate(slug)`), permitindo que plugins de terceiros validem direitos em `< 1ms` de forma segura, local e sem chamadas de rede bloqueantes.
-   - Gerencia a aba canônica **`Node.aec`** e deduplicação via `Autodesk.Windows.ComponentManager`.
+   - The **central desktop governance Hub** and unified Ribbon for Node.aec in Autodesk Revit.
+   - Manages browser SSO authentication (RFC 8252 loopback), master entitlements lease sync (`entitlements.lease`), and the user interface for manual NAEC key activation.
+   - Provides the `NodeAecGate` micro-SDK (`NodeAecGate.Validate(slug)`), letting third-party plugins validate rights in `< 1ms` securely, locally, and with no blocking network calls.
+   - Manages the canonical **`Node.aec`** tab and deduplication via `Autodesk.Windows.ComponentManager`.
 
 > [!NOTE]
-> Se o seu objetivo for instruir como integrar o licenciamento Node.aec em um **plugin externo de um usuário**, consulte a skill [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) e a seção [Como Integrar do README](README.md#-como-integrar-plugins-parceiros-com-o-nodeaecgate). Este arquivo atual rege o desenvolvimento **interno deste repositório**.
+> If your goal is to explain how to integrate Node.aec licensing into an **external user plugin**, see the [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) skill and the [README integration section](README.md#-integrating-partner-plugins-with-nodeaecgate). This file governs **internal development of this repository**.
 
 ---
 
-## 🧩 Habilidades Modulares (.agents/skills/)
+## 🧩 Modular Skills (.agents/skills/)
 
-Este repositório disponibiliza habilidades modulares especializadas para agentes autônomos de IA. Invoque a skill correspondente ao objetivo da tarefa:
+This repository ships specialized modular skills for autonomous AI agents. Invoke the skill matching the task goal:
 
-### 1. Domínio & Ferramentas Revit
-| Skill | Escopo e Gatilhos de Ativação | Caminho Canônico |
+### 1. Revit Domain & Tooling
+| Skill | Scope and Activation Triggers | Canonical Path |
 |---|---|---|
-| **`licensing-integrate`** | Integrar licenciamento Node.aec em plugins novos ou existentes, rodar Fase de Grilling, proteger comandos comerciais (`IExternalCommand`). | [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) |
-| **`ribbon-guard`** | Criar/modificar painéis e botões da Ribbon, garantir aba `Node.aec`, ícones não-bloqueantes e deduplicação via AdWindows. | [`.agents/skills/ribbon-guard`](.agents/skills/ribbon-guard/SKILL.md) |
-| **`revit-build-validate`** | Compilar via `dotnet build`, garantir 0 erros, isolar DLLs do RevitAPI e validar dependências do runtime. | [`.agents/skills/revit-build-validate`](.agents/skills/revit-build-validate/SKILL.md) |
-| **`release-pack`** | Empacotar releases `.zip` e o instalador de um grupo de anos do Revit via `release.ps1`, verificar SHA-256 e instalar no Revit local (`%ProgramData%`). | [`.agents/skills/release-pack`](.agents/skills/release-pack/SKILL.md) |
+| **`licensing-integrate`** | Integrate Node.aec licensing into new or existing plugins, run the Grilling phase, protect commercial commands (`IExternalCommand`). | [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) |
+| **`ribbon-guard`** | Create/modify Ribbon panels and buttons, enforce the `Node.aec` tab, non-blocking icons, and deduplication via AdWindows. | [`.agents/skills/ribbon-guard`](.agents/skills/ribbon-guard/SKILL.md) |
+| **`revit-build-validate`** | Build via `dotnet build`, enforce 0 errors, isolate RevitAPI DLLs, and validate runtime dependencies. | [`.agents/skills/revit-build-validate`](.agents/skills/revit-build-validate/SKILL.md) |
+| **`release-pack`** | Package `.zip` releases and the single-Revit-year-group installer via `release.ps1`, verify SHA-256, and install into local Revit (`%ProgramData%`). | [`.agents/skills/release-pack`](.agents/skills/release-pack/SKILL.md) |
 
-### 2. Engenharia de Software, Qualidade & Workflow
-| Skill | Escopo e Gatilhos de Ativação | Caminho Canônico |
+### 2. Software Engineering, Quality & Workflow
+| Skill | Scope and Activation Triggers | Canonical Path |
 |---|---|---|
-| **`clean-code-and-oop`** | Padrões de Clean Code em C#, SOLID, SRP, early returns e desacoplamento entre UI do Revit e regras de domínio. | [`.agents/skills/clean-code-and-oop`](.agents/skills/clean-code-and-oop/SKILL.md) |
-| **`document-touched-code`** | Documentação XML (`/// <summary>`, `<param>`, `<returns>`) em membros C# e comentários explicativos de intenção. | [`.agents/skills/document-touched-code`](.agents/skills/document-touched-code/SKILL.md) |
-| **`security-defense-and-mitigation`** | Criptografia Ed25519 SPKI, DPAPI (`CurrentUser`), machine lock SHA-256, HTTPS e proteção fail-closed. | [`.agents/skills/security-defense-and-mitigation`](.agents/skills/security-defense-and-mitigation/SKILL.md) |
-| **`code-review`** | Revisão de código em dois eixos (Padrões do Revit + Especificação funcional) com subagentes auditores. | [`.agents/skills/code-review`](.agents/skills/code-review/SKILL.md) |
-| **`test-first-delivery`** | Desenvolvimento orientado a testes (IV-TDD) em C# para lógica headless sem dependência da UI do Revit. | [`.agents/skills/test-first-delivery`](.agents/skills/test-first-delivery/SKILL.md) |
-| **`git-change-workflow`** | Estratégia de branches (Fast Track vs Planned Track), commits atômicos e inspeção antes de staging. | [`.agents/skills/git-change-workflow`](.agents/skills/git-change-workflow/SKILL.md) |
-| **`semantic-commit`** | Formatar e executar commits semânticos padronizados com escopos de plugins Revit (`<type>(<scope>): <summary>`). | [`.agents/skills/semantic-commit`](.agents/skills/semantic-commit/SKILL.md) |
+| **`clean-code-and-oop`** | Clean Code patterns in C#, SOLID, SRP, early returns, and decoupling Revit UI from domain rules. | [`.agents/skills/clean-code-and-oop`](.agents/skills/clean-code-and-oop/SKILL.md) |
+| **`document-touched-code`** | XML documentation (`/// <summary>`, `<param>`, `<returns>`) on C# members and intent-revealing comments. | [`.agents/skills/document-touched-code`](.agents/skills/document-touched-code/SKILL.md) |
+| **`security-defense-and-mitigation`** | Ed25519 SPKI cryptography, DPAPI (`CurrentUser`), SHA-256 machine lock, HTTPS, and fail-closed protection. | [`.agents/skills/security-defense-and-mitigation`](.agents/skills/security-defense-and-mitigation/SKILL.md) |
+| **`code-review`** | Two-axis code review (Revit Patterns + functional spec) with auditor subagents. | [`.agents/skills/code-review`](.agents/skills/code-review/SKILL.md) |
+| **`test-first-delivery`** | Test-driven development (IV-TDD) in C# for headless logic with no Revit UI dependency. | [`.agents/skills/test-first-delivery`](.agents/skills/test-first-delivery/SKILL.md) |
+| **`git-change-workflow`** | Branch strategy (Fast Track vs Planned Track), atomic commits, and inspection before staging. | [`.agents/skills/git-change-workflow`](.agents/skills/git-change-workflow/SKILL.md) |
+| **`semantic-commit`** | Format and execute standardized semantic commits with Revit-plugin scopes (`<type>(<scope>): <summary>`). | [`.agents/skills/semantic-commit`](.agents/skills/semantic-commit/SKILL.md) |
 
 ---
 
-## 🏗️ Stack Tecnológica e Runtimes
+## 🏗️ Technology Stack and Runtimes
 
-- **Linguagem**: C# 12
-- **Framework Target**: matriz por ano do Revit — `net48` (2023/2024), `net8.0-windows` (2025/2026) e `net10.0-windows` (2027)
-- **Host Application**: Autodesk Revit 2023–2027 (build por ano; instalador por grupo de compatibilidade)
-- **Interface Gráfica**: WPF (`UseWPF = true`), código limpo em C# com layouts nativos
-- **Proteção de Dados**: Windows DPAPI (`System.Security.Cryptography.ProtectedData`)
-- **Criptografia Assimétrica**: Ed25519 (EdDSA / RFC 8032) para validação offline de leases assinados
-- **Build System**: .NET CLI (`dotnet build`, `dotnet test`) e scripts de empacotamento em PowerShell (`scripts/release.ps1`)
-
----
-
-## 🛡️ Regras de Engenharia do Repositório
-
-### 1. Ribbon do Revit: Aba Canônica Obrigatória `Node.aec`
-- **Aba Única**: Todas as ferramentas, add-ins e componentes criados neste repositório **DEVEM** ser adicionados exclusivamente na aba **`Node.aec`** (`TabName = "Node.aec"`).
-- **Sem Abas Fragmentadas**: Nunca crie abas separadas para plugins individuais. Organize os recursos em painéis temáticos dentro de `Node.aec` (ex.: `"Conector"`, `"Licenciamento"`, etc.).
-- **Deduplicação de Abas**: Utilize os hooks do `Autodesk.Windows.ComponentManager` (AdWindows) para evitar abas duplicadas ou painéis fantasmas ao recarregar add-ins.
-
-### 2. Dependências e Binários do Revit
-- **Nunca Copiar DLLs do Revit**: Referências para `RevitAPI.dll`, `RevitAPIUI.dll` e `AdWindows.dll` devem ter sempre `<Private>false</Private>`.
-- **Assemblies de Dependência**: Pacotes NuGet adicionais devem ser empacotados no diretório do add-in usando `<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>`. O `System.Security.Cryptography.ProtectedData.dll` é payload **apenas no ano `net48`** (Revit 2023/2024), onde só o pacote NuGet o fornece; em `net8.0-windows` e `net10.0-windows` (Revit 2025+) ele já faz parte do runtime `Microsoft.WindowsDesktop.App` e **não** deve ser copiado para o diretório do add-in.
-- **KISS & Zero Inchaço**: Priorize bibliotecas da BCL do .NET 8 e namespaces padrão do Revit. Evite bibliotecas pesadas de terceiros (como Newtonsoft.Json — utilize `System.Text.Json`).
-
-### 3. Integração com a Plataforma Node.aec
-- **Endpoint Fixo de Produção**: Todas as chamadas para a API Node.aec utilizam o endpoint oficial de produção: `https://api.nodeaec.com.br`.
-- **Segurança de Chaves**: NUNCA armazene chaves privadas no código do cliente. O repositório lida apenas com a chave pública SPKI compilada (`ConnectorConfig.DefaultLicensePublicKeySpkiBase64`) — a única âncora aceita na verificação de assinaturas Ed25519.
-- **Não-Bloqueante (UI Thread Safe)**: Nenhuma chamada de rede ou I/O pesado deve ser executada de forma síncrona na thread principal do Revit (`OnStartup` ou início de comando). Inicializações de background devem ser assíncronas e à prova de falhas de rede.
-
-### 4. Estrutura de Código e Estilo
-- **Clean Code & OOP**: Classes coesas, métodos concisos com responsabilidade única e tratamento explícito de exceções.
-- **Tipos Anuláveis**: `<Nullable>enable</Nullable>` ativado. Resolva warnings de possível referência nula de forma segura.
-- **Documentação de Código**: Mantenha comentários XML (`/// <summary>`) em classes públicas, métodos de extensão e interfaces.
+- **Language**: C# 12
+- **Target Framework**: per-Revit-year matrix — `net48` (2023/2024), `net8.0-windows` (2025/2026), and `net10.0-windows` (2027)
+- **Host Application**: Autodesk Revit 2023–2027 (per-year build; per-compatibility-group installer)
+- **Graphical Interface**: WPF (`UseWPF = true`), clean C# code with native layouts
+- **Data Protection**: Windows DPAPI (`System.Security.Cryptography.ProtectedData`)
+- **Asymmetric Cryptography**: Ed25519 (EdDSA / RFC 8032) for offline validation of signed leases
+- **Build System**: .NET CLI (`dotnet build`, `dotnet test`) and PowerShell packaging scripts (`scripts/release.ps1`)
 
 ---
 
-## 🛠️ Comandos de Build e Validação
+## 🛡️ Repository Engineering Rules
 
-Todas as alterações devem ser validadas compilando a solution relevante e verificando ausência de erros:
+### 1. Revit Ribbon: Mandatory Canonical `Node.aec` Tab
+- **Single Tab**: Every tool, add-in, and component created in this repository **MUST** be added exclusively on the **`Node.aec`** tab (`TabName = "Node.aec"`).
+- **No Fragmented Tabs**: Never create separate tabs for individual plugins. Organize features into themed panels inside `Node.aec` (e.g. `"Conector"`, `"Licenciamento"`, etc.).
+- **Tab Deduplication**: Use the `Autodesk.Windows.ComponentManager` (AdWindows) hooks to avoid duplicate tabs or ghost panels when reloading add-ins.
+
+### 2. Revit Dependencies and Binaries
+- **Never Copy Revit DLLs**: References to `RevitAPI.dll`, `RevitAPIUI.dll`, and `AdWindows.dll` must always carry `<Private>false</Private>`.
+- **Dependency Assemblies**: Extra NuGet packages must be packed into the add-in directory using `<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>`. `System.Security.Cryptography.ProtectedData.dll` is payload **only for the `net48` target** (Revit 2023/2024), where only the NuGet package provides it; on `net8.0-windows` and `net10.0-windows` (Revit 2025+) it already ships in the `Microsoft.WindowsDesktop.App` runtime and **must not** be copied into the add-in directory.
+- **KISS & Zero Bloat**: Prefer .NET 8 BCL libraries and stock Revit namespaces. Avoid heavy third-party libraries (such as Newtonsoft.Json — use `System.Text.Json`).
+
+### 3. Node.aec Platform Integration
+- **Fixed Production Endpoint**: All calls to the Node.aec API use the official production endpoint: `https://api.nodeaec.com.br`.
+- **Key Security**: NEVER store private keys in client code. The repository only handles the compiled-in SPKI public key (`ConnectorConfig.DefaultLicensePublicKeySpkiBase64`) — the only anchor accepted when verifying Ed25519 signatures.
+- **Non-Blocking (UI Thread Safe)**: No network call or heavy I/O may run synchronously on Revit's main thread (`OnStartup` or command startup). Background initialization must be async and resilient to network failure.
+
+### 4. Code Structure and Style
+- **Clean Code & OOP**: Cohesive classes, concise single-responsibility methods, and explicit exception handling.
+- **Nullable Types**: `<Nullable>enable</Nullable>` is on. Resolve possible-null-reference warnings safely.
+- **Code Documentation**: Keep XML comments (`/// <summary>`) on public classes, extension methods, and interfaces.
+
+---
+
+## 🛠️ Build and Validation Commands
+
+All changes must be validated by building the relevant solution and confirming zero errors:
 
 ```powershell
-# 1. Node.aec Connector (Hub Central) — na raiz do repositório
-# Compilar e rodar testes unitários headless
+# 1. Node.aec Connector (Central Hub) — at the repository root
+# Build and run headless unit tests
 dotnet build NodeAec.Connector.sln -c Release
 dotnet test NodeAec.Connector.sln -c Release
 
-# Empacotar e instalar no Revit 2026 local via grupo 2025-2026 (repita com -RevitYear 2023-2024 e -RevitYear 2027 para os demais grupos)
+# Package and install into local Revit 2026 via the 2025-2026 group (repeat with -RevitYear 2023-2024 and -RevitYear 2027 for the other groups)
 powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.2 -RevitYear 2025-2026 -Install
 ```
 
 > [!WARNING]
-> **Cobertura de DPAPI agora é manual.** `ProtectedData.Protect/Unprotect(..., DataProtectionScope.CurrentUser)` só funciona numa sessão de logon real (SessionId ≥ 1). Num contexto SSH/`services.exe` o processo roda na Session 0 sem Logon SID (`S-1-5-5-*`) e sem `AuthenticationId`, e o Windows devolve `win32 = 5 Acesso negado` — o comportamento é *fail-closed* por design. Os testes unitários que dependiam desse caminho foram removidos, então `dotnet test` deve fechar **100% em qualquer sessão (SSH ou interativa)**. A persistência DPAPI (gravar/ler `entitlements.lease` e `session.json` em `%APPDATA%`) passa a ser validada manualmente no smoke test do add-in dentro do Revit. Não enfraquecer o armazenamento nem marcar testes como Skip para compensar.
+> **DPAPI coverage is manual now.** `ProtectedData.Protect/Unprotect(..., DataProtectionScope.CurrentUser)` only works in a real logon session (SessionId ≥ 1). In an SSH/`services.exe` context the process runs in Session 0 with no Logon SID (`S-1-5-5-*`) and no `AuthenticationId`, and Windows returns `win32 = 5 Access denied` — the behavior is *fail-closed* by design. The unit tests that depended on that path were removed, so `dotnet test` must come back **100% green in any session (SSH or interactive)**. DPAPI persistence (writing/reading `entitlements.lease` and `session.json` under `%APPDATA%`) is now validated manually in the in-Revit add-in smoke test. Do not weaken storage or mark tests as Skip to compensate.
 
-Critérios de Aceite para Modificações:
-- Compilação limpa: **0 Erros**.
-- Testes unitários: 100% passando.
-- Nenhum assembly do Revit (`RevitAPI*.dll`) dentro da pasta `release/` ou `stage/`.
-- A DLL `System.Security.Cryptography.ProtectedData.dll` deve estar presente no payload final do add-in **somente quando o alvo é `net48`** (Revit 2023/2024). Em `net8.0-windows`/`net10.0-windows` ela é fornecida pelo `Microsoft.WindowsDesktop.App` e não deve aparecer em `release/` ou `stage/`.
+Acceptance Criteria for Changes:
+- Clean build: **0 Errors**.
+- Unit tests: 100% passing.
+- No Revit assemblies (`RevitAPI*.dll`) inside `release/` or `stage/`.
+- `System.Security.Cryptography.ProtectedData.dll` must be present in the final add-in payload **only when targeting `net48`** (Revit 2023/2024). On `net8.0-windows`/`net10.0-windows` it is provided by `Microsoft.WindowsDesktop.App` and must not appear in `release/` or `stage/`.
 
 ---
 
-## 📦 Convenções de Git e Commits
+## 📦 Git and Commit Conventions
 
-- Utilize o padrão Conventional Commits:
+- Use the Conventional Commits pattern:
   - `feat(connector): ...`
   - `feat(licensing): ...`
   - `fix(ribbon): ...`
   - `docs(readme): ...`
   - `refactor(client): ...`
-- Mantenha commits atômicos, focados e sem arquivos temporários de build (`bin/`, `obj/`, `.vs/`).
+- Keep commits atomic, focused, and free of temporary build files (`bin/`, `obj/`, `.vs/`).

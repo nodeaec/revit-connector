@@ -15,32 +15,32 @@ using NodeAec.Connector.Storage;
 namespace NodeAec.Connector.Client;
 
 /// <summary>
-/// Cliente HTTP para a API oficial do Node.aec.
-/// Executa sincronização do Master Entitlements Lease, ativação de chaves avulsas,
-/// renovação periódica (heartbeat) e desativação de assentos.
+/// HTTP client for the official Node.aec API.
+/// Syncs the Master Entitlements Lease, activates one-off keys,
+/// performs periodic renewal (heartbeat), and deactivates seats.
 /// </summary>
 public class ConnectorApiClient
 {
     /// <summary>
-    /// Tempo explícito por chamada (M6). O default do <see cref="HttpClient"/> é 100 s —
-    /// um clique de "Atualizar" poderia pendurar a UI por minutos em rede ruim.
+    /// Explicit per-call timeout (M6). The <see cref="HttpClient"/> default is 100 s —
+    /// an "Atualizar" click could hang the UI for minutes on a bad network.
     /// </summary>
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    /// Mensagem fixa quando o Machine ID não pode ser derivado: sem ele nenhuma chamada de
-    /// licenciamento tem como endereçar esta máquina (fail-closed).
+    /// Fixed message for when the Machine ID cannot be derived: without it no licensing
+    /// call can address this machine (fail-closed).
     /// </summary>
     private const string MachineIdUnavailableMessage =
         "Não foi possível identificar esta máquina (MachineGuid do Windows indisponível). Contate o suporte Node.aec.";
 
     /// <summary>
-    /// Cliente HTTP único de processo (M6): handshake TCP+TLS e resolução DNS uma vez por
-    /// sessão do Revit, em vez de um por ação do usuário — churn de sockets é
-    /// particularmente caro em net48/Revit 2023-2024 (HTTP.sys + DNS caching). É seguro
-    /// compartilhar entre chamadas concorrentes desde que os cabeçalhos (Authorization,
-    /// etc.) fiquem na <see cref="HttpRequestMessage"/> de cada requisição, como já ocorre.
-    /// Nunca é descartado pelos consumidores.
+    /// Single per-process HTTP client (M6): TCP+TLS handshake and DNS resolution once per
+    /// Revit session instead of once per user action — socket churn is
+    /// particularly expensive on net48/Revit 2023-2024 (HTTP.sys + DNS caching). Safe to
+    /// share across concurrent calls as long as headers (Authorization,
+    /// etc.) stay on each request's <see cref="HttpRequestMessage"/>, as already done.
+    /// Never disposed by consumers.
     /// </summary>
     private static readonly HttpClient SharedHttpClient = CreateSharedHttpClient();
 
@@ -48,12 +48,12 @@ public class ConnectorApiClient
     private readonly string _baseUrl;
 
     /// <summary>
-    /// Cria o cliente de API. Sem <paramref name="httpClient"/>, usa o
-    /// <see cref="SharedHttpClient"/> de processo (compartilhado e nunca descartado por
-    /// esta instância); um cliente injetado continua sendo responsabilidade do chamador.
+    /// Creates the API client. Without <paramref name="httpClient"/>, uses the per-process
+    /// <see cref="SharedHttpClient"/> (shared and never disposed by
+    /// this instance); an injected client remains the caller's responsibility.
     /// </summary>
-    /// <param name="baseUrl">Base da API; quando nula usa <c>ConnectorConfig.ApiBaseUrl</c>.</param>
-    /// <param name="httpClient">Cliente HTTP alternativo (testes/mocks); não é possuído nem descartado aqui.</param>
+    /// <param name="baseUrl">API base; when null uses <c>ConnectorConfig.ApiBaseUrl</c>.</param>
+    /// <param name="httpClient">Alternate HTTP client (tests/mocks); not owned nor disposed here.</param>
     public ConnectorApiClient(string? baseUrl = null, HttpClient? httpClient = null)
     {
         _baseUrl = (baseUrl ?? ConnectorConfig.ApiBaseUrl).TrimEnd('/');
@@ -61,11 +61,11 @@ public class ConnectorApiClient
     }
 
     /// <summary>
-    /// Resolve o Machine ID desta máquina ou devolve a falha de licenciamento pronta.
+    /// Resolves this machine's Machine ID or returns the ready-made licensing failure.
     /// </summary>
-    /// <param name="machineId">Identificador canônico quando o retorno é <c>true</c>.</param>
-    /// <param name="failure">Falha pronta para retorno quando o retorno é <c>false</c>.</param>
-    /// <returns><c>true</c> quando o Machine ID foi resolvido.</returns>
+    /// <param name="machineId">Canonical identifier when the return is <c>true</c>.</param>
+    /// <param name="failure">Ready-made failure to return when the return is <c>false</c>.</param>
+    /// <returns><c>true</c> when the Machine ID was resolved.</returns>
     private static bool TryResolveMachineId(out string machineId, out SyncResult? failure)
     {
         if (HardwareId.TryGetMachineId(out machineId, out string? reason))
@@ -80,8 +80,8 @@ public class ConnectorApiClient
     }
 
     /// <summary>
-    /// Monta o <see cref="HttpClient"/> de processo com timeout explícito e
-    /// <c>User-Agent</c> identificando versão do add-in (facilita diagnóstico no servidor).
+    /// Builds the per-process <see cref="HttpClient"/> with an explicit timeout and a
+    /// <c>User-Agent</c> identifying the add-in version (eases server-side diagnostics).
     /// </summary>
     private static HttpClient CreateSharedHttpClient()
     {
@@ -94,8 +94,8 @@ public class ConnectorApiClient
     }
 
     /// <summary>
-    /// Sincroniza todas as licenças ativas do usuário autenticado para a máquina atual,
-    /// obtendo o Master Entitlements Lease assinado e persistindo via DPAPI.
+    /// Syncs all active licenses of the authenticated user to the current machine,
+    /// fetching the signed Master Entitlements Lease and persisting it via DPAPI.
     /// </summary>
     public async Task<SyncResult> SyncMasterEntitlementsAsync(string userToken, CancellationToken cancellationToken = default)
     {
@@ -159,14 +159,14 @@ public class ConnectorApiClient
 
             var entitlements = ParseEntitlements(root) ?? new List<EntitlementItem>();
 
-            // Atualiza o cache de chaves públicas (JWKS) para verificação offline do lease.
-            // O retorno NÃO é descartado: é propagado ao chamador em `JwksRefreshed`.
+            // Refreshes the public-key cache (JWKS) for offline lease verification.
+            // The return is NOT discarded: it is propagated to the caller in `JwksRefreshed`.
             bool jwksRefreshed = await SigningKeyStore.RefreshAsync(_baseUrl, _httpClient, cancellationToken).ConfigureAwait(false);
 
-            // M1: assinatura + scope + mid verificados ANTES de persistir. Lease que não
-            // passa na verificação jamais toca o disco (o lease anterior permanece intacto);
-            // sem chave disponível, salva-se com aviso de "não verificado" para a UI, em vez
-            // de reportar um sucesso que o gate rejeitaria de forma opaca depois.
+            // M1: signature + scope + mid verified BEFORE persisting. A lease that fails
+            // verification never touches disk (the previous lease stays intact);
+            // with no key available, it is saved with an "unverified" warning to the UI, instead
+            // of reporting a success the gate would later opaquely reject.
             LeaseVerdict verdict = VerifyLeaseBeforeSave(leaseToken, out string? verdictReason);
             if (verdict == LeaseVerdict.Rejected)
             {
@@ -174,7 +174,7 @@ public class ConnectorApiClient
                 return SyncResult.Failed("A licença recebida não passou na verificação de segurança e não foi salva. Atualize novamente; se o problema persistir, contate o suporte Node.aec.");
             }
 
-            // Salva o token mestre em disco protegido com DPAPI (falha = modo fechado, sem texto puro)
+            // Saves the master token to DPAPI-protected disk (failure = fail-closed, no plaintext)
             if (!LeaseStorage.SaveMasterLease(leaseToken))
             {
                 return SyncResult.Failed("Suas licenças foram recebidas, mas não puderam ser salvas neste computador. Verifique as permissões do usuário e tente novamente.");
@@ -187,14 +187,14 @@ public class ConnectorApiClient
         }
         catch (Exception ex)
         {
-            // L13: só o tipo do erro vira texto do usuário — `ex.Message` pode vazar
-            // detalhes internos (caminhos, TLS, endereços).
+            // L13: only the error type becomes user text — `ex.Message` may leak
+            // internal details (paths, TLS, addresses).
             return SyncResult.Failed($"Erro de conexão com o servidor Node.aec ({ex.GetType().Name}).");
         }
     }
 
     /// <summary>
-    /// Ativa uma chave de licença manual avulsa (NAEC-XXXX-...) para esta máquina.
+    /// Activates a one-off manual license key (NAEC-XXXX-...) for this machine.
     /// </summary>
     public async Task<SyncResult> ActivateKeyAsync(string licenseKey, CancellationToken cancellationToken = default)
     {
@@ -242,14 +242,14 @@ public class ConnectorApiClient
                 return SyncResult.Failed("Resposta da API não continha o token de concessão.");
             }
 
-            // ATENÇÃO: o lease emitido por /license/activate é de produto único (sem claim
-            // `entitlements`) e NUNCA substitui o Master Entitlements Lease local. Gravá-lo em
-            // `entitlements.lease` apagaria as demais concessões e o gate passaria a negar
-            // tudo. A ativação só libera de fato quando a conta ressincroniza o lease mestre
-            // (fluxo tratado pela janela após este retorno).
-            // O lease de ativação nunca é persistido aqui (produto único), mas o refresh do
-            // JWKS é propagado em `JwksRefreshed`: sem chave em cache, a sincronização mestre
-            // seguinte não terá como verificar a assinatura.
+            // NOTE: the lease issued by /license/activate is single-product (no
+            // `entitlements` claim) and must NEVER replace the local Master Entitlements Lease. Writing it to
+            // `entitlements.lease` would wipe the other grants and the gate would start denying
+            // everything. Activation only takes effect once the account resyncs the master lease
+            // (flow handled by the window after this return).
+            // The activation lease is never persisted here (single product), but the JWKS
+            // refresh is propagated in `JwksRefreshed`: without a cached key, the next master
+            // sync would have no way to verify the signature.
             bool jwksRefreshed = await SigningKeyStore.RefreshAsync(_baseUrl, _httpClient, cancellationToken).ConfigureAwait(false);
 
             var payload = LeaseStorage.ParseJwtPayload(leaseToken);
@@ -271,7 +271,7 @@ public class ConnectorApiClient
     }
 
     /// <summary>
-    /// Valida o lease token atual com a API e emite um lease renovado (heartbeat).
+    /// Validates the current lease token against the API and issues a renewed lease (heartbeat).
     /// </summary>
     public async Task<SyncResult> ValidateHeartbeatAsync(string? leaseToken = null, CancellationToken cancellationToken = default)
     {
@@ -296,8 +296,8 @@ public class ConnectorApiClient
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
 
-        // Estado das chaves de verificação para propagar no resultado. Sem lease renovado
-        // nada é persistido nem atualizado, então ambos permanecem no estado pleno.
+        // Verification-key state to propagate in the result. With no renewed lease,
+        // nothing is persisted or updated, so both stay in the healthy state.
         bool keysVerified = true;
         bool jwksRefreshed = true;
 
@@ -314,7 +314,7 @@ public class ConnectorApiClient
             using var doc = JsonDocument.Parse(responseBody);
             var root = doc.RootElement;
 
-            // A API responde `valid: false` quando a concessão não vale mais nesta máquina.
+            // The API answers `valid: false` when the grant is no longer valid on this machine.
             if (root.TryGetProperty("valid", out var validElem) &&
                 validElem.ValueKind == JsonValueKind.False)
             {
@@ -326,8 +326,8 @@ public class ConnectorApiClient
             {
                 jwksRefreshed = await SigningKeyStore.RefreshAsync(_baseUrl, _httpClient, cancellationToken).ConfigureAwait(false);
 
-                // M1 (mesma política do sync): assinatura + scope + mid verificadas ANTES de
-                // sobrescrever o lease local; rejeição preserva o lease anterior intacto.
+                // M1 (same sync policy): signature + scope + mid verified BEFORE
+                // overwriting the local lease; rejection preserves the previous lease intact.
                 LeaseVerdict verdict = VerifyLeaseBeforeSave(renewedToken, out string? verdictReason);
                 if (verdict == LeaseVerdict.Rejected)
                 {
@@ -344,8 +344,8 @@ public class ConnectorApiClient
                 keysVerified = verdict == LeaseVerdict.Verified;
             }
 
-            // A resposta pode trazer status granulares mais frescos que o token local
-            // (ex.: `seat_released`); quando presente, ela tem prioridade sobre o payload.
+            // The response may carry fresher granular statuses than the local token
+            // (e.g. `seat_released`); when present, it takes priority over the payload.
             var entitlements = ParseEntitlements(root) ?? LeaseStorage.ParseJwtPayload(token)?.Entitlements
                 ?? new List<EntitlementItem>();
             int activeCount = entitlements.FindAll(e => e.IsActive()).Count;
@@ -369,7 +369,7 @@ public class ConnectorApiClient
     }
 
     /// <summary>
-    /// Desativa um assento associado a esta máquina.
+    /// Deactivates a seat bound to this machine.
     /// </summary>
     public async Task<bool> DeactivateLicenseAsync(string licenseKey, CancellationToken cancellationToken = default)
     {
@@ -394,44 +394,44 @@ public class ConnectorApiClient
     }
 
     /// <summary>
-    /// Veredito da verificação de um lease recebido da API <b>antes</b> de persisti-lo.
+    /// Pre-persist verdict for a lease received from the API <b>before</b> persisting it.
     /// </summary>
     private enum LeaseVerdict
     {
-        /// <summary>Assinatura, scope e mid conferem: pode ser salvo como verificado.</summary>
+        /// <summary>Signature, scope, and mid check out: may be saved as verified.</summary>
         Verified,
 
-        /// <summary>Sem chave disponível para conferir a assinatura: salva apenas com aviso de "não verificado".</summary>
+        /// <summary>No key available to check the signature: saves only with an "unverified" warning.</summary>
         Unverifiable,
 
-        /// <summary>Não passou na verificação: jamais pode tocar o disco (modo fechado).</summary>
+        /// <summary>Failed verification: must never touch disk (fail-closed).</summary>
         Rejected,
     }
 
     /// <summary>
-    /// Verifica um lease recebido da API ANTES de persisti-lo: assinatura Ed25519 (com a
-    /// chave disponível), <c>scope</c> <c>master-lease</c> e amarração de hardware
-    /// (<c>mid</c>) desta máquina. Nenhuma etapa confia nas anteriores: qualquer falha
-    /// impede a gravação e mantém o lease anterior intacto.
+    /// Verifies a lease received from the API BEFORE persisting it: Ed25519 signature (with the
+    /// available key), <c>scope</c> <c>master-lease</c>, and hardware binding
+    /// (<c>mid</c>) to this machine. No step trusts the earlier ones: any failure
+    /// blocks the write and keeps the previous lease intact.
     /// </summary>
-    /// <param name="leaseToken">Lease JWT retornado pela API.</param>
-    /// <param name="reason">Motivo legível para log quando o desfecho é <see cref="LeaseVerdict.Rejected"/> (nunca exibir ao usuário).</param>
+    /// <param name="leaseToken">Lease JWT returned by the API.</param>
+    /// <param name="reason">Human-readable reason for logging when the outcome is <see cref="LeaseVerdict.Rejected"/> (never shown to the user).</param>
     /// <returns>
-    /// <see cref="LeaseVerdict.Verified"/> (tudo confere), <see cref="LeaseVerdict.Unverifiable"/>
-    /// (sem chave disponível — gravar somente com aviso) ou <see cref="LeaseVerdict.Rejected"/>.
+    /// <see cref="LeaseVerdict.Verified"/> (all checks out), <see cref="LeaseVerdict.Unverifiable"/>
+    /// (no key available — persist only with a warning), or <see cref="LeaseVerdict.Rejected"/>.
     /// </returns>
     private static LeaseVerdict VerifyLeaseBeforeSave(string leaseToken, out string? reason)
     {
-        // 1. Assinatura primeiro: sem ela nenhum claim merece confiança. A ausência de chave
-        //    não é rejeição — é impossibilidade de verificar (o chamador propaga "não verificado").
+        // 1. Signature first: without it no claim deserves trust. A missing key
+        //    is not rejection — it is inability to verify (the caller propagates "unverified").
         LeaseSignatureVerifier.VerificationOutcome outcome = LeaseSignatureVerifier.Evaluate(leaseToken, out reason);
         if (outcome == LeaseSignatureVerifier.VerificationOutcome.Rejected)
         {
             return LeaseVerdict.Rejected;
         }
 
-        // 2. Claims estruturais: verificáveis mesmo sem chave (não dependem de criptografia).
-        //    Motivos fixos para o log — nunca ecoar claims de origem desconhecida.
+        // 2. Structural claims: verifiable even without a key (no crypto involved).
+        //    Fixed reasons for the log — never echo claims of unknown origin.
         var payload = LeaseStorage.ParseJwtPayload(leaseToken);
         if (payload == null)
         {
@@ -463,8 +463,8 @@ public class ConnectorApiClient
     }
 
     /// <summary>
-    /// Converte o array <c>entitlements</c> da resposta, quando presente, ou retorna
-    /// <c>null</c> para que o chamador use o payload do lease local como alternativa.
+    /// Converts the response <c>entitlements</c> array when present, or returns
+    /// <c>null</c> so the caller falls back to the local lease payload.
     /// </summary>
     private static List<EntitlementItem>? ParseEntitlements(JsonElement root)
     {
@@ -485,13 +485,13 @@ public class ConnectorApiClient
     }
 
     /// <summary>
-    /// Mapeia a resposta de erro da API — formato real
-    /// <c>{ error: true, status, type, code, message }</c> — para uma mensagem amigável
-    /// em linguagem de usuário. Prioridade: código estável mapeado → mensagem do servidor
-    /// → código cru → status HTTP. Nunca lança: corpo não-JSON cai no fallback por status.
+    /// Maps the API error response — real format
+    /// <c>{ error: true, status, type, code, message }</c> — to a friendly
+    /// user-language message. Priority: mapped stable code → server message
+    /// → raw code → HTTP status. Never throws: a non-JSON body falls through to the status fallback.
     /// </summary>
-    /// <param name="responseBody">Corpo JSON (ou texto) da resposta de erro.</param>
-    /// <param name="statusCode">Status HTTP da resposta.</param>
+    /// <param name="responseBody">JSON (or text) body of the error response.</param>
+    /// <param name="statusCode">HTTP status of the response.</param>
     private static string ParseApiErrorMessage(string responseBody, int statusCode)
     {
         string? code = null;
@@ -508,7 +508,7 @@ public class ConnectorApiClient
                     code = codeElem.GetString();
                 }
 
-                // `error` é booleano no contrato; só o `message` traz texto legível.
+                // `error` is a boolean in the contract; only `message` carries readable text.
                 if (doc.RootElement.TryGetProperty("message", out var msgElem) &&
                     msgElem.ValueKind == JsonValueKind.String)
                 {
@@ -518,7 +518,7 @@ public class ConnectorApiClient
         }
         catch (JsonException)
         {
-            // Corpo não é JSON (proxy/gateway): segue pelo status HTTP.
+            // Non-JSON body (proxy/gateway): fall through to the HTTP status.
         }
 
         string? mapped = code switch

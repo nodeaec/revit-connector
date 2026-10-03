@@ -5,53 +5,53 @@ using System.Linq;
 namespace NodeAec.Connector.UI;
 
 /// <summary>
-/// Ação planejada para os dois botões pequenos empilhados do painel "Conector"
-/// (M7): traduz o conjunto de nomes já presentes no painel em um comando único.
+/// Planned action for the two small stacked buttons of the "Conector" panel
+/// (M7): translates the set of names already on the panel into a single command.
 /// </summary>
 internal enum StackedInsertion
 {
-    /// <summary>Os dois já existem — nada a fazer (idempotência).</summary>
+    /// <summary>Both already exist — nothing to do (idempotency).</summary>
     None,
 
-    /// <summary>Nenhum existe — empilhar os dois com <c>AddStackedItems</c>.</summary>
+    /// <summary>Neither exists — stack both with <c>AddStackedItems</c>.</summary>
     StackBoth,
 
-    /// <summary>Somente o primeiro falta — adicioná-lo avulso.</summary>
+    /// <summary>Only the first is missing — add it standalone.</summary>
     AddFirstOnly,
 
-    /// <summary>Somente o segundo falta — adicioná-lo avulso.</summary>
+    /// <summary>Only the second is missing — add it standalone.</summary>
     AddSecondOnly,
 }
 
 /// <summary>
-/// Decisões puras de idempotência da Ribbon (M7): quais botões adicionar, dados os itens
-/// já presentes no painel. Sem tipos do Revit/WPF para que rodem no projeto de testes
-/// headless — <c>App.AddButtonIfMissing</c>/<c>AddStackedButtonsIfMissing</c> consomem
-/// apenas o resultado aqui e executam os comandos de UI.
+/// Pure ribbon idempotency decisions (M7): which buttons to add given the items
+/// already on the panel. No Revit/WPF types so they run in the headless test
+/// project — <c>App.AddButtonIfMissing</c>/<c>AddStackedButtonsIfMissing</c> consume
+/// only the result here and execute the UI commands.
 /// </summary>
 internal static class RibbonDecisions
 {
     /// <summary>
-    /// Verifica presença de um nome no painel com a mesma semântica do Ribbon
-    /// (<see cref="StringComparison.OrdinalIgnoreCase"/>), usada nos testes de idempotência.
+    /// Checks for a name on the panel with the same ribbon semantics
+    /// (<see cref="StringComparison.OrdinalIgnoreCase"/>), used in idempotency tests.
     /// </summary>
-    /// <param name="existingNames">Nomes dos itens já no painel.</param>
-    /// <param name="candidate">Nome procurado.</param>
-    /// <returns><c>true</c> quando já existe (não deve ser recriado).</returns>
+    /// <param name="existingNames">Names of the items already on the panel.</param>
+    /// <param name="candidate">Name being looked up.</param>
+    /// <returns><c>true</c> when it already exists (must not be recreated).</returns>
     internal static bool ContainsName(IEnumerable<string> existingNames, string candidate)
     {
         return existingNames.Any(name => string.Equals(name, candidate, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
-    /// Planeja a inserção dos dois botões empilhados: ambos ausentes → empilhar;
-    /// apenas um ausente → adicioná-lo avulso; nenhum ausente → nada. A comparação de
-    /// nomes ignora caixa, como o painel do Revit.
+    /// Plans the insertion of the two stacked buttons: both missing → stack;
+    /// only one missing → add it standalone; none missing → nothing. Name
+    /// comparison is case-insensitive, like the Revit panel.
     /// </summary>
-    /// <param name="existingNames">Nomes dos itens já no painel.</param>
-    /// <param name="firstName">Nome do primeiro botão (empilhado).</param>
-    /// <param name="secondName">Nome do segundo botão (empilhado).</param>
-    /// <returns>Comando a executar no painel.</returns>
+    /// <param name="existingNames">Names of the items already on the panel.</param>
+    /// <param name="firstName">First (stacked) button name.</param>
+    /// <param name="secondName">Second (stacked) button name.</param>
+    /// <returns>Command to run on the panel.</returns>
     internal static StackedInsertion PlanStackedInsertion(
         IEnumerable<string> existingNames,
         string firstName,

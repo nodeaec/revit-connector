@@ -3,22 +3,22 @@ using System.Text.Json.Serialization;
 namespace NodeAec.Connector.Models;
 
 /// <summary>
-/// Claims de identidade do token de sessão do usuário emitido pela plataforma
-/// Node.aec (id, email, name). O lease mestre não carrega email/nome — só o id
-/// público em "sub" —, por isso a identidade exibida na UI deve vir do token
-/// de usuário salvo na sessão.
+/// Identity claims of the user session token issued by the Node.aec
+/// platform (id, email, name). The master lease carries no email/name — only the public
+/// id in "sub" — so the identity shown in the UI must come from the
+/// user token saved in the session.
 /// </summary>
 public class UserSessionClaims
 {
-    /// <summary>Identificador público do usuário (14 caracteres Base62).</summary>
+    /// <summary>Public user id (14 Base62 characters).</summary>
     [JsonPropertyName("id")]
     public string? Id { get; set; }
 
-    /// <summary>Email da conta, usado na UI "Minha Conta".</summary>
+    /// <summary>Account email, used in the "Minha Conta" UI.</summary>
     [JsonPropertyName("email")]
     public string? Email { get; set; }
 
-    /// <summary>Nome exibido do usuário.</summary>
+    /// <summary>User display name.</summary>
     [JsonPropertyName("name")]
     public string? Name { get; set; }
 }

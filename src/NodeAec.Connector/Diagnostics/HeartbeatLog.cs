@@ -3,32 +3,32 @@ using NodeAec.Connector.Models;
 namespace NodeAec.Connector.Diagnostics;
 
 /// <summary>
-/// Decisão pura de log do heartbeat de lease (M7/P13): traduz um <see cref="SyncResult"/>
-/// na linha de WARN do log local, ou <c>null</c> quando não há nada a registrar. Todos os
-/// ramos são <b>texto fixo</b>: <see cref="SyncResult.Message"/> pode conter texto cru do
-/// servidor (caminho não mapeado), que a regra de sanitização do log proíbe — a UI é quem
-/// o exibe.
+/// Pure lease-heartbeat logging decision (M7/P13): translates a <see cref="SyncResult"/>
+/// into the local log WARN line, or <c>null</c> when there is nothing to record. All branches
+/// are <b>fixed text</b>: <see cref="SyncResult.Message"/> may contain raw server text
+/// (unmapped path), which the log sanitization rule forbids — the UI is what
+/// displays it.
 /// </summary>
 internal static class HeartbeatLog
 {
     /// <summary>
-    /// Monta a linha de WARN do heartbeat, ou <c>null</c> quando o lease renovou com
-    /// assinatura verificada e JWKS em dia (nada a reportar).
+    /// Builds the heartbeat WARN line, or <c>null</c> when the lease renewed with a
+    /// verified signature and a fresh JWKS (nothing to report).
     /// </summary>
-    /// <param name="result">Resultado da <c>ValidateHeartbeatAsync</c>.</param>
-    /// <returns>Mensagem pronta para <c>ConnectorLog.Write("WARN", …)</c> ou <c>null</c>.</returns>
+    /// <param name="result">Result of <c>ValidateHeartbeatAsync</c>.</param>
+    /// <returns>Message ready for <c>ConnectorLog.Write("WARN", …)</c>, or <c>null</c>.</returns>
     internal static string? WarningMessage(SyncResult result)
     {
         if (!result.Success)
         {
-            // Categoria estável (P13): a mensagem do resultado não entra no log.
+            // Stable category (P13): the result message does not enter the log.
             return "Heartbeat de lease falhou (falha de sincronização).";
         }
 
         if (!result.KeysVerified)
         {
-            // M1: texto fixo e sanitizado (nunca mensagem do servidor) — o lease renovou
-            // sem chave para conferir a assinatura; o gate nega até o JWKS voltar.
+            // M1: fixed, sanitized text (never a server message) — the lease renewed
+            // without a key to check the signature against; the gate denies until the JWKS returns.
             return "Heartbeat renovou o lease sem verificar a assinatura (JWKS indisponível).";
         }
 

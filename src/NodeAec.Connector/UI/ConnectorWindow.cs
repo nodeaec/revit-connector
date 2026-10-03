@@ -17,10 +17,10 @@ using NodeAec.Connector.Storage;
 namespace NodeAec.Connector.UI;
 
 /// <summary>
-/// Janela "Minha Conta" do Node.aec Connector para Autodesk Revit.
-/// Linguagem pensada para arquitetos (sem jargão técnico): entrar, sair e atualizar
-/// licenças. A ativação manual de chaves fica recolhida em um expansor fechado.
-/// Identidade visual segue o light mode da web Node.aec.
+/// "Minha Conta" window of the Node.aec Connector for Autodesk Revit.
+/// Wording aimed at architects (no technical jargon): sign in, sign out, and refresh
+/// licenses. Manual key activation sits collapsed in a closed expander.
+/// Visual identity follows the Node.aec web light mode.
 /// </summary>
 public class ConnectorWindow : Window
 {
@@ -72,10 +72,10 @@ public class ConnectorWindow : Window
         mainScroll.Content = root;
         Content = mainScroll;
 
-        // 1. Cabeçalho
+        // 1. Header
         root.Children.Add(BuildHeader());
 
-        // 2. Cartão da conta (entrar / sair)
+        // 2. Account card (sign in / sign out)
         var accountCard = BuildCard("Sua conta", out var accountContent);
         _txtAccountTitle = new TextBlock
         {
@@ -107,7 +107,7 @@ public class ConnectorWindow : Window
         accountContent.Children.Add(accountButtons);
         root.Children.Add(accountCard);
 
-        // 3. Cartão das licenças neste computador
+        // 3. Licenses-on-this-computer card
         var licenseCard = BuildCard("Neste computador", out var licenseContent);
         _txtLicenseStatus = new TextBlock
         {
@@ -123,7 +123,7 @@ public class ConnectorWindow : Window
         licenseContent.Children.Add(_btnSync);
         root.Children.Add(licenseCard);
 
-        // 4. Ativação manual recolhida (não polui a interface principal)
+        // 4. Collapsed manual activation (keeps the main UI uncluttered)
         var manualExpander = new Expander
         {
             Header = "Tenho uma chave de ativação",
@@ -168,9 +168,9 @@ public class ConnectorWindow : Window
         keyRow.Children.Add(_btnActivateKey);
         manualContent.Children.Add(keyRow);
 
-        // A importação de arquivos .lease fica de fora desta iteração: o formato de
-        // exportação/troca ainda não é um contrato estável e um arquivo de origem
-        // desconhecida seria recusado pelo gate na validação de assinatura.
+        // .lease file import stays out of this iteration: the export/exchange format
+        // is not a stable contract yet, and a file of unknown origin would be
+        // rejected by the gate at signature validation.
         _txtMachineId = new TextBlock
         {
             Text = HardwareId.TryGetMachineId(out string machineId, out _)
@@ -186,7 +186,7 @@ public class ConnectorWindow : Window
         manualExpander.Content = manualContent;
         root.Children.Add(manualExpander);
 
-        // 5. Mensagem de retorno
+        // 5. Feedback message
         _txtFeedback = new TextBlock
         {
             FontSize = 12,
@@ -196,7 +196,7 @@ public class ConnectorWindow : Window
         };
         root.Children.Add(_txtFeedback);
 
-        // 6. Rodapé
+        // 6. Footer
         root.Children.Add(BuildFooter());
 
         RefreshUiFromStorage();
@@ -342,10 +342,10 @@ public class ConnectorWindow : Window
     }
 
     /// <summary>
-    /// Atualiza os contadores de conta/licença a partir do armazenamento local. É chamada
-    /// do construtor e dos blocos <c>finally</c> dos handlers assíncronos, portanto é
-    /// <b>noexcept</b> por contrato (H1): uma exceção daqui escaparia pelo dispatcher do
-    /// WPF como <c>DispatcherUnhandledException</c> e encerraria o processo do Revit.
+    /// Refreshes the account/license counters from local storage. Called from the
+    /// constructor and from the async handlers' <c>finally</c> blocks, so it is
+    /// <b>noexcept</b> by contract (H1): an exception here would escape through the WPF
+    /// dispatcher as a <c>DispatcherUnhandledException</c> and kill the Revit process.
     /// </summary>
     public void RefreshUiFromStorage()
     {
@@ -355,8 +355,8 @@ public class ConnectorWindow : Window
         }
         catch (Exception ex)
         {
-            // Renderização de estado é best-effort: registra a causa e deixa um fallback
-            // estático, sem nunca propagar para o `finally` que nos chama.
+            // State rendering is best-effort: logs the cause and leaves a static
+            // fallback, never propagating into the calling `finally`.
             Diagnostics.ConnectorLog.Write("WARN", $"Falha ao atualizar a UI a partir do armazenamento: {ex.GetType().Name}.");
             try
             {
@@ -365,16 +365,16 @@ public class ConnectorWindow : Window
             }
             catch
             {
-                // Janela possivelmente já descartada: nada mais a reportar daqui.
+                // Window possibly already disposed: nothing left to report from here.
             }
         }
     }
 
-    /// <summary>Corpo de <see cref="RefreshUiFromStorage"/> — separado para que a casca seja a única zona de exceção.</summary>
+    /// <summary>Body of <see cref="RefreshUiFromStorage"/> — split out so the shell is the only exception zone.</summary>
     private void RenderUiFromStorage()
     {
-        // M7: os mapeamentos puros (conta e status) vivem em UiState e são testados
-        // headless; aqui ficam só as atribuições de elementos WPF.
+        // M7: the pure mappings (account and status) live in UiState and are tested
+        // headless; only the WPF element assignments stay here.
         var session = LeaseStorage.LoadSession();
         var account = UiState.Account(session?.Name, session?.Email);
         _txtAccountTitle.Text = account.Title;
@@ -410,8 +410,8 @@ public class ConnectorWindow : Window
 
             if (syncResult.Success)
             {
-                // Identidade exibida vem das claims do token de sessão — o lease mestre
-                // não carrega identidade (apenas `sub` técnico).
+                // Displayed identity comes from the session token claims — the master lease
+                // carries no identity (only the technical `sub`).
                 var userClaims = LeaseStorage.ParseUserSessionClaims(userToken);
 
                 if (!LeaseStorage.SaveSession(userClaims?.Email, userToken, userClaims?.Name))
@@ -420,8 +420,8 @@ public class ConnectorWindow : Window
                 }
                 else
                 {
-                    // M1: exibe o aviso de degradação das chaves quando houver, em vez de
-                    // reportar sucesso puro para um lease que o gate rejeitaria depois.
+                    // M1: surfaces the key-degradation warning when present, instead of
+                    // reporting pure success for a lease the gate would later reject.
                     string? keysWarning = syncResult.VerificationWarning;
                     SetFeedback(
                         keysWarning ?? $"Tudo pronto! {syncResult.GrantedCount} plugin(s) liberado(s) neste computador.",
@@ -508,9 +508,9 @@ public class ConnectorWindow : Window
             {
                 _txtManualKey.Clear();
 
-                // A ativação em si não escreve o lease mestre (token de produto único).
-                // Agora ressincronizamos com a conta para que o lease mestre passe a
-                // conter a chave recém-ativada — sem sessão não há lease mestre a atualizar.
+                // Activation itself does not write the master lease (single-product token).
+                // Now we resync with the account so the master lease picks up the
+                // newly activated key — with no session there is no master lease to refresh.
                 var session = LeaseStorage.LoadSession();
                 if (session.HasValue && !string.IsNullOrWhiteSpace(session.Value.Token))
                 {
@@ -547,7 +547,7 @@ public class ConnectorWindow : Window
 
     private void HandleLogout()
     {
-        // N2: overload com dono — o diálogo fica modal à janela e centrado sobre ela.
+        // N2: owner overload — the dialog stays modal to the window and centered over it.
         var confirm = MessageBox.Show(
             this,
             "Deseja sair da sua conta neste computador?\n\nSeus plugins ficarão bloqueados até o próximo login.",
@@ -557,8 +557,8 @@ public class ConnectorWindow : Window
 
         if (confirm == MessageBoxResult.Yes)
         {
-            // M7: um único primitivo (testado) apaga lease + sessão — sair nunca pode
-            // deixar o lease de produtos para trás.
+            // M7: a single (tested) primitive wipes lease + session — signing out must never
+            // leave the product lease behind.
             LeaseStorage.ClearAll();
             SetFeedback("Você saiu da conta.", UiTheme.TextSecondary);
             RefreshUiFromStorage();
@@ -572,9 +572,9 @@ public class ConnectorWindow : Window
     }
 
     /// <summary>
-    /// Reporta ao usuário uma falha de handler que teria derrubado o dispatcher — texto
-    /// fixo e sanitizado (nome do tipo, nunca conteúdo da mensagem: o log é que recebe o
-    /// detalhe). Nunca lança; usado como callback do <see cref="WindowHandlerGuard"/>.
+    /// Reports to the user a handler failure that would have taken the dispatcher down — fixed,
+    /// sanitized text (type name, never message content: the detail goes to the log).
+    /// Never throws; used as the <see cref="WindowHandlerGuard"/> callback.
     /// </summary>
     private void ReportHandlerError(Exception ex)
     {
@@ -595,7 +595,7 @@ public class ConnectorWindow : Window
         }
         catch (Exception ex)
         {
-            // N3: falha do navegador nunca passa em silêncio — feedback na própria janela.
+            // N3: browser failure never passes silently — feedback in the window itself.
             SetFeedback($"Não foi possível abrir o catálogo ({ex.GetType().Name}).", UiTheme.Accent);
         }
     }
@@ -627,8 +627,8 @@ public class ConnectorWindow : Window
     private static ConnectorWindow? _instance;
 
     /// <summary>
-    /// Abre (ou reativa) a janela única do Conector. Cliques repetidos na Ribbon não
-    /// empilham janelas — cada uma sincroniza e grava armazenamento em paralelo (L11).
+    /// Opens (or reactivates) the single Connector window. Repeated ribbon clicks do not
+    /// stack windows — each one syncs and writes storage in parallel (L11).
     /// </summary>
     public static void Open()
     {

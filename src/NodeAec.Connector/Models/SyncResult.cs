@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace NodeAec.Connector.Models;
 
 /// <summary>
-/// Resultado da operação de sincronização ou renovação do Master Entitlements Lease.
+/// Result of syncing or renewing the Master Entitlements Lease.
 /// </summary>
 public class SyncResult
 {
@@ -17,24 +17,24 @@ public class SyncResult
     public List<EntitlementItem> Entitlements { get; set; } = new();
 
     /// <summary>
-    /// Indica se a assinatura do lease gravado em disco por esta operação foi confirmada
-    /// com uma chave pública disponível (JWKS em cache ou âncora fixa). Assume <c>true</c>
-    /// quando a operação não gravou lease novo; caminhos que persistem definem sempre o
-    /// valor real — um lease salvo sem chave disponível sai daqui com <c>false</c>.
+    /// Whether the signature of the lease written to disk by this operation was confirmed
+    /// with an available public key (cached JWKS or pinned anchor). Defaults to <c>true</c>
+    /// when the operation wrote no new lease; persisting paths always set the
+    /// real value — a lease saved with no key available leaves here with <c>false</c>.
     /// </summary>
     public bool KeysVerified { get; set; } = true;
 
     /// <summary>
-    /// Resultado da atualização do cache JWKS (<c>GET /license/jwks</c>) nesta operação.
-    /// <c>false</c> = a renovação das chaves falhou (a verificação pode ter usado o cache
-    /// anterior). Assume <c>true</c> quando nenhuma atualização foi necessária.
+    /// JWKS cache refresh outcome (<c>GET /license/jwks</c>) for this operation.
+    /// <c>false</c> = the key refresh failed (verification may have used the previous
+    /// cache). Defaults to <c>true</c> when no refresh was needed.
     /// </summary>
     public bool JwksRefreshed { get; set; } = true;
 
     /// <summary>
-    /// Aviso pronto para exibição quando a operação ficou degradada em relação às chaves
-    /// de verificação (lease salvo sem assinatura verificada, ou JWKS não renovado).
-    /// <c>null</c> = sem degradação; a UI então mostra a mensagem de sucesso padrão.
+    /// Display-ready warning for when the operation degraded on verification keys (lease
+    /// saved without a verified signature, or JWKS not refreshed).
+    /// <c>null</c> = no degradation; the UI then shows the default success message.
     /// </summary>
     public string? VerificationWarning =>
         !KeysVerified

@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 namespace NodeAec.Connector.Models;
 
 /// <summary>
-/// Estrutura de claims do Master Entitlements Lease JWT emitido pela plataforma Node.aec.
+/// Claim layout of the Master Entitlements Lease JWT issued by the Node.aec platform.
 /// </summary>
 public class MasterLeasePayload
 {
@@ -23,9 +23,9 @@ public class MasterLeasePayload
     public string? Scope { get; set; }
 
     /// <summary>
-    /// Audiência do token (<c>aud</c>): para quem o lease foi emitido. Fica como
-    /// <see cref="JsonElement"/> para aceitar string única ou array (RFC 7519) sem
-    /// derrubar a desserialização inteira do payload quando o formato difere.
+    /// Token audience (<c>aud</c>): whom the lease was issued for. Kept as
+    /// <see cref="JsonElement"/> to accept a single string or an array (RFC 7519) without
+    /// breaking the whole payload deserialization when the shape differs.
     /// </summary>
     [JsonPropertyName("aud")]
     public JsonElement? Aud { get; set; }
@@ -40,10 +40,10 @@ public class MasterLeasePayload
     public List<EntitlementItem> Entitlements { get; set; } = new();
 
     /// <summary>
-    /// Instante de expiração (<c>exp</c>). Segundos unix fora da faixa plausível
-    /// (0 = ausente, negativo, ou ≥ 2100-01-01) resultam em <c>null</c> em vez de
-    /// lançar <see cref="ArgumentOutOfRangeException"/> — <c>FromUnixTimeSeconds</c>
-    /// só é chamado após o teste de faixa (M5).
+    /// Expiration instant (<c>exp</c>). Unix seconds outside the plausible range
+    /// (0 = missing, negative, or ≥ 2100-01-01) yield <c>null</c> instead of
+    /// throwing <see cref="ArgumentOutOfRangeException"/> — <c>FromUnixTimeSeconds</c>
+    /// is only called after the range test (M5).
     /// </summary>
     [JsonIgnore]
     public DateTimeOffset? ExpiresAt => IsPlausibleUnixSeconds(Exp)
@@ -51,7 +51,7 @@ public class MasterLeasePayload
         : null;
 
     /// <summary>
-    /// Instante de emissão (<c>iat</c>), com a mesma faixa segura de <see cref="ExpiresAt"/>.
+    /// Issuance instant (<c>iat</c>), with the same safe range as <see cref="ExpiresAt"/>.
     /// </summary>
     [JsonIgnore]
     public DateTimeOffset? IssuedAt => IsPlausibleUnixSeconds(Iat)
@@ -59,19 +59,19 @@ public class MasterLeasePayload
         : null;
 
     /// <summary>
-    /// Prazo de tolerância offline. Sem <c>exp</c> plausível o lease é tratado como
-    /// expirado (modo fechado): um lease assinado legítimo sempre traz <c>exp</c> dentro
-    /// da faixa, então prazo ilegível nunca libera.
+    /// Offline grace period. With no plausible <c>exp</c> the lease is treated as
+    /// expired (fail-closed): a legitimately signed lease always carries an in-range <c>exp</c>,
+    /// so an unreadable deadline never grants access.
     /// </summary>
     [JsonIgnore]
     public bool IsExpired => ExpiresAt is null || ExpiresAt < DateTimeOffset.UtcNow;
 
-    /// <summary>Limite superior de segundos unix plausíveis: 01/01/2100.</summary>
+    /// <summary>Plausible unix-seconds upper bound: 01/01/2100.</summary>
     private const long MaxPlausibleUnixSeconds = 4102444800;
 
     /// <summary>
-    /// Segundos unix válidos para claims de data: estritamente positivo (0 = ausente)
-    /// e antes de 01/01/2100 (relógio adulterado / valor corrompido).
+    /// Unix seconds valid for date claims: strictly positive (0 = missing)
+    /// and before 01/01/2100 (tampered clock / corrupted value).
     /// </summary>
     private static bool IsPlausibleUnixSeconds(long seconds)
         => seconds > 0 && seconds < MaxPlausibleUnixSeconds;

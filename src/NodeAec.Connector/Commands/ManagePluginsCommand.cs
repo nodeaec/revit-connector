@@ -6,8 +6,8 @@ using NodeAec.Connector.UI;
 namespace NodeAec.Connector.Commands;
 
 /// <summary>
-/// Comando Revit para abrir a janela "Meus Plugins" com os produtos vinculados à conta.
-/// Fica indisponível na Ribbon até o login (ver <see cref="RequiresLoginAvailability"/>).
+/// Revit command that opens the "Meus Plugins" window with the account-linked products.
+/// Unavailable on the ribbon until login (see <see cref="RequiresLoginAvailability"/>).
 /// </summary>
 [Transaction(TransactionMode.Manual)]
 public class ManagePluginsCommand : IExternalCommand

@@ -5,19 +5,19 @@ using NodeAec.Connector.Diagnostics;
 namespace NodeAec.Connector.UI;
 
 /// <summary>
-/// Ponto de entrada único para handlers de janela (delegates de clique e métodos
-/// <c>async void</c>). Qualquer exceção que escape de um handler é engolida e registrada
-/// aqui: no WPF, a exceção de um <c>async void</c> é reapresentada no dispatcher como
-/// <c>DispatcherUnhandledException</c> — e dentro do Revit isso encerra o processo
-/// hospedeiro, não apenas o add-in. Handlers de UI devem ser noexcept de topo.
+/// Single entry point for window handlers (click delegates and
+/// <c>async void</c> methods). Any exception escaping a handler is swallowed and logged
+/// here: in WPF, an <c>async void</c> exception is re-raised on the dispatcher as a
+/// <c>DispatcherUnhandledException</c> — and inside Revit that ends the host
+/// process, not just the add-in. UI handlers must be top-level noexcept.
 /// </summary>
 internal static class WindowHandlerGuard
 {
     /// <summary>
-    /// Executa um handler assíncrono da janela com captura de exceções de topo.
+    /// Runs an async window handler with top-level exception capture.
     /// </summary>
-    /// <param name="action">Handler a executar.</param>
-    /// <param name="onError">Callback (no dispatcher) para reportar a falha à UI de forma segura; nunca propaga.</param>
+    /// <param name="action">Handler to run.</param>
+    /// <param name="onError">Callback (on the dispatcher) to safely report the failure to the UI; never propagates.</param>
     public static async Task RunAsync(Func<Task> action, Action<Exception> onError)
     {
         try
@@ -31,10 +31,10 @@ internal static class WindowHandlerGuard
     }
 
     /// <summary>
-    /// Executa um handler síncrono da janela com captura de exceções de topo.
+    /// Runs a sync window handler with top-level exception capture.
     /// </summary>
-    /// <param name="action">Handler a executar.</param>
-    /// <param name="onError">Callback (no dispatcher) para reportar a falha à UI de forma segura; nunca propaga.</param>
+    /// <param name="action">Handler to run.</param>
+    /// <param name="onError">Callback (on the dispatcher) to safely report the failure to the UI; never propagates.</param>
     public static void Run(Action action, Action<Exception> onError)
     {
         try
@@ -48,9 +48,9 @@ internal static class WindowHandlerGuard
     }
 
     /// <summary>
-    /// Registra a falha (texto fixo e sanitizado — nunca conteúdo de exceção em log de
-    /// tokens/PII) e a reporta à UI; o próprio report é protegido para que uma janela já
-    /// descartada jamais repropague a exceção.
+    /// Logs the failure (fixed, sanitized text — never exception content in a token/PII
+    /// log) and reports it to the UI; the report itself is guarded so an already
+    /// disposed window never rethrows the exception.
     /// </summary>
     private static void Report(Exception ex, Action<Exception> onError)
     {
@@ -62,7 +62,7 @@ internal static class WindowHandlerGuard
         }
         catch
         {
-            // UI pode estar descartada (janela fechada); nunca repropagar daqui.
+            // The UI may be disposed (window closed); never rethrow from here.
         }
     }
 }

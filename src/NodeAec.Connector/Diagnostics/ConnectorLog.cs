@@ -6,37 +6,37 @@ using NodeAec.Connector.Storage;
 namespace NodeAec.Connector.Diagnostics;
 
 /// <summary>
-/// Log local sanitizado do Connector (<c>%APPDATA%\NodeAec\connector.log</c>).
-/// Serve para tornar visíveis falhas que antes eram engolidas por <c>catch</c> vazios.
-/// Regra de ouro (ver skill de segurança): chamadas NUNCA devem incluir tokens JWT,
-/// chaves de licença, e-mails ou identificadores de hardware — apenas tipo de erro
-/// e mensagem legível já pronta para exibição. Ao ultrapassar 512 KB o arquivo rotaciona
-/// para <c>connector.log.1</c> (histórico preservado, não truncado) e nenhuma falha de
-/// escrita pode derrubar o chamador.
+/// Sanitized local Connector log (<c>%APPDATA%\NodeAec\connector.log</c>).
+/// Makes visible failures that used to be swallowed by empty <c>catch</c> blocks.
+/// Golden rule (see security skill): calls must NEVER include JWT tokens,
+/// license keys, emails, or hardware identifiers — only error type
+/// and an already display-ready readable message. Past 512 KB the file rotates
+/// to <c>connector.log.1</c> (history preserved, not truncated) and no write
+/// failure may take the caller down.
 /// </summary>
 public static class ConnectorLog
 {
-    /// <summary>Nome do arquivo de log no diretório base do Connector.</summary>
+    /// <summary>Log file name in the Connector base directory.</summary>
     public const string LogFileName = "connector.log";
 
-    /// <summary>Tamanho máximo (bytes) antes da rotação.</summary>
+    /// <summary>Maximum size (bytes) before rotation.</summary>
     private const long MaxBytes = 512 * 1024;
 
     private static readonly object Sync = new();
 
-    // Writer cacheado do arquivo ativo: reabre só quando o caminho muda (testes trocam
-    // a base via SetCustomBasePath), em vez de abrir/fechar o arquivo a cada linha.
+    // Cached writer for the active file: reopens only when the path changes (tests swap
+    // the base via SetCustomBasePath) instead of opening/closing the file on every line.
     private static StreamWriter? _writer;
     private static string? _writerPath;
 
-    /// <summary>Retorna o caminho absoluto do arquivo de log.</summary>
+    /// <summary>Returns the absolute log file path.</summary>
     public static string GetLogFilePath() => Path.Combine(LeaseStorage.GetBaseDirectory(), LogFileName);
 
     /// <summary>
-    /// Registra uma linha <c>ISO8601 [NÍVEL] mensagem</c> no log local.
+    /// Logs an <c>ISO8601 [LEVEL] message</c> line to the local log.
     /// </summary>
-    /// <param name="level">Nível curto: <c>INFO</c>, <c>WARN</c> ou <c>ERROR</c>.</param>
-    /// <param name="message">Mensagem já sanitizada (sem tokens, chaves ou dados pessoais).</param>
+    /// <param name="level">Short level: <c>INFO</c>, <c>WARN</c>, or <c>ERROR</c>.</param>
+    /// <param name="message">Already-sanitized message (no tokens, keys, or personal data).</param>
     public static void Write(string level, string message)
     {
         lock (Sync)
@@ -57,17 +57,17 @@ public static class ConnectorLog
             }
             catch
             {
-                // Diagnóstico nunca pode quebrar o fluxo principal: solta o writer para
-                // a próxima escrita tentar reabrir do zero.
+                // Diagnostics must never break the main flow: drops the writer so the
+                // next write retries from scratch.
                 CloseWriter();
             }
         }
     }
 
     /// <summary>
-    /// Abre (ou reabre) o writer do caminho indicado. <c>FileShare.ReadWrite|Delete</c>
-    /// permite que outras instâncias do Revit appendem ao mesmo arquivo e que o arquivo
-    /// seja movido/apagado mesmo com o handle aberto.
+    /// Opens (or reopens) the writer for the given path. <c>FileShare.ReadWrite|Delete</c>
+    /// lets other Revit instances append to the same file and the file
+    /// be moved/deleted even with the handle open.
     /// </summary>
     private static StreamWriter OpenWriter(string path)
     {
@@ -79,7 +79,7 @@ public static class ConnectorLog
         return writer;
     }
 
-    /// <summary>Fecha o writer atual (best-effort) e limpa o cache.</summary>
+    /// <summary>Closes the current writer (best-effort) and clears the cache.</summary>
     private static void CloseWriter()
     {
         try
@@ -88,7 +88,7 @@ public static class ConnectorLog
         }
         catch
         {
-            // Liberação de handle não pode lançar para fora.
+            // Releasing a handle must not throw outward.
         }
 
         _writer = null;
@@ -96,8 +96,8 @@ public static class ConnectorLog
     }
 
     /// <summary>
-    /// Rotaciona o log quando ele cresce além do limite: o arquivo atual vira
-    /// <c>connector.log.1</c> (o backup anterior é descartado) em vez de ser truncado.
+    /// Rotates the log once it grows past the limit: the current file becomes
+    /// <c>connector.log.1</c> (the previous backup is discarded) instead of being truncated.
     /// </summary>
     private static void RotateIfNeeded(string path)
     {
@@ -116,7 +116,7 @@ public static class ConnectorLog
         }
         catch
         {
-            // Ignora falhas de rotação; a próxima escrita tenta de novo.
+            // Rotation failures are ignored; the next write retries.
         }
     }
 }

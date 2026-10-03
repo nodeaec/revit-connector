@@ -8,7 +8,7 @@ using NodeAec.Connector.Config;
 namespace NodeAec.Connector.Commands;
 
 /// <summary>
-/// Comando Revit para abrir o catálogo oficial de soluções BIM no navegador.
+/// Revit command that opens the official BIM solutions catalog in the browser.
 /// </summary>
 [Transaction(TransactionMode.Manual)]
 public class ExploreCatalogCommand : IExternalCommand

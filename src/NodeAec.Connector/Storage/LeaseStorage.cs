@@ -9,15 +9,15 @@ using NodeAec.Connector.Models;
 namespace NodeAec.Connector.Storage;
 
 /// <summary>
-/// Gerencia a persistência local do Master Entitlements Lease (%APPDATA%\NodeAec\entitlements.lease)
-/// criptografado via Windows DPAPI (DataProtectionScope.CurrentUser).
+/// Manages local persistence of the Master Entitlements Lease (%APPDATA%\NodeAec\entitlements.lease)
+/// encrypted via Windows DPAPI (DataProtectionScope.CurrentUser).
 /// </summary>
 public static class LeaseStorage
 {
     private static string? _customBasePath;
 
     /// <summary>
-    /// Permite injetar um diretório base alternativo (útil para testes unitários isolados).
+    /// Allows injecting an alternate base directory (useful for isolated unit tests).
     /// </summary>
     public static void SetCustomBasePath(string? path)
     {
@@ -45,14 +45,14 @@ public static class LeaseStorage
     public static string GetSessionFilePath() => Path.Combine(GetBaseDirectory(), "session.json");
 
     /// <summary>
-    /// Salva o token JWT do lease mestre criptografado com DPAPI.
-    /// Em Windows, a falha do DPAPI <b>não</b> degrada para texto puro: nada é gravado e o
-    /// método retorna <c>false</c> (modo fechado). Em sistemas não-Windows (apenas
-    /// desenvolvimento/testes — o Revit é Windows-only) grava texto puro.
-    /// A gravação é atômica (arquivo temporário + troca) para nunca deixar lease pela metade.
+    /// Saves the master lease JWT encrypted with DPAPI.
+    /// On Windows, a DPAPI failure does <b>not</b> degrade to plaintext: nothing is written and the
+    /// method returns <c>false</c> (fail-closed). On non-Windows systems (development/testing only —
+    /// Revit is Windows-only) it writes plaintext.
+    /// Writes are atomic (temp file + swap) so a half-written lease is never left behind.
     /// </summary>
-    /// <param name="jwtToken">Token JWT do lease mestre.</param>
-    /// <returns><c>true</c> quando o lease foi persistido com segurança.</returns>
+    /// <param name="jwtToken">Master lease JWT token.</param>
+    /// <returns><c>true</c> when the lease was persisted safely.</returns>
     public static bool SaveMasterLease(string jwtToken)
     {
         if (string.IsNullOrWhiteSpace(jwtToken)) return false;
@@ -77,9 +77,9 @@ public static class LeaseStorage
     }
 
     /// <summary>
-    /// Lê e descriptografa o token JWT do lease mestre local.
-    /// Em Windows, um arquivo que não descriptografa é tratado como corrompido/alheio e
-    /// descartado (retorna <c>null</c>) em vez de ser aceito como texto puro.
+    /// Reads and decrypts the local master lease JWT.
+    /// On Windows, a file that does not decrypt is treated as corrupt/foreign and
+    /// discarded (returns <c>null</c>) instead of being accepted as plaintext.
     /// </summary>
     public static string? LoadMasterLease()
     {
@@ -106,7 +106,7 @@ public static class LeaseStorage
     }
 
     /// <summary>
-    /// Remove o lease local (desativação / logout).
+    /// Removes the local lease (deactivation / logout).
     /// </summary>
     public static void ClearMasterLease()
     {
@@ -118,13 +118,13 @@ public static class LeaseStorage
     }
 
     /// <summary>
-    /// Salva dados de sessão de usuário (nome, email, token) criptografados com DPAPI,
-    /// sem degradação para texto puro em Windows. Gravação atômica.
+    /// Saves user session data (name, email, token) encrypted with DPAPI,
+    /// with no plaintext fallback on Windows. Atomic write.
     /// </summary>
-    /// <param name="userEmail">Email da conta (exibição).</param>
-    /// <param name="userToken">Token JWT de sessão do usuário.</param>
-    /// <param name="userName">Nome exibido do usuário, quando disponível.</param>
-    /// <returns><c>true</c> quando a sessão foi persistida com segurança.</returns>
+    /// <param name="userEmail">Account email (display).</param>
+    /// <param name="userToken">User session JWT token.</param>
+    /// <param name="userName">User display name, when available.</param>
+    /// <returns><c>true</c> when the session was persisted safely.</returns>
     public static bool SaveSession(string? userEmail, string? userToken, string? userName = null)
     {
         var path = GetSessionFilePath();
@@ -155,11 +155,10 @@ public static class LeaseStorage
     }
 
     /// <summary>
-    /// Lê a sessão do usuário salva (nome, email, token). Em Windows, conteúdo que não
-    /// descriptografa é descartado (retorna <c>null</c> — o usuário apenas entra novamente).
-    /// Sessões antigas gravaram o id público no campo "email"; quando o token de usuário
-    /// salvo contém as claims reais, elas têm prioridade e corrigem o valor armazenado
-    /// silenciosamente.
+    /// Reads the saved user session (name, email, token). On Windows, content that fails
+    /// to decrypt is discarded (returns <c>null</c> — the user simply signs in again).
+    /// Older sessions stored the public id in the "email" field; when the saved user token
+    /// carries the real claims, they take priority and silently correct the stored value.
     /// </summary>
     public static (string? Name, string? Email, string? Token)? LoadSession()
     {
@@ -199,7 +198,7 @@ public static class LeaseStorage
     }
 
     /// <summary>
-    /// Limpa a sessão do usuário.
+    /// Clears the user session.
     /// </summary>
     public static void ClearSession()
     {
@@ -211,9 +210,9 @@ public static class LeaseStorage
     }
 
     /// <summary>
-    /// Apaga o estado de conta inteiro — lease mestre + sessão. É o primitivo do logout da
-    /// <c>ConnectorWindow</c>: sair da conta nunca pode deixar o lease de produtos para
-    /// trás, senão o gate continuaria valendo com a sessão encerrada (M7 — coberto por teste).
+    /// Wipes the whole account state — master lease + session. It is the logout primitive of
+    /// <c>ConnectorWindow</c>: signing out must never leave the product lease
+    /// behind, or the gate would keep validating with the session closed (M7 — covered by tests).
     /// </summary>
     public static void ClearAll()
     {
@@ -222,9 +221,9 @@ public static class LeaseStorage
     }
 
     /// <summary>
-    /// Decodifica o payload de um token JWT <b>sem</b> verificar assinatura criptográfica.
-    /// Uso restrito a exibição (saudação, datas) — decisões de licença passam
-    /// obrigatoriamente por <c>Gate.NodeAecGate</c>, que verifica a assinatura Ed25519.
+    /// Decodes a JWT payload <b>without</b> verifying the cryptographic signature.
+    /// Restricted to display use (greeting, dates) — licensing decisions go
+    /// mandatorily through <c>Gate.NodeAecGate</c>, which verifies the Ed25519 signature.
     /// </summary>
     public static MasterLeasePayload? ParseJwtPayload(string token)
     {
@@ -242,10 +241,10 @@ public static class LeaseStorage
     }
 
     /// <summary>
-    /// Decodifica as claims de identidade (id, email, name) do token de sessão do usuário,
-    /// sem verificar assinatura (material de exibição vindo do próprio loopback).
-    /// Retorna <c>null</c> para tokens ausentes, malformados ou que não carreguem essas
-    /// claims (ex.: o lease mestre, que só traz o id técnico em <c>sub</c>).
+    /// Decodes the identity claims (id, email, name) of the user session token,
+    /// without verifying the signature (display material coming from the loopback itself).
+    /// Returns <c>null</c> for missing/malformed tokens or ones not carrying those
+    /// claims (e.g. the master lease, which only has the technical id in <c>sub</c>).
     /// </summary>
     public static UserSessionClaims? ParseUserSessionClaims(string? token)
     {
@@ -267,8 +266,8 @@ public static class LeaseStorage
     }
 
     /// <summary>
-    /// Retorna o payload (segmento base64url do meio) de um JWT como JSON,
-    /// ou <c>null</c> quando o token não é um JWT utilizável.
+    /// Returns the payload (middle base64url segment) of a JWT as JSON,
+    /// or <c>null</c> when the token is not a usable JWT.
     /// </summary>
     private static string? DecodeJwtPayloadJson(string? token)
     {
@@ -295,13 +294,13 @@ public static class LeaseStorage
     }
 
     /// <summary>
-    /// Protege bytes com DPAPI (CurrentUser) em Windows. Fora de Windows apenas
-    /// repassa o texto puro (ambiente de desenvolvimento/teste; o Revit é Windows-only).
+    /// Protects bytes with DPAPI (CurrentUser) on Windows. Off Windows it just
+    /// passes the plaintext through (development/test environment; Revit is Windows-only).
     /// </summary>
-    /// <param name="plain">Bytes originais.</param>
-    /// <param name="protectedBytes">Bytes a gravar quando o retorno é <c>true</c>.</param>
-    /// <param name="reason">Motivo legível da falha quando o retorno é <c>false</c>.</param>
-    /// <returns><c>false</c> somente quando o DPAPI falhou em Windows (nunca grava puro lá).</returns>
+    /// <param name="plain">Original bytes.</param>
+    /// <param name="protectedBytes">Bytes to write when the return is <c>true</c>.</param>
+    /// <param name="reason">Human-readable failure reason when the return is <c>false</c>.</param>
+    /// <returns><c>false</c> only when DPAPI failed on Windows (never writes plaintext there).</returns>
     private static bool TryProtect(byte[] plain, out byte[] protectedBytes, out string? reason)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -326,12 +325,12 @@ public static class LeaseStorage
     }
 
     /// <summary>
-    /// Desprotege bytes gravados. Em Windows, conteúdo que não descriptografa é rejeitado
-    /// (<c>false</c>) — nunca interpretado como texto puro. Fora de Windows, texto puro.
+    /// Unprotects written bytes. On Windows, content that fails to decrypt is rejected
+    /// (<c>false</c>) — never interpreted as plaintext. Off Windows, plaintext.
     /// </summary>
-    /// <param name="stored">Bytes lidos do disco.</param>
-    /// <param name="plain">Bytes originais quando o retorno é <c>true</c>.</param>
-    /// <param name="reason">Motivo legível da falha quando o retorno é <c>false</c>.</param>
+    /// <param name="stored">Bytes read from disk.</param>
+    /// <param name="plain">Original bytes when the return is <c>true</c>.</param>
+    /// <param name="reason">Human-readable failure reason when the return is <c>false</c>.</param>
     private static bool TryUnprotect(byte[] stored, out byte[] plain, out string? reason)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -356,33 +355,33 @@ public static class LeaseStorage
     }
 
     /// <summary>
-    /// Lock de processo sobre a gravação atômica. Escritores concorrentes (heartbeat em
-    /// background, sync e login disparados pela UI) atingem os mesmos arquivos: sem a
-    /// trava, um <c>promote</c> no meio da escrita de outro thread deixa o arquivo
-    /// truncado — DPAPI falha ao ler e todos os plugins ficam bloqueados até o próximo
-    /// sync bem-sucedido.
+    /// Per-process lock on atomic writes. Concurrent writers (background heartbeat,
+    /// UI-triggered sync and login) hit the same files: without the
+    /// lock, a <c>promote</c> in the middle of another thread's write leaves the file
+    /// truncated — DPAPI fails reading and every plugin stays blocked until the next
+    /// successful sync.
     /// </summary>
     private static readonly object WriteLock = new();
 
     /// <summary>
-    /// Grava bytes de forma atômica: escreve em um temporário de nome único
-    /// (<c>{path}.{guid}.tmp</c>) no mesmo diretório e promove o arquivo ao destino
-    /// (<c>File.Replace</c> quando já existe, que é um rename atômico em Windows;
-    /// <c>File.Move</c> na primeira gravação), sempre sob <see cref="WriteLock"/>.
-    /// Em sistemas sem <c>File.Replace</c> (FAT32/exFAT/alguns shares) o promote cai para
-    /// apagar+mover, senão toda gravação falharia e a ativação ficaria impossível.
-    /// Evita que uma queda de energia/processo deixe um lease/sessão pela metade no disco
-    /// e que escritores concorrentes corrompam o arquivo um ao outro. Usa apenas APIs
-    /// presentes tanto no .NET Framework 4.8 (Revit 2023/2024) quanto no .NET 8/10.
+    /// Writes bytes atomically: writes to a uniquely named temp file
+    /// (<c>{path}.{guid}.tmp</c>) in the same directory and promotes the file to the destination
+    /// (<c>File.Replace</c> when it already exists, which is an atomic rename on Windows;
+    /// <c>File.Move</c> on first write), always under <see cref="WriteLock"/>.
+    /// On systems without <c>File.Replace</c> (FAT32/exFAT/some shares) promotion falls back to
+    /// delete+move, otherwise every write would fail and activation would be impossible.
+    /// Prevents a power/process crash from leaving a half-written lease/session on disk
+    /// and concurrent writers from corrupting each other's file. Uses only APIs
+    /// present on both .NET Framework 4.8 (Revit 2023/2024) and .NET 8/10.
     /// </summary>
-    /// <param name="path">Arquivo de destino.</param>
-    /// <param name="bytes">Conteúdo a gravar.</param>
+    /// <param name="path">Destination file.</param>
+    /// <param name="bytes">Content to write.</param>
     public static void WriteAllBytesAtomic(string path, byte[] bytes)
     {
         var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
-        // Nome único por gravação: writers concorrentes jamais compartilham o mesmo temp.
+        // Unique name per write: concurrent writers never share the same temp.
         string tmp = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
@@ -398,10 +397,10 @@ public static class LeaseStorage
                     }
                     catch (PlatformNotSupportedException)
                     {
-                        // L4: `File.Replace` não existe em FAT32/exFAT e alguns shares de
-                        // rede. Fallback: apagar + mover sob o WriteLock — nesses sistemas
-                        // de arquivo não há rename atômico de qualquer forma. O finally
-                        // ainda limpa o temp se o mover falhar.
+                        // L4: `File.Replace` does not exist on FAT32/exFAT and some network
+                        // shares. Fallback: delete + move under WriteLock — those filesystems
+                        // have no atomic rename anyway. The finally
+                        // still cleans the temp if the move fails.
                         File.Delete(path);
                         File.Move(tmp, path);
                     }
@@ -414,8 +413,8 @@ public static class LeaseStorage
         }
         finally
         {
-            // Promote bem-sucedido renomeia o temp (ele deixa de existir); qualquer falha
-            // limpa o resíduo aqui. Best-effort: nunca mascarar a exceção original.
+            // A successful promote renames the temp (it stops existing); any failure
+            // cleans the residue here. Best-effort: never mask the original exception.
             try
             {
                 if (File.Exists(tmp)) File.Delete(tmp);

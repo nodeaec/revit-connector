@@ -7,35 +7,35 @@ using Microsoft.Win32;
 namespace NodeAec.Connector.Hardware;
 
 /// <summary>
-/// Provedor canônico do identificador de hardware (Machine ID): SHA-256 do
-/// <c>MachineGuid</c> do Windows, em hex minúsculo de 64 caracteres.
-/// O nome da máquina (<c>Environment.MachineName</c>) NÃO participa do hash — ele é
-/// renomeável pelo usuário e um Machine ID dependente de hostname invalidaria a licença
-/// (e queimaria um assento) a cada rename. Sem <c>MachineGuid</c> legível o provedor
-/// falha fechado: nunca degrada para um identificador mais fraco.
+/// Canonical hardware identifier (Machine ID) provider: SHA-256 of the Windows
+/// <c>MachineGuid</c>, as 64 lowercase hex characters.
+/// The machine name (<c>Environment.MachineName</c>) does NOT feed the hash — it is
+/// user-renamable, and a hostname-dependent Machine ID would invalidate the license
+/// (and burn a seat) on every rename. With no readable <c>MachineGuid</c> the provider
+/// fails closed: it never degrades to a weaker identifier.
 /// </summary>
 public static class HardwareId
 {
     private static string? _cachedMachineId;
 
     /// <summary>
-    /// Leitor do <c>MachineGuid</c> do registro do Windows. Substituível apenas pelos
-    /// testes (mesma assembly): nulo/vazio faz o provedor falhar fechado. A suíte de testes
-    /// roda com paralelismo desabilitado, então trocar o leitor global é seguro.
+    /// Windows registry <c>MachineGuid</c> reader. Replaceable by tests only (same
+    /// assembly): null/empty makes the provider fail closed. The test suite
+    /// runs with parallelism disabled, so swapping the global reader is safe.
     /// </summary>
     internal static Func<string?> MachineGuidReader { get; set; } = ReadMachineGuidFromRegistry;
 
     /// <summary>
-    /// Tenta obter o identificador desta máquina (SHA-256 em hex minúsculo, 64 caracteres).
+    /// Tries to get this machine's identifier (lowercase hex SHA-256, 64 characters).
     /// </summary>
-    /// <param name="machineId">Identificador canônico quando o retorno é <c>true</c>.</param>
-    /// <param name="reason">Motivo legível da indisponibilidade quando o retorno é <c>false</c>.</param>
-    /// <returns><c>true</c> quando o MachineGuid foi lido e o hash derivado.</returns>
+    /// <param name="machineId">Canonical identifier when the return is <c>true</c>.</param>
+    /// <param name="reason">Human-readable unavailability reason when the return is <c>false</c>.</param>
+    /// <returns><c>true</c> when the MachineGuid was read and the hash derived.</returns>
     public static bool TryGetMachineId(out string machineId, out string? reason)
     {
-        // Checagem explícita de nulo/empty (em vez de string.IsNullOrEmpty) porque as
-        // referências do net48 não trazem [NotNullWhen]: sem ela o compilador só enxerga
-        // CS8601 nesse ano.
+        // Explicit null/empty check (instead of string.IsNullOrEmpty) because the
+        // net48 references lack [NotNullWhen]: without it the compiler only sees
+        // CS8601 for that target year.
         string? cached = _cachedMachineId;
         if (cached != null && cached.Length > 0)
         {
@@ -59,24 +59,24 @@ public static class HardwareId
     }
 
     /// <summary>
-    /// Deriva o Machine ID canônico de um <c>MachineGuid</c>: SHA-256 do GUID (aparado) em
-    /// hex minúsculo. O formato de 64 caracteres não pode mudar — é o que os leases
-    /// gravados referenciam no claim <c>mid</c>.
+    /// Derives the canonical Machine ID from a <c>MachineGuid</c>: SHA-256 of the (trimmed) GUID
+    /// in lowercase hex. The 64-character shape cannot change — it is what recorded leases
+    /// reference in the <c>mid</c> claim.
     /// </summary>
-    /// <param name="machineGuid">Valor de <c>HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid</c>.</param>
-    /// <returns>Hash SHA-256 em 64 caracteres hexadecimais minúsculos.</returns>
+    /// <param name="machineGuid">Value of <c>HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid</c>.</param>
+    /// <returns>SHA-256 hash as 64 lowercase hex characters.</returns>
     internal static string ComputeMachineId(string machineGuid)
     {
         using var sha = SHA256.Create();
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(machineGuid.Trim()));
 
-        // BitConverter em vez de Convert.ToHexString (que só existe em .NET 5+): ambos
-        // produzem o mesmo hexadecimal maiúsculo; os traços são removidos e por fim o
-        // valor é convertido para minúsculas.
+        // BitConverter instead of Convert.ToHexString (only on .NET 5+): both
+        // produce the same uppercase hex; dashes are stripped and finally the
+        // value is lowercased.
         return BitConverter.ToString(bytes).Replace("-", string.Empty).ToLowerInvariant();
     }
 
-    /// <summary>Limpa o cache do identificador; usado pelos testes que trocam o leitor.</summary>
+    /// <summary>Clears the identifier cache; used by tests that swap the reader.</summary>
     internal static void ResetCacheForTests() => _cachedMachineId = null;
 
     private static string? ReadMachineGuidFromRegistry()
@@ -94,7 +94,7 @@ public static class HardwareId
         }
         catch
         {
-            // Silencioso: a ausência do GUID vira falha fechada reportada pelo chamador.
+            // Silent: a missing GUID becomes a fail-closed error reported by the caller.
             return null;
         }
     }

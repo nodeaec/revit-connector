@@ -5,59 +5,59 @@ using NodeAec.Connector.Models;
 
 namespace NodeAec.Connector.UI;
 
-/// <summary>Tonalidade do texto de estado de licença; a janela mapeia para os pincéis do UiTheme.</summary>
+/// <summary>License status text tone; the window maps it to UiTheme brushes.</summary>
 internal enum LicenseStatusTone
 {
-    /// <summary>Sem lease local — texto neutro (secundário).</summary>
+    /// <summary>No local lease — neutral (secondary) text.</summary>
     Neutral,
 
-    /// <summary>Estado degradado/ilegível — destaque de atenção.</summary>
+    /// <summary>Degraded/unreadable state — attention highlight.</summary>
     Warning,
 
-    /// <summary>Lease válido e dentro do prazo — cor de sucesso.</summary>
+    /// <summary>Valid lease within term — success color.</summary>
     Ok,
 }
 
-/// <summary>Ramo da lista de plugins em <c>PluginsWindow.RenderPlugins</c>.</summary>
+/// <summary>Plugin list branch in <c>PluginsWindow.RenderPlugins</c>.</summary>
 internal enum PluginsView
 {
-    /// <summary>Sem sessão local — chamada para entrar.</summary>
+    /// <summary>No local session — sign-in call to action.</summary>
     LoggedOut,
 
-    /// <summary>Sessão ativa, mas nenhum produto vinculado — estado vazio + catálogo.</summary>
+    /// <summary>Active session but no linked products — empty state + catalog.</summary>
     Empty,
 
-    /// <summary>Sessão ativa com produtos — renderizar os cards (ativos primeiro).</summary>
+    /// <summary>Active session with products — render the cards (active first).</summary>
     List,
 }
 
 /// <summary>
-/// Mapeamentos puros de estado → texto/ordem/ramo usados por
-/// <c>ConnectorWindow.RenderUiFromStorage</c> e <c>PluginsWindow.RenderPlugins</c> (M7).
-/// Sem dependências de WPF/Revit: fica ligado no projeto de testes e cobre os ramos de
-/// "logged-out / lease ilegível / expirado / vazio / ativos-primeiro".
+/// Pure state → text/order/branch mappings used by
+/// <c>ConnectorWindow.RenderUiFromStorage</c> and <c>PluginsWindow.RenderPlugins</c> (M7).
+/// No WPF/Revit dependencies: stays linked into the test project and covers the
+/// "logged-out / unreadable lease / expired / empty / active-first" branches.
 /// </summary>
 internal static class UiState
 {
-    /// <summary>Texto do ramo "logged out" da lista de plugins.</summary>
+    /// <summary>"Logged out" branch text of the plugin list.</summary>
     internal const string LoggedOutPluginsText = "Entre com sua conta para ver seus plugins aqui.";
 
-    /// <summary>Texto do estado vazio da lista de plugins.</summary>
+    /// <summary>Empty-state text of the plugin list.</summary>
     internal const string NoPluginsText = "Nenhum plugin vinculado à sua conta ainda.";
 
     /// <summary>
-    /// Mapeia a sessão local para o bloco de conta da janela (título, dica, visibilidade
-    /// dos botões entrar/sair). Sessão ausente ou sem e-mail é tratada como deslogado.
+    /// Maps the local session to the account block of the window (title, hint, login/logout
+    /// button visibility). A missing session or one without email counts as logged out.
     /// </summary>
-    /// <param name="name">Nome do usuário da sessão (opcional).</param>
-    /// <param name="email">E-mail da sessão; em branco/nulo ⇒ deslogado.</param>
-    /// <returns>Título, dica e visibilidade dos botões.</returns>
+    /// <param name="name">Session user name (optional).</param>
+    /// <param name="email">Session email; blank/null ⇒ logged out.</param>
+    /// <returns>Title, hint, and button visibility.</returns>
     internal static (string Title, string Hint, bool ShowLogin, bool ShowLogout) Account(string? name, string? email)
     {
         if (!string.IsNullOrWhiteSpace(email))
         {
-            // Garantido pelo teste acima: anotado (NotNullWhen) no .NET 8, parâmetro
-            // oblíquo no net48 — daí o bang explícito para o Hint nunca ser nulo.
+            // Guaranteed by the test above: annotated (NotNullWhen) on .NET 8, an oblique
+            // parameter on net48 — hence the explicit bang so Hint is never null.
             string loggedInEmail = email!;
             return string.IsNullOrWhiteSpace(name)
                 ? ("Olá! Você está conectado como:", loggedInEmail, ShowLogin: false, ShowLogout: true)
@@ -71,13 +71,13 @@ internal static class UiState
     }
 
     /// <summary>
-    /// Mapeia o lease local para o texto de status de licença e sua tonalidade.
-    /// Ordem dos ramos: sem token → ilegível → <c>exp</c> ausente/fora da faixa (M5) →
-    /// expirado → tudo certo. Nunca imprime 01/01/1970 nem lança.
+    /// Maps the local lease to the license status text and its tone.
+    /// Branch order: no token → unreadable → missing/out-of-range <c>exp</c> (M5) →
+    /// expired → all good. Never prints 01/01/1970 and never throws.
     /// </summary>
-    /// <param name="leaseJwt">Token do lease mestre carregado do disco (ou nulo/vazio).</param>
-    /// <param name="payload">Payload decodificado; nulo quando o token não pôde ser lido.</param>
-    /// <returns>Texto exibido e tom de cor.</returns>
+    /// <param name="leaseJwt">Master lease token loaded from disk (or null/empty).</param>
+    /// <param name="payload">Decoded payload; null when the token could not be read.</param>
+    /// <returns>Displayed text and color tone.</returns>
     internal static (string Text, LicenseStatusTone Tone) LicenseStatus(string? leaseJwt, MasterLeasePayload? payload)
     {
         if (string.IsNullOrWhiteSpace(leaseJwt))
@@ -90,7 +90,7 @@ internal static class UiState
             return ("Não conseguimos ler as licenças salvas. Tente atualizar.", LicenseStatusTone.Warning);
         }
 
-        // `exp` ausente/fora da faixa vira null (M5): nunca imprimir 01/01/1970.
+        // Out-of-range/missing `exp` becomes null (M5): never print 01/01/1970.
         if (payload.ExpiresAt is not { } exp)
         {
             return ("Não foi possível ler o prazo das licenças salvas. Clique em atualizar.", LicenseStatusTone.Warning);
@@ -106,12 +106,12 @@ internal static class UiState
     }
 
     /// <summary>
-    /// Escolhe o ramo da lista de plugins: sem sessão vence qualquer lease presente;
-    /// com sessão, a lista é vazia ou renderizável.
+    /// Picks the plugin-list branch: no session wins over any present lease;
+    /// with a session, the list is either empty or renderable.
     /// </summary>
-    /// <param name="isLoggedIn">Resultado de <c>LoginRequirement.IsLoggedIn()</c>.</param>
-    /// <param name="entitlementCount">Quantidade de itens do lease decodificado.</param>
-    /// <returns>Ramo a renderizar.</returns>
+    /// <param name="isLoggedIn">Result of <c>LoginRequirement.IsLoggedIn()</c>.</param>
+    /// <param name="entitlementCount">Item count of the decoded lease.</param>
+    /// <returns>Branch to render.</returns>
     internal static PluginsView PluginsBranch(bool isLoggedIn, int entitlementCount)
     {
         if (!isLoggedIn) return PluginsView.LoggedOut;
@@ -119,12 +119,12 @@ internal static class UiState
     }
 
     /// <summary>
-    /// Ordena os produtos para exibição: concessões ativas primeiro, mantendo a ordem
-    /// relativa de cada grupo (LINQ <c>OrderBy</c> é estável). Entradas nulas de um lease
-    /// malformado são descartadas antes da ordenação (defesa — o emissor não as emite).
+    /// Sorts products for display: active grants first, keeping the relative order
+    /// of each group (LINQ <c>OrderBy</c> is stable). Null entries from a malformed lease
+    /// are dropped before sorting (defense — the issuer does not emit them).
     /// </summary>
-    /// <param name="entitlements">Itens do lease, na ordem do token.</param>
-    /// <returns>Cópia ordenada (ativos primeiro), sem nulos.</returns>
+    /// <param name="entitlements">Lease items, in token order.</param>
+    /// <returns>Sorted copy (active first), with no nulls.</returns>
     internal static IReadOnlyList<EntitlementItem> PluginsActiveFirst(IEnumerable<EntitlementItem> entitlements)
     {
         return entitlements.Where(e => e != null).OrderBy(e => e.IsActive() ? 0 : 1).ToList();

@@ -4,14 +4,14 @@ using NodeAec.Connector.Config;
 namespace NodeAec.Connector.Client;
 
 /// <summary>
-/// Constrói links públicos de produtos da Node.aec Store a partir do slug da concessão.
-/// Lógica headless (sem dependências de WPF ou Revit API) para permitir testes via 'dotnet test'.
+/// Builds public Node.aec Store product links from the grant slug.
+/// Headless logic (no WPF or Revit API dependencies) to allow testing via 'dotnet test'.
 /// </summary>
 public static class ProductLinks
 {
     /// <summary>
-    /// Monta a URL da página do produto (ex.: https://nodeaec.com.br/products/meu-plugin).
-    /// Slugs vazios retornam a URL do catálogo.
+    /// Builds the product page URL (e.g. https://nodeaec.com.br/products/meu-plugin).
+    /// Empty slugs return the catalog URL.
     /// </summary>
     public static string BuildProductUrl(string? slug)
     {

@@ -10,76 +10,76 @@ using Org.BouncyCastle.Crypto.Signers;
 namespace NodeAec.Connector.Cryptography;
 
 /// <summary>
-/// Verifica a assinatura Ed25519 (RFC 8032) de tokens de lease emitidos pela plataforma Node.aec
-/// antes de qualquer claim ser confiável. A única chave candidata é a âncora compilada no
-/// add-in (<see cref="ConnectorConfig.DefaultLicensePublicKeySpkiBase64"/>), substituível
-/// pela operação via <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>.
-/// O JWKS em cache (<c>%APPDATA%\NodeAec\license-jwks.json</c>, atualizado por
-/// <c>GET /license/jwks</c>) deixa de ser fonte de confiança: serve para descoberta de
-/// <c>kid</c> e para sinalizar rotação, e uma chave fora da âncora nunca verifica.
-/// Falha sempre em modo fechado: sem âncora utilizável ou com assinatura inválida, o lease
-/// não é aceito.
+/// Verifies the Ed25519 (RFC 8032) signature of lease tokens issued by the Node.aec platform
+/// before any claim is trusted. The only candidate key is the anchor compiled into the
+/// add-in (<see cref="ConnectorConfig.DefaultLicensePublicKeySpkiBase64"/>), replaceable
+/// by operations via <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>.
+/// The cached JWKS (<c>%APPDATA%\NodeAec\license-jwks.json</c>, refreshed by
+/// <c>GET /license/jwks</c>) is no longer a trust source: it serves <c>kid</c> discovery
+/// and rotation signaling, and an off-anchor key never verifies.
+/// Always fails closed: with no usable anchor or an invalid signature, the lease
+/// is not accepted.
 /// </summary>
 public static class LeaseSignatureVerifier
 {
-    /// <summary>Algoritmo de assinatura aceito nos leases (EdDSA / Ed25519).</summary>
+    /// <summary>Signature algorithm accepted on leases (EdDSA / Ed25519).</summary>
     public const string AcceptedAlgorithm = "EdDSA";
 
-    /// <summary>Tamanho da chave bruta Ed25519 em bytes.</summary>
+    /// <summary>Raw Ed25519 key size in bytes.</summary>
     private const int RawKeySize = 32;
 
-    /// <summary>Tamanho da assinatura Ed25519 em bytes.</summary>
+    /// <summary>Ed25519 signature size in bytes.</summary>
     private const int SignatureSize = 64;
 
-    /// <summary>Prefixo DER fixo de um SubjectPublicKeyInfo Ed25519 (RFC 8410).</summary>
+    /// <summary>Fixed DER prefix of an Ed25519 SubjectPublicKeyInfo (RFC 8410).</summary>
     private static readonly byte[] SpkiEd25519Prefix =
     {
         0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
     };
 
     /// <summary>
-    /// Garante um único aviso de rotação por processo — a verificação roda a cada comando de
-    /// plugin e o JWKS continua com a chave antiga depois de uma rotação.
+    /// Guarantees a single rotation warning per process — verification runs on every plugin
+    /// command and the JWKS keeps the old key after a rotation.
     /// </summary>
     private static bool _rotationSignalLogged;
 
     /// <summary>
-    /// Desfecho granular da verificação de assinatura. Permite ao chamador distinguir
-    /// "há chave disponível e a assinatura não confere" (rejeição firme) de "não existe
-    /// nenhuma chave com que verificar" (indisponibilidade — o chamador propaga o estado
-    /// de "não verificado" em vez de acusar adulteração).
+    /// Granular signature-verification outcome. Lets the caller distinguish
+    /// "a key is available and the signature does not check out" (firm rejection) from "there is
+    /// no key to check against" (unavailability — the caller propagates the
+    /// "unverified" state instead of alleging tampering).
     /// </summary>
     public enum VerificationOutcome
     {
-        /// <summary>A assinatura Ed25519 confere com uma chave candidata.</summary>
+        /// <summary>The Ed25519 signature checks out against a candidate key.</summary>
         Verified,
 
-        /// <summary>Nenhuma chave candidata existe (sem JWKS em cache e sem âncora fixa).</summary>
+        /// <summary>No candidate key exists (no cached JWKS and no pinned anchor).</summary>
         NoKeysAvailable,
 
-        /// <summary>Token malformado, algoritmo não aceito ou assinatura não confirmada pelas chaves disponíveis.</summary>
+        /// <summary>Malformed token, unaccepted algorithm, or signature not confirmed by the available keys.</summary>
         Rejected,
     }
 
     /// <summary>
-    /// Verifica a assinatura Ed25519 de um JWT de lease no formato <c>header.payload.signature</c>.
+    /// Verifies the Ed25519 signature of a lease JWT in <c>header.payload.signature</c> form.
     /// </summary>
-    /// <param name="jwt">Token JWT bruto.</param>
-    /// <param name="reason">Motivo legível da falha quando o retorno é <c>false</c> (para log; nunca exibir internamente).</param>
-    /// <returns><c>true</c> somente quando o header é EdDSA e a assinatura confere com uma chave candidata.</returns>
+    /// <param name="jwt">Raw JWT token.</param>
+    /// <param name="reason">Human-readable failure reason when the return is <c>false</c> (for logging; never displayed internally).</param>
+    /// <returns><c>true</c> only when the header is EdDSA and the signature checks out against a candidate key.</returns>
     public static bool TryVerify(string? jwt, out string? reason)
     {
         return Evaluate(jwt, out reason) == VerificationOutcome.Verified;
     }
 
     /// <summary>
-    /// Avalia a assinatura do lease distinguindo confirmação, indisponibilidade de chave e
-    /// rejeição. É a base da decisão de persistir (ou não) um lease recebido da API antes
-    /// de qualquer claim ser confiável.
+    /// Evaluates the lease signature, distinguishing confirmation, key unavailability, and
+    /// rejection. It is the basis for deciding whether to persist a lease received from the API
+    /// before any claim is trusted.
     /// </summary>
-    /// <param name="jwt">Token JWT bruto no formato <c>header.payload.signature</c>.</param>
-    /// <param name="reason">Motivo legível do desfecho (para log; nunca exibir internamente).</param>
-    /// <returns>Desfecho da verificação — ver <see cref="VerificationOutcome"/>.</returns>
+    /// <param name="jwt">Raw JWT token in <c>header.payload.signature</c> form.</param>
+    /// <param name="reason">Human-readable outcome reason (for logging; never displayed internally).</param>
+    /// <returns>Verification outcome — see <see cref="VerificationOutcome"/>.</returns>
     public static VerificationOutcome Evaluate(string? jwt, out string? reason)
     {
         reason = null;
@@ -115,9 +115,9 @@ public static class LeaseSignatureVerifier
             return VerificationOutcome.Rejected;
         }
 
-        // A chave de verificação é a âncora, não o JWKS: sem âncora utilizável (build sem pin
-        // ou override inválido) a verificação falha fechada. O cache só serve para descobrir
-        // o kid e para sinalizar rotação.
+        // The verification key is the anchor, not the JWKS: with no usable anchor (build without
+        // pin or an invalid override) verification fails closed. The cache only serves to discover
+        // the kid and to signal rotation.
         var cached = SigningKeyStore.LoadVerificationKeys();
         var candidates = OrderCandidates(cached, out string? anchorReason);
         if (candidates.Count == 0)
@@ -141,14 +141,14 @@ public static class LeaseSignatureVerifier
     }
 
     /// <summary>
-    /// Resolve a âncora efetiva de verificação: o override de operação
-    /// (<c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>) quando definido e válido; senão a chave
-    /// compilada no add-in. Override definido e inválido é falha fechada — nunca cai
-    /// silenciosamente para a chave compilada.
+    /// Resolves the effective verification anchor: the operations override
+    /// (<c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>) when set and valid; otherwise the key
+    /// compiled into the add-in. A set-but-invalid override is fail-closed — it never falls
+    /// back silently to the compiled-in key.
     /// </summary>
-    /// <param name="rawKey">Chave bruta Ed25519 (32 bytes) quando o retorno é <c>true</c>.</param>
-    /// <param name="reason">Motivo legível quando o retorno é <c>false</c> (para log).</param>
-    /// <returns><c>true</c> quando existe âncora utilizável.</returns>
+    /// <param name="rawKey">Raw Ed25519 key (32 bytes) when the return is <c>true</c>.</param>
+    /// <param name="reason">Human-readable reason when the return is <c>false</c> (for logging).</param>
+    /// <returns><c>true</c> when a usable anchor exists.</returns>
     private static bool TryGetAnchorKey(out byte[] rawKey, out string? reason)
     {
         string? overrideSpki = ConnectorConfig.LicensePublicKeySpkiOverride;
@@ -167,12 +167,12 @@ public static class LeaseSignatureVerifier
     }
 
     /// <summary>
-    /// Decodifica uma chave pública SPKI (base64 padrão) de Ed25519 para os 32 bytes brutos da curva.
+    /// Decodes an Ed25519 SPKI public key (standard base64) into the 32 raw curve bytes.
     /// </summary>
-    /// <param name="spkiBase64">Chave SPKI em base64 (44 bytes DER no total).</param>
-    /// <param name="rawKey">Chave bruta de 32 bytes quando o retorno é <c>true</c>.</param>
-    /// <param name="reason">Motivo legível da falha quando o retorno é <c>false</c>.</param>
-    /// <returns><c>true</c> quando a chave SPKI tem o formato Ed25519 esperado.</returns>
+    /// <param name="spkiBase64">SPKI key in base64 (44 DER bytes total).</param>
+    /// <param name="rawKey">32-byte raw key when the return is <c>true</c>.</param>
+    /// <param name="reason">Human-readable failure reason when the return is <c>false</c>.</param>
+    /// <returns><c>true</c> when the SPKI key has the expected Ed25519 shape.</returns>
     public static bool TryDecodeSpkiBase64(string? spkiBase64, out byte[] rawKey, out string? reason)
     {
         rawKey = Array.Empty<byte>();
@@ -209,8 +209,8 @@ public static class LeaseSignatureVerifier
             }
         }
 
-        // Cópia explícita em vez de fatia com range (`der[i..]`), que exige System.Index/
-        // System.Range — tipos ausentes no .NET Framework 4.8 (Revit 2023/2024).
+        // Explicit copy instead of a range slice (`der[i..]`), which requires System.Index/
+        // System.Range — types missing on .NET Framework 4.8 (Revit 2023/2024).
         rawKey = new byte[RawKeySize];
         Array.Copy(der, SpkiEd25519Prefix.Length, rawKey, 0, RawKeySize);
         reason = null;
@@ -218,12 +218,12 @@ public static class LeaseSignatureVerifier
     }
 
     /// <summary>
-    /// Monta os candidatos de verificação: **apenas a âncora efetiva** (H4). O JWKS em cache
-    /// deixa de ser fonte de confiança — chaves fora da âncora geram um aviso de rotação
-    /// (uma vez por processo) e jamais verificam.
+    /// Builds the verification candidates: **only the effective anchor** (H4). The cached JWKS
+    /// is no longer a trust source — off-anchor keys raise a rotation warning
+    /// (once per process) and never verify.
     /// </summary>
-    /// <param name="cached">Chaves do JWKS em cache, usadas só para diagnóstico/rotação.</param>
-    /// <param name="anchorReason">Motivo legível quando não há âncora utilizável.</param>
+    /// <param name="cached">Cached JWKS keys, used only for diagnostics/rotation.</param>
+    /// <param name="anchorReason">Human-readable reason when no usable anchor exists.</param>
     private static List<PublicKeyCandidate> OrderCandidates(
         IReadOnlyList<(string? Kid, byte[] RawKey)> cached,
         out string? anchorReason)
@@ -241,9 +241,9 @@ public static class LeaseSignatureVerifier
     }
 
     /// <summary>
-    /// Registra (uma vez por processo) quando o JWKS em cache traz chave diferente da âncora
-    /// compilada — sinal de rotação: o Connector instalado precisa de uma release que confie
-    /// na nova chave.
+    /// Logs (once per process) when the cached JWKS carries a key other than the compiled-in
+    /// anchor — a rotation signal: the installed Connector needs a release that trusts
+    /// the new key.
     /// </summary>
     private static void SignalJwksOutsideAnchor(IReadOnlyList<(string? Kid, byte[] RawKey)> cached, byte[] anchor)
     {
@@ -265,7 +265,7 @@ public static class LeaseSignatureVerifier
         }
     }
 
-    /// <summary>Compara duas chaves brutas byte a byte (evita Span, ausente no net48).</summary>
+    /// <summary>Compares two raw keys byte by byte (avoids Span, missing on net48).</summary>
     private static bool KeysEqual(byte[] left, byte[] right)
     {
         if (left.Length != right.Length)
@@ -285,8 +285,8 @@ public static class LeaseSignatureVerifier
     }
 
     /// <summary>
-    /// Decodifica o header JWT e extrai <c>alg</c>. O <c>kid</c> não é lido: sob H4 a única
-    /// chave de verificação é a âncora compilada, então o header não participa da confiança.
+    /// Decodes the JWT header and extracts <c>alg</c>. <c>kid</c> is not read: under H4 the only
+    /// verification key is the compiled-in anchor, so the header takes no part in trust.
     /// </summary>
     private static bool TryReadHeader(string headerB64, out string? algorithm, out string? reason)
     {
@@ -323,7 +323,7 @@ public static class LeaseSignatureVerifier
         return true;
     }
 
-    /// <summary>Executa a verificação Ed25519 com a chave bruta informada.</summary>
+    /// <summary>Runs the Ed25519 check with the given raw key.</summary>
     private static bool VerifySignature(byte[] data, byte[] signature, byte[] rawKey)
     {
         try
@@ -335,12 +335,12 @@ public static class LeaseSignatureVerifier
         }
         catch (Exception)
         {
-            // Chave malformada nunca deve derrubar a validação: apenas não confere.
+            // A malformed key must never take validation down: it simply does not check out.
             return false;
         }
     }
 
-    /// <summary>Converte base64url (com ou sem padding) em bytes, ou <c>null</c> se inválido.</summary>
+    /// <summary>Converts base64url (padded or not) to bytes, or <c>null</c> when invalid.</summary>
     private static byte[]? TryFromBase64Url(string input)
     {
         if (string.IsNullOrEmpty(input)) return null;
@@ -363,6 +363,6 @@ public static class LeaseSignatureVerifier
         }
     }
 
-    /// <summary>Par (kid, chave bruta) usado na seleção de chaves de verificação.</summary>
+    /// <summary>(kid, raw key) pair used in verification-key selection.</summary>
     public readonly record struct PublicKeyCandidate(string? Kid, byte[] RawKey);
 }

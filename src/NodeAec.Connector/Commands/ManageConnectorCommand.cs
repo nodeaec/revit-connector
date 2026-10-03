@@ -6,7 +6,7 @@ using NodeAec.Connector.UI;
 namespace NodeAec.Connector.Commands;
 
 /// <summary>
-/// Comando Revit para abrir a janela "Minha Conta" do Node.aec Connector.
+/// Revit command that opens the Node.aec Connector "Minha Conta" window.
 /// </summary>
 [Transaction(TransactionMode.Manual)]
 public class ManageConnectorCommand : IExternalCommand

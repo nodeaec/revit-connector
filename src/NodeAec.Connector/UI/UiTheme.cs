@@ -4,38 +4,38 @@ using System.Windows.Media;
 namespace NodeAec.Connector.UI;
 
 /// <summary>
-/// Paleta oficial da Node.aec web (tokens light mode) aplicada às janelas e botões do Connector:
-/// fundo #E7E6E6, texto #232323, cor principal #1E4E79 e cor de destaque #A79D12.
-/// Centraliza cores e ícones para manter identidade visual consistente.
+/// Node.aec web official palette (light-mode tokens) applied to Connector windows and buttons:
+/// background #E7E6E6, text #232323, primary #1E4E79, and accent #A79D12.
+/// Centralizes colors and icons to keep a consistent visual identity.
 /// </summary>
 public static class UiTheme
 {
-    /// <summary>Fundo das janelas (#E7E6E6, token de fundo claro).</summary>
+    /// <summary>Window background (#E7E6E6, light-background token).</summary>
     public static readonly Color Background = Color.FromRgb(0xE7, 0xE6, 0xE6);
 
-    /// <summary>Fundo dos cartões (branco, para contraste com o fundo).</summary>
+    /// <summary>Card background (white, for contrast against the background).</summary>
     public static readonly Color Card = Color.FromRgb(0xFF, 0xFF, 0xFF);
 
-    /// <summary>Bordas e divisórias (cinza neutro).</summary>
+    /// <summary>Borders and dividers (neutral gray).</summary>
     public static readonly Color Border = Color.FromRgb(0xCF, 0xCF, 0xCF);
 
-    /// <summary>Texto principal (#232323).</summary>
+    /// <summary>Primary text (#232323).</summary>
     public static readonly Color Text = Color.FromRgb(0x23, 0x23, 0x23);
 
-    /// <summary>Texto secundário (dicas e descrições, cinza neutro).</summary>
+    /// <summary>Secondary text (hints and descriptions, neutral gray).</summary>
     public static readonly Color TextSecondary = Color.FromRgb(0x5F, 0x5F, 0x5F);
 
-    /// <summary>Cor principal da marca (#1E4E79): títulos, ações primárias e links.</summary>
+    /// <summary>Brand primary (#1E4E79): titles, primary actions, and links.</summary>
     public static readonly Color Primary = Color.FromRgb(0x1E, 0x4E, 0x79);
 
-    /// <summary>Cor de destaque da marca (#A79D12): avisos, badges e detalhes.</summary>
+    /// <summary>Brand accent (#A79D12): warnings, badges, and details.</summary>
     public static readonly Color Accent = Color.FromRgb(0xA7, 0x9D, 0x12);
 
-    /// <summary>Fundo neutro para botões secundários.</summary>
+    /// <summary>Neutral background for secondary buttons.</summary>
     public static readonly Color SoftBackground = Color.FromRgb(0xDA, 0xD8, 0xD8);
 
     /// <summary>
-    /// Cria um pincel congelado (thread-safe, sem vazamento de recursos).
+    /// Creates a frozen brush (thread-safe, no resource leaks).
     /// </summary>
     public static SolidColorBrush Brush(Color color)
     {
@@ -45,8 +45,8 @@ public static class UiTheme
     }
 
     /// <summary>
-    /// Ícone do botão "Meus Plugins": grade 2x2 na cor principal.
-    /// Vetorial (escala sem perda para 16px e 32px).
+    /// "Meus Plugins" button icon: 2x2 grid in the primary color.
+    /// Vector (scales losslessly to 16px and 32px).
     /// </summary>
     public static ImageSource PluginsIcon(bool large)
     {
@@ -69,8 +69,8 @@ public static class UiTheme
     }
 
     /// <summary>
-    /// Ícone do botão "Explorar Catálogo": lupa (anel na cor principal, haste no destaque).
-    /// Vetorial (escala sem perda para 16px e 32px).
+    /// "Explorar Catálogo" button icon: magnifier (ring in primary, handle in accent).
+    /// Vector (scales losslessly to 16px and 32px).
     /// </summary>
     public static ImageSource CatalogIcon(bool large)
     {

@@ -10,22 +10,22 @@ using NodeAec.Connector.Diagnostics;
 namespace NodeAec.Connector.Storage;
 
 /// <summary>
-/// Cache local do JWKS público da plataforma Node.aec (<c>GET /license/jwks</c>).
-/// O Connector atualiza o cache a cada sincronização/validação de lease e o gate usa o
-/// conteúdo apenas para descoberta de <c>kid</c> e diagnóstico de rotação — a chave que
-/// verifica assinaturas é a âncora compilada no add-in (H4), não este arquivo.
-/// O JWKS é material público, portanto é gravado em texto simples (sem DPAPI).
+/// Local cache of the Node.aec platform public JWKS (<c>GET /license/jwks</c>).
+/// The Connector refreshes the cache on every lease sync/validation, and the gate uses its
+/// content only for <c>kid</c> discovery and rotation diagnostics — the key that
+/// verifies signatures is the anchor compiled into the add-in (H4), not this file.
+/// The JWKS is public material, so it is written as plain text (no DPAPI).
 /// </summary>
 public static class SigningKeyStore
 {
-    /// <summary>Nome do arquivo de cache do JWKS no diretório base do Connector.</summary>
+    /// <summary>Cache file name for the JWKS in the Connector base directory.</summary>
     public const string JwksFileName = "license-jwks.json";
 
-    /// <summary>Retorna o caminho absoluto do arquivo de cache do JWKS.</summary>
+    /// <summary>Returns the absolute path of the JWKS cache file.</summary>
     public static string GetJwksFilePath() => Path.Combine(LeaseStorage.GetBaseDirectory(), JwksFileName);
 
     /// <summary>
-    /// Lê o JWKS em cache, ou <c>null</c> quando ainda não há cache válido.
+    /// Reads the cached JWKS, or <c>null</c> when no valid cache exists yet.
     /// </summary>
     public static string? LoadCachedJwks()
     {
@@ -45,10 +45,10 @@ public static class SigningKeyStore
     }
 
     /// <summary>
-    /// Persiste atomicamente um documento JWKS. Retorna <c>false</c> (e não grava)
-    /// quando o documento não contém nenhuma chave OKP/Ed25519 utilizável.
+    /// Atomically persists a JWKS document. Returns <c>false</c> (and does not write)
+    /// when the document contains no usable OKP/Ed25519 key.
     /// </summary>
-    /// <param name="jwksJson">Documento JWKS retornado pela API.</param>
+    /// <param name="jwksJson">JWKS document returned by the API.</param>
     public static bool SaveCachedJwks(string? jwksJson)
     {
         if (!HasUsableKey(jwksJson))
@@ -69,13 +69,13 @@ public static class SigningKeyStore
     }
 
     /// <summary>
-    /// Busca <c>GET /license/jwks</c> no servidor e atualiza o cache local.
-    /// Melhor esforço: falhas de rede/servidor são registradas em log e retornam
-    /// <c>false</c> sem derrubar a sincronização de leases em andamento.
+    /// Fetches <c>GET /license/jwks</c> from the server and refreshes the local cache.
+    /// Best-effort: network/server failures are logged and return
+    /// <c>false</c> without breaking an in-flight lease sync.
     /// </summary>
-    /// <param name="baseUrl">URL base da API Node.aec.</param>
-    /// <param name="httpClient">Cliente HTTP a ser utilizado.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
+    /// <param name="baseUrl">Node.aec API base URL.</param>
+    /// <param name="httpClient">HTTP client to use.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<bool> RefreshAsync(
         string baseUrl,
         HttpClient httpClient,
@@ -110,8 +110,8 @@ public static class SigningKeyStore
     }
 
     /// <summary>
-    /// Retorna as chaves públicas Ed25519 (kid + 32 bytes brutos) presentes no cache.
-    /// Entradas malformadas são ignoradas individualmente.
+    /// Returns the Ed25519 public keys (kid + 32 raw bytes) present in the cache.
+    /// Malformed entries are skipped individually.
     /// </summary>
     public static IReadOnlyList<(string? Kid, byte[] RawKey)> LoadVerificationKeys()
     {
@@ -149,7 +149,7 @@ public static class SigningKeyStore
         return keys;
     }
 
-    /// <summary>Verifica se o documento contém ao menos uma chave OKP/Ed25519 válida.</summary>
+    /// <summary>Checks whether the document holds at least one valid OKP/Ed25519 key.</summary>
     private static bool HasUsableKey(string? jwksJson)
     {
         if (string.IsNullOrWhiteSpace(jwksJson)) return false;
@@ -180,7 +180,7 @@ public static class SigningKeyStore
         }
     }
 
-    /// <summary>Lê uma propriedade string do JWK, ou <c>null</c>.</summary>
+    /// <summary>Reads a JWK string property, or <c>null</c>.</summary>
     private static string? GetString(JsonElement element, string property)
     {
         return element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
@@ -188,7 +188,7 @@ public static class SigningKeyStore
             : null;
     }
 
-    /// <summary>Converte base64url em bytes, ou <c>null</c> se inválido.</summary>
+    /// <summary>Converts base64url to bytes, or <c>null</c> when invalid.</summary>
     private static byte[]? TryFromBase64Url(string? input)
     {
         if (string.IsNullOrEmpty(input)) return null;

@@ -14,18 +14,18 @@ using NodeAec.Connector.Storage;
 namespace NodeAec.Connector.Gate;
 
 /// <summary>
-/// Micro-SDK canônico de validação offline para plugins parceiros e ferramentas internas
-/// do ecossistema Node.aec. Zero chamadas de rede: lê o lease mestre local (DPAPI) e confere
-/// a assinatura Ed25519 com o JWKS em cache antes de confiar em qualquer claim.
+/// Canonical offline validation micro-SDK for partner plugins and internal tools
+/// of the Node.aec ecosystem. Zero network calls: reads the local master lease (DPAPI) and checks
+/// the Ed25519 signature against the cached JWKS before trusting any claim.
 /// </summary>
 public static class NodeAecGate
 {
-    /// <summary>Tolerância de relógio (segundos) aceita para o claim `iat` estar no futuro.</summary>
+    /// <summary>Clock tolerance (seconds) accepted for the `iat` claim to be in the future.</summary>
     private const long ClockSkewToleranceSeconds = 300;
     /// <summary>
-    /// Resultado imutável de <see cref="Validate(string)"/>: só as fábricas
-    /// <see cref="Success"/>/<see cref="Failure"/> constroem e nenhuma propriedade muda
-    /// depois — um consumidor não pode reescrever um resultado de gate.
+    /// Immutable result of <see cref="Validate(string)"/>: only the
+    /// <see cref="Success"/>/<see cref="Failure"/> factories build it and no property changes
+    /// afterwards — a consumer cannot rewrite a gate result.
     /// </summary>
     public class GateResult
     {
@@ -58,9 +58,9 @@ public static class NodeAecGate
     }
 
     /// <summary>
-    /// Valida se o produto identificado por <paramref name="productSlug"/> possui
-    /// concessão ativa nesta estação de trabalho. Executa localmente sem acessar a rede:
-    /// confere a assinatura Ed25519 do lease e só então confia nos claims.
+    /// Validates whether the product identified by <paramref name="productSlug"/> holds an
+    /// active grant on this workstation. Runs locally with no network access:
+    /// checks the lease Ed25519 signature and only then trusts the claims.
     /// </summary>
     public static GateResult Validate(string productSlug)
     {
@@ -83,16 +83,16 @@ public static class NodeAecGate
                 return GateResult.Failure("Concessão corrompida ou estrutura inválida. Abra o Node.aec Connector para ressincronizar.");
             }
 
-            // 0. Verificação criptográfica (Ed25519 / RFC 8032): nenhum claim acima vale
-            // alguma coisa antes da assinatura conferir. Arquivo adulterado, forjado ou
-            // assinado por outra chave é rejeitado aqui, em modo fechado.
+            // 0. Cryptographic verification (Ed25519 / RFC 8032): no claim above is worth
+            // anything before the signature checks out. A tampered, forged, or
+            // differently-keyed file is rejected here, fail-closed.
             if (!LeaseSignatureVerifier.TryVerify(jwtToken, out string? signatureReason))
             {
                 Diagnostics.ConnectorLog.Write("WARN", $"Lease local rejeitado: {signatureReason}.");
                 return GateResult.Failure("A licença local não passou na verificação de segurança. Conecte-se à internet e clique em atualizar no Node.aec Connector.");
             }
 
-            // 0.1 Contrato do token: apenas leases mestres emitidos pela plataforma Node.aec.
+            // 0.1 Token contract: only master leases issued by the Node.aec platform.
             if (!string.Equals(payload.Iss, "node-aec", StringComparison.Ordinal))
             {
                 return GateResult.Failure("Origem da licença local desconhecida. Conecte-se à internet e clique em atualizar no Node.aec Connector.");
@@ -103,22 +103,22 @@ public static class NodeAecGate
                 return GateResult.Failure("A licença local está em formato não suportado. Conecte-se à internet e clique em atualizar no Node.aec Connector.");
             }
 
-            // 0.1b Audiência (RFC 7519): o emissor marca para quem o token é destinado.
-            // Ausente ou de outro fluxo → não valida no gate de plugins (fail-closed).
+            // 0.1b Audience (RFC 7519): the issuer marks whom the token is intended for.
+            // Missing or from another flow → does not validate at the plugin gate (fail-closed).
             if (!HasPlatformAudience(payload.Aud))
             {
                 return GateResult.Failure("A licença local não foi emitida para este add-in. Conecte-se à internet e clique em atualizar no Node.aec Connector.");
             }
 
-            // 0.2 Defesa contra relógio retroagido: emissão no futuro além da tolerância de
-            // 5 minutos indica data adulterada (contas geradas com iat > now + skew).
+            // 0.2 Defense against a backdated clock: issuance in the future beyond the
+            // 5-minute tolerance indicates a tampered date (accounts generated with iat > now + skew).
             if (payload.Iat > DateTimeOffset.UtcNow.ToUnixTimeSeconds() + ClockSkewToleranceSeconds)
             {
                 return GateResult.Failure("A data da licença local é inválida. Confira a data e hora deste computador e tente novamente.");
             }
 
-            // 1. Validação de amarração de hardware (Machine ID). Sem MachineGuid legível
-            //    não há como confirmar que o lease pertence a esta máquina: falha fechada.
+            // 1. Hardware binding validation (Machine ID). Without a readable MachineGuid
+            //    there is no way to confirm the lease belongs to this machine: fail closed.
             if (!HardwareId.TryGetMachineId(out string currentMachineId, out string? machineIdReason))
             {
                 Diagnostics.ConnectorLog.Write("WARN", $"Machine ID indisponível: {machineIdReason}.");
@@ -130,9 +130,9 @@ public static class NodeAecGate
                 return GateResult.Failure("A concessão de licenças foi emitida para outra estação de trabalho (Hardware ID divergente).");
             }
 
-            // 2. Validação do prazo de tolerância offline (30 dias). Sem `exp` plausível
-            //    `IsExpired` já é true; a mensagem distingue prazo ilegível de prazo passado
-            //    para nunca imprimir 01/01/1970 nem formatar um nulo.
+            // 2. Offline grace-period validation (30 days). Without a plausible `exp`,
+            //    `IsExpired` is already true; the message distinguishes an unreadable deadline
+            //    from an elapsed one so it never prints 01/01/1970 nor formats a null.
             if (payload.IsExpired)
             {
                 return payload.ExpiresAt is { } exp
@@ -140,7 +140,7 @@ public static class NodeAecGate
                     : GateResult.Failure("O prazo da licença local não pôde ser lido. Conecte-se à internet e clique em atualizar no Node.aec Connector.");
             }
 
-            // 3. Validação do produto específico na lista de concessões
+            // 3. Validation of the specific product in the grant list
             var item = payload.Entitlements?.FirstOrDefault(e =>
                 string.Equals(e.Slug, productSlug.Trim(), StringComparison.OrdinalIgnoreCase));
 
@@ -174,13 +174,13 @@ public static class NodeAecGate
     }
 
     /// <summary>
-    /// Verifica se a audiência (<c>aud</c>) do lease inclui uma das audiências da
-    /// plataforma. Aceita string única ou array (RFC 7519); claim ausente/estranho →
-    /// nega. Audiência conhecida cobre desktop e plugin porque o emissor de lease mestre
-    /// assina para os dois consumidores — recusar um dos dois travaria o gate inteiro.
+    /// Checks whether the lease audience (<c>aud</c>) includes one of the platform
+    /// audiences. Accepts a single string or an array (RFC 7519); a missing/foreign claim →
+    /// deny. Known audiences cover desktop and plugin because the master-lease issuer
+    /// signs for both consumers — refusing either would lock the whole gate.
     /// </summary>
-    /// <param name="aud">Valor do claim <c>aud</c> desserializado, ou nulo se ausente.</param>
-    /// <returns><c>true</c> se o lease é destinado à plataforma Node.aec.</returns>
+    /// <param name="aud">Value of the <c>aud</c> claim as deserialized, or null when missing.</param>
+    /// <returns><c>true</c> when the lease targets the Node.aec platform.</returns>
     internal static bool HasPlatformAudience(JsonElement? aud)
     {
         if (aud is not { } element)
@@ -207,13 +207,13 @@ public static class NodeAecGate
         return false;
     }
 
-    /// <summary>Compara uma audiência exatamente com os valores conhecidos da plataforma.</summary>
+    /// <summary>Compares an audience exactly against the known platform values.</summary>
     private static bool IsPlatformAudience(string? value) =>
         string.Equals(value, "node-aec-desktop", StringComparison.Ordinal) ||
         string.Equals(value, "node-aec-plugin", StringComparison.Ordinal);
 
     /// <summary>
-    /// Invoca a janela de gerenciamento do Node.aec Connector se carregado no AppDomain.
+    /// Invokes the Node.aec Connector management window if loaded in the AppDomain.
     /// </summary>
     public static void OpenConnector()
     {
@@ -228,7 +228,7 @@ public static class NodeAecGate
         }
         catch
         {
-            // Silencioso se o add-in do connector não estiver no mesmo processo
+            // Silent when the connector add-in is not in the same process
         }
     }
 }

@@ -11,9 +11,9 @@ using NodeAec.Connector.Config;
 namespace NodeAec.Connector.Auth;
 
 /// <summary>
-/// Serviço de autenticação para desktop via Browser SSO com servidor loopback local (RFC 8252).
-/// Abre o navegador padrão do sistema, captura o token via redirecionamento seguro com CSRF state
-/// e encerra o listener.
+/// Desktop authentication service via browser SSO with a local loopback server (RFC 8252).
+/// Opens the system default browser, captures the token via a secure redirect with CSRF state,
+/// and shuts the listener down.
 /// </summary>
 public class DesktopAuthService
 {
@@ -25,14 +25,14 @@ public class DesktopAuthService
     }
 
     /// <summary>
-    /// Gera um token CSRF seguro de 32 bytes codificado em Base64Url.
+    /// Generates a secure 32-byte CSRF token encoded as Base64Url.
     /// </summary>
     public static string GenerateSecureState()
     {
         byte[] bytes = new byte[32];
 
-        // RNG instanciado (em vez de RandomNumberGenerator.Fill, que só existe em .NET 6+)
-        // para valer também em .NET Framework 4.8 — Revit 2023/2024.
+        // Instantiated RNG (instead of RandomNumberGenerator.Fill, which only exists on .NET 6+)
+        // so it also works on .NET Framework 4.8 — Revit 2023/2024.
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(bytes);
 
@@ -43,7 +43,7 @@ public class DesktopAuthService
     }
 
     /// <summary>
-    /// Localiza uma porta TCP efêmera livre no endereço de loopback (127.0.0.1).
+    /// Locates a free ephemeral TCP port on the loopback address (127.0.0.1).
     /// </summary>
     public static int GetAvailableLoopbackPort()
     {
@@ -53,7 +53,7 @@ public class DesktopAuthService
     }
 
     /// <summary>
-    /// Constrói a URL completa para iniciar o fluxo de autorização no navegador.
+    /// Builds the full URL to start the authorization flow in the browser.
     /// </summary>
     public string BuildAuthUrl(int port, string state)
     {
@@ -62,11 +62,11 @@ public class DesktopAuthService
     }
 
     /// <summary>
-    /// Indica se o caminho recebido no loopback é o callback de autenticação aceito.
-    /// O portal web redireciona para <c>/callback</c> (sem barra final); o listener também
-    /// aceita <c>/callback/</c> e ignora qualquer outro caminho (favicon, sondagens, etc.).
+    /// Indicates whether the path received on loopback is the accepted authentication callback.
+    /// The web portal redirects to <c>/callback</c> (no trailing slash); the listener also
+    /// accepts <c>/callback/</c> and ignores any other path (favicon, probes, etc.).
     /// </summary>
-    /// <param name="path">Caminho absoluto da requisição recebida.</param>
+    /// <param name="path">Absolute path of the incoming request.</param>
     public static bool IsCallbackPath(string? path)
     {
         return string.Equals(path, "/callback", StringComparison.OrdinalIgnoreCase)
@@ -74,14 +74,14 @@ public class DesktopAuthService
     }
 
     /// <summary>
-    /// Compara dois textos em tempo constante. A comparação ingênua de <c>state</c>
-    /// vaza o prefixo correto por timing — não é praticamente explorável aqui, mas o
-    /// comparador é barato. <c>CryptographicOperations.FixedTimeEquals</c> não existe no
-    /// net48 (Revit 2023/2024), então a comparação é manual e sem saída antecipada.
+    /// Compares two strings in constant time. Naively comparing <c>state</c>
+    /// leaks the correct prefix via timing — not practically exploitable here, but the
+    /// comparator is cheap. <c>CryptographicOperations.FixedTimeEquals</c> does not exist on
+    /// net48 (Revit 2023/2024), so the comparison is manual with no early exit.
     /// </summary>
-    /// <param name="left">Primeiro texto (pode ser nulo).</param>
-    /// <param name="right">Segundo texto (pode ser nulo).</param>
-    /// <returns><c>true</c> quando os textos são idênticos byte a byte (UTF-8).</returns>
+    /// <param name="left">First string (may be null).</param>
+    /// <param name="right">Second string (may be null).</param>
+    /// <returns><c>true</c> when the strings are byte-for-byte identical (UTF-8).</returns>
     internal static bool FixedTimeEquals(string? left, string? right)
     {
         if (left is null || right is null) return left is null && right is null;
@@ -98,14 +98,14 @@ public class DesktopAuthService
     }
 
     /// <summary>
-    /// Sonda uma porta de loopback, faz o bind do <see cref="HttpListener"/> e o inicia,
-    /// repetindo com outra porta em caso de corrida (L2): a porta é liberada entre a
-    /// sondagem e o bind, então outro processo pode ocupá-la nesse intervalo. Quando todas
-    /// as tentativas falham, lança <see cref="InvalidOperationException"/> com mensagem
-    /// amigável — nunca uma exceção crua de rede.
+    /// Probes a loopback port, binds the <see cref="HttpListener"/> and starts it,
+    /// retrying on another port on a race (L2): the port is released between probing
+    /// and binding, so another process may claim it in that window. When every attempt
+    /// fails, throws <see cref="InvalidOperationException"/> with a friendly message —
+    /// never a raw networking exception.
     /// </summary>
-    /// <param name="port">Porta efetivamente vinculada (para montar a URL de redirect).</param>
-    /// <returns>Listener iniciado e pronto para <c>GetContextAsync</c>.</returns>
+    /// <param name="port">Port actually bound (for building the redirect URL).</param>
+    /// <returns>Started listener, ready for <c>GetContextAsync</c>.</returns>
     private static HttpListener StartLoopbackListener(out int port)
     {
         const int maxAttempts = 3;
@@ -115,8 +115,8 @@ public class DesktopAuthService
         {
             port = GetAvailableLoopbackPort();
             var listener = new HttpListener();
-            // Prefixo na raiz para aceitar exatamente o caminho que o portal emite (`/callback`),
-            // que não termina em barra — prefixo com barra final não casaria com ele.
+            // Root prefix to accept exactly the path the portal emits (`/callback`),
+            // which has no trailing slash — a trailing-slash prefix would not match it.
             listener.Prefixes.Add($"http://127.0.0.1:{port}/");
 
             try
@@ -126,7 +126,7 @@ public class DesktopAuthService
             }
             catch (Exception ex) when (ex is HttpListenerException || ex is InvalidOperationException)
             {
-                // Bind perdido na corrida (ou porta recusada) → fecha e tenta outra porta.
+                // Bind lost in the race (or port refused) → close and try another port.
                 lastFailure = ex;
                 try { listener.Close(); } catch { }
             }
@@ -138,8 +138,8 @@ public class DesktopAuthService
     }
 
     /// <summary>
-    /// Inicia o loopback listener local e abre o navegador padrão para o usuário entrar com sua conta.
-    /// Aguarda a resposta por até 120 segundos.
+    /// Starts the local loopback listener and opens the default browser so the user can sign in.
+    /// Waits for the response for up to 120 seconds.
     /// </summary>
     public async Task<string> LoginViaBrowserAsync(CancellationToken cancellationToken = default)
     {
@@ -177,7 +177,7 @@ public class DesktopAuthService
                     var request = context.Request;
                     var response = context.Response;
 
-                    // Ignora requisições que não sejam o callback (favicon, health probes...).
+                    // Ignores requests that are not the callback (favicon, health probes...).
                     if (!IsCallbackPath(request.Url?.AbsolutePath))
                     {
                         response.StatusCode = 404;
@@ -195,10 +195,10 @@ public class DesktopAuthService
                         response.ContentType = "text/plain; charset=utf-8";
                         await response.OutputStream.WriteAsync(errorBytes, 0, errorBytes.Length, cancellationToken).ConfigureAwait(false);
                         response.Close();
-                        // L1: responde 400 e CONTINUA aguardando. A porta do loopback é
-                        // descobrível via `netstat` — qualquer processo local pode atirar um
-                        // `/callback` com `state` errado, e isso não pode encerrar a espera
-                        // legítima do usuário dentro dos 120 s.
+                        // L1: answers 400 and KEEPS waiting. The loopback port is
+                        // discoverable via `netstat` — any local process may fire a
+                        // `/callback` with the wrong `state`, and that must not end the
+                        // legitimate user's wait within the 120 s.
                         continue;
                     }
 

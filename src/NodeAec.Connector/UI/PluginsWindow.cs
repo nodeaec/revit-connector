@@ -17,10 +17,10 @@ using NodeAec.Connector.Storage;
 namespace NodeAec.Connector.UI;
 
 /// <summary>
-/// Janela "Meus Plugins" do Node.aec Connector: lista os plugins vinculados à conta,
-/// cada um com link para a sua página do produto. Exige login (o botão da Ribbon fica
-/// desabilitado antes disso, ver <see cref="Commands.RequiresLoginAvailability"/>).
-/// Identidade visual segue o light mode da web Node.aec.
+/// "Meus Plugins" window of the Node.aec Connector: lists the account-linked plugins,
+/// each with a link to its product page. Requires login (the ribbon button stays
+/// disabled until then, see <see cref="Commands.RequiresLoginAvailability"/>).
+/// Visual identity follows the Node.aec web light mode.
 /// </summary>
 public class PluginsWindow : Window
 {
@@ -63,7 +63,7 @@ public class PluginsWindow : Window
         mainScroll.Content = root;
         Content = mainScroll;
 
-        // 1. Cabeçalho
+        // 1. Header
         var header = new StackPanel { Margin = new Thickness(0, 0, 0, 16) };
         header.Children.Add(new TextBlock
         {
@@ -89,11 +89,11 @@ public class PluginsWindow : Window
         });
         root.Children.Add(header);
 
-        // 2. Lista de plugins
+        // 2. Plugin list
         _pluginsPanel = new StackPanel();
         root.Children.Add(_pluginsPanel);
 
-        // 3. Ações
+        // 3. Actions
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
         _btnLogin = CreatePrimaryButton("Entrar com minha conta");
         _btnLogin.Click += async (s, e) => await WindowHandlerGuard.RunAsync(HandleBrowserLoginAsync, ReportHandlerError);
@@ -105,7 +105,7 @@ public class PluginsWindow : Window
         actions.Children.Add(_btnSync);
         root.Children.Add(actions);
 
-        // 4. Mensagem de retorno
+        // 4. Feedback message
         _txtFeedback = new TextBlock
         {
             FontSize = 12,
@@ -115,7 +115,7 @@ public class PluginsWindow : Window
         };
         root.Children.Add(_txtFeedback);
 
-        // 5. Rodapé
+        // 5. Footer
         root.Children.Add(BuildFooter());
 
         RefreshPlugins();
@@ -192,10 +192,10 @@ public class PluginsWindow : Window
     }
 
     /// <summary>
-    /// Renderiza a lista de plugins a partir do lease local. É chamada do construtor e dos
-    /// blocos <c>finally</c> dos handlers assíncronos, portanto é <b>noexcept</b> por
-    /// contrato (H1): uma exceção daqui escaparia pelo dispatcher do WPF e encerraria o
-    /// processo do Revit.
+    /// Renders the plugin list from the local lease. Called from the constructor and from
+    /// the async handlers' <c>finally</c> blocks, so it is <b>noexcept</b> by
+    /// contract (H1): an exception here would escape through the WPF dispatcher and kill
+    /// the Revit process.
     /// </summary>
     public void RefreshPlugins()
     {
@@ -220,18 +220,18 @@ public class PluginsWindow : Window
             }
             catch
             {
-                // Janela possivelmente já descartada: nada mais a reportar daqui.
+                // Window possibly already disposed: nothing left to report from here.
             }
         }
     }
 
-    /// <summary>Corpo de <see cref="RefreshPlugins"/> — separado para que a casca seja a única zona de exceção.</summary>
+    /// <summary>Body of <see cref="RefreshPlugins"/> — split out so the shell is the only exception zone.</summary>
     private void RenderPlugins()
     {
         _pluginsPanel.Children.Clear();
 
-        // M7: o ramo (logged-out / vazio / lista) e a ordenação ativos-primeiro são
-        // decisões puras em UiState, cobertas por testes headless.
+        // M7: the (logged-out / empty / list) branch and the active-first ordering are
+        // pure decisions in UiState, covered by headless tests.
         bool isLoggedIn = LoginRequirement.IsLoggedIn();
         IReadOnlyList<EntitlementItem> entitlements = Array.Empty<EntitlementItem>();
         if (isLoggedIn)
@@ -308,7 +308,7 @@ public class PluginsWindow : Window
         stack.Children.Add(nameBlock);
 
         bool active = item.IsActive();
-        // Defesa: STJ pode gravar null em "status" (NRT não o impede) — nunca estourar NRE.
+        // Defense: STJ may write null into "status" (NRT does not stop it) — never throw NRE.
         string statusUpper = string.IsNullOrWhiteSpace(item.Status) ? "INATIVO" : item.Status.ToUpperInvariant();
         string statusText = item.ExpiresAt.HasValue
             ? (active ? $"Liberado até {item.ExpiresAt.Value:dd/MM/yyyy}" : $"Expirado em {item.ExpiresAt.Value:dd/MM/yyyy}")
@@ -348,7 +348,7 @@ public class PluginsWindow : Window
 
             if (syncResult.Success)
             {
-                // Identidade exibida vem das claims do token de sessão (o lease mestre não traz identidade).
+                // Displayed identity comes from the session token claims (the master lease carries no identity).
                 var userClaims = LeaseStorage.ParseUserSessionClaims(userToken);
 
                 if (!LeaseStorage.SaveSession(userClaims?.Email, userToken, userClaims?.Name))
@@ -357,7 +357,7 @@ public class PluginsWindow : Window
                 }
                 else
                 {
-                    // M1: aviso de degradação das chaves tem prioridade sobre o sucesso.
+                    // M1: key-degradation warning takes priority over success.
                     string? keysWarning = syncResult.VerificationWarning;
                     SetFeedback(
                         keysWarning ?? $"Bem-vindo! {syncResult.GrantedCount} plugin(s) liberado(s).",
@@ -394,7 +394,7 @@ public class PluginsWindow : Window
                 ? await client.SyncMasterEntitlementsAsync(session.Value.Token).ConfigureAwait(true)
                 : await client.ValidateHeartbeatAsync().ConfigureAwait(true);
 
-            // M1: surface o estado das chaves de verificação no resultado do sync/heartbeat.
+            // M1: surfaces the verification-key state in the sync/heartbeat result.
             string? keysWarning = result.Success ? result.VerificationWarning : null;
             SetFeedback(
                 result.Success
@@ -420,9 +420,9 @@ public class PluginsWindow : Window
     }
 
     /// <summary>
-    /// Reporta ao usuário uma falha de handler que teria derrubado o dispatcher — texto
-    /// fixo e sanitizado (nome do tipo, nunca conteúdo da mensagem). Nunca lança; usado
-    /// como callback do <see cref="WindowHandlerGuard"/>.
+    /// Reports to the user a handler failure that would have taken the dispatcher down — fixed,
+    /// sanitized text (type name, never message content). Never throws; used
+    /// as the <see cref="WindowHandlerGuard"/> callback.
     /// </summary>
     private void ReportHandlerError(Exception ex)
     {
@@ -439,7 +439,7 @@ public class PluginsWindow : Window
         }
         catch (Exception ex)
         {
-            // N3: falha do navegador nunca passa em silêncio — feedback na própria janela.
+            // N3: browser failure never passes silently — feedback in the window itself.
             SetFeedback($"Não foi possível abrir o link ({ex.GetType().Name}).", UiTheme.Accent);
         }
     }
@@ -447,8 +447,8 @@ public class PluginsWindow : Window
     private static PluginsWindow? _instance;
 
     /// <summary>
-    /// Abre (ou reativa) a janela única de plugins. Cliques repetidos na Ribbon não
-    /// empilham janelas — cada uma sincroniza e grava armazenamento em paralelo (L11).
+    /// Opens (or reactivates) the single plugins window. Repeated ribbon clicks do not
+    /// stack windows — each one syncs and writes storage in parallel (L11).
     /// </summary>
     public static void Open()
     {
