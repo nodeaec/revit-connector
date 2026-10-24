@@ -108,24 +108,48 @@ All Node.aec products share a single Ribbon tab called **`Node.aec`**. Create yo
 inside it — never a separate tab:
 
 ```csharp
-public Result OnStartup(UIControlledApplication application)
+using System.Linq;
+using Autodesk.Revit.UI;
+
+namespace MeuPlugin;
+
+public class App : IExternalApplication
 {
-    const string tabName = "Node.aec";
-    const string panelName = "Minhas Ferramentas"; // your product's panel
+    private const string TabName = "Node.aec";
+    private const string PanelName = "Minhas Ferramentas"; // unique to your product
 
-    // The tab may already exist (created by the Connector or another partner).
-    try { application.CreateRibbonTab(tabName); } catch (Autodesk.Revit.Exceptions.ArgumentException) { }
+    public Result OnStartup(UIControlledApplication application)
+    {
+        try
+        {
+            application.CreateRibbonTab(TabName);
+        }
+        catch (Autodesk.Revit.Exceptions.ArgumentException)
+        {
+            // Expected: the Connector or another Node.aec plugin already created the tab.
+        }
 
-    var panel = application.GetRibbonPanels(tabName).FirstOrDefault(p => p.Name == panelName)
-                ?? application.CreateRibbonPanel(tabName, panelName);
+        var panel = application.GetRibbonPanels(TabName).FirstOrDefault(p => p.Name == PanelName)
+                    ?? application.CreateRibbonPanel(TabName, PanelName);
 
-    panel.AddItem(new PushButtonData(
-        "MeuPlugin_Comando", "Executar\nComando",
-        typeof(App).Assembly.Location, "MeuPlugin.Commands.MeuComando"));
+        panel.AddItem(new PushButtonData(
+            "MeuPlugin_Comando",                 // unique internal name
+            "Executar\nComando",                 // button text
+            typeof(App).Assembly.Location,       // this DLL, wherever it is installed
+            "MeuPlugin.Commands.MeuComando")     // full name of the IExternalCommand
+        {
+            ToolTip = "O que este comando faz.",
+        });
 
-    return Result.Succeeded;
+        return Result.Succeeded;
+    }
+
+    public Result OnShutdown(UIControlledApplication application) => Result.Succeeded;
 }
 ```
+
+Don't do anything slow in `OnStartup`, such as network calls or heavy file reads. Revit waits for
+it before it shows the UI. Load button icons from embedded resources or local files only.
 
 Rules:
 - Use a panel name that is **unique to your product**. `Conector` is used by Node.aec.
@@ -201,14 +225,32 @@ so where it applies.
 | File tampered, corrupted, or wrong format | *A licença local não passou na verificação de segurança. Conecte-se à internet e clique em atualizar no Node.aec Connector.* |
 | Computer clock set wrong | *A data da licença local é inválida. Confira a data e hora deste computador e tente novamente.* |
 
+Messages are in Portuguese (PT-BR) only for now.
+
 When `IsLicensed` is `true`, you can also read `check.LicenseType`, `check.ProductName` and
 `check.ExpiresAt` (e.g. to show "trial ends on ..." in your UI).
+
+> [!CAUTION]
+> `check.LicenseKey` is the end user's license key. Never log it, show it, or send it
+> anywhere. You don't need it to protect your commands.
+
+### Rules for calling the gate
+
+- **No `try/catch` needed.** `Validate` never throws, and every failure comes back as `IsLicensed = false`.
+- **Call it once per command execution**, at the top of `Execute`. It reads and verifies the
+  license file on every call (no cache). That's fast, but not free.
+- **Never call it from `IExternalCommandAvailability`.** Revit evaluates availability
+  constantly (on every selection or view change). Leave buttons enabled and check inside `Execute`.
+- `Validate` is safe on any thread. `OpenConnector()` is not.
 
 ### About `OpenConnector()`
 
 It opens the Connector's *Minha Conta* window. If the Connector is not installed it does
 **nothing**: no error and no window. So always show the dialog first, and never rely on
 `OpenConnector()` alone to tell the user something is wrong.
+
+It creates a WPF window, so it must run on Revit's UI thread: inside `Execute`, or inside an
+`ExternalEvent` handler if you call it from a modeless window of your own.
 
 ---
 
@@ -233,12 +275,31 @@ installer doesn't have to bundle the Connector. If it's missing, your commands s
 
 ---
 
-## 7. Checklist before you ship
+## 7. Keeping the gate up to date
+
+The copied files include the Node.aec **public key** used to verify licenses
+(`Config/ConnectorConfig.cs`). Your plugin only trusts licenses signed with that key.
+
+- **Write down which version you copied.** Note the commit hash of this repository in your
+  own repo (e.g. in a comment at the top of `NodeAecGate.cs` or in your changelog).
+- **If Node.aec changes its signing key or the license format**, plugins built with the old
+  files will stop accepting licenses. You will need to copy the new files, rebuild and
+  publish a new version of your plugin. Node.aec will announce this ahead of time to
+  registered partners.
+- To update, replace the copied files with the new ones. Don't merge your own edits into
+  them; that's why we recommend leaving them untouched.
+
+---
+
+## 8. Checklist before you ship
 
 - [ ] Builds with 0 errors for every Revit year you support.
 - [ ] All your panels are on the `Node.aec` tab, with a panel name unique to your product.
 - [ ] Each paid command calls `NodeAecGate.Validate("<your-slug>")` first.
 - [ ] The "license required" dialog shows `check.Message` as-is.
+- [ ] `check.LicenseKey` is never logged or displayed.
+- [ ] `Validate` is not called from any `IExternalCommandAvailability`.
+- [ ] The commit hash of the copied gate files is recorded.
 - [ ] Revit 2023/2024 payload contains `System.Security.Cryptography.ProtectedData.dll`; Revit 2025+ payload does **not**.
 - [ ] No `RevitAPI*.dll` / `AdWindows.dll` in your installer.
 - [ ] Tested on a clean machine: before signing in (dialog appears), after signing in (command runs), and offline (command still runs).

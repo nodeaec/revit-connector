@@ -39,11 +39,28 @@ public static class NodeAecGate
             Message = message;
         }
 
+        /// <summary><c>true</c> when the product may run on this workstation.</summary>
         public bool IsLicensed { get; }
+
+        /// <summary>License type from the lease <c>type</c> claim (e.g. <c>perpetual</c>); <c>null</c> on failure.</summary>
         public string? LicenseType { get; }
+
+        /// <summary>
+        /// The user's license key (<c>NAEC-…</c>); <c>null</c> on failure. A secret of the end
+        /// user: never log it, show it, or send it anywhere.
+        /// </summary>
         public string? LicenseKey { get; }
+
+        /// <summary>Product display name from the lease; <c>null</c> on failure.</summary>
         public string? ProductName { get; }
+
+        /// <summary>When the license or trial ends; <c>null</c> for no end date or on failure.</summary>
         public DateTimeOffset? ExpiresAt { get; }
+
+        /// <summary>
+        /// End-user text (PT-BR). On failure it states the one specific reason and, where it
+        /// applies, the next step — show it as-is, without adding causes or instructions.
+        /// </summary>
         public string Message { get; }
 
         public static GateResult Success(string type, string? key, string? name, DateTimeOffset? expiresAt, string message = "Licença ativa e verificada.")
@@ -62,6 +79,15 @@ public static class NodeAecGate
     /// active grant on this workstation. Runs locally with no network access:
     /// checks the lease Ed25519 signature and only then trusts the claims.
     /// </summary>
+    /// <remarks>
+    /// Never throws: every failure, including unexpected ones, comes back as
+    /// <see cref="GateResult.Failure"/>, so callers need no <c>try/catch</c>. Each call reads
+    /// and verifies the lease from disk (no cache), so call it once per command execution
+    /// and never from <c>IExternalCommandAvailability</c>, which Revit evaluates constantly.
+    /// Safe to call from any thread.
+    /// </remarks>
+    /// <param name="productSlug">Product slug registered on Node.aec (case-insensitive).</param>
+    /// <returns>The immutable gate decision; read <see cref="GateResult.IsLicensed"/> first.</returns>
     public static GateResult Validate(string productSlug)
     {
         if (string.IsNullOrWhiteSpace(productSlug))
@@ -213,8 +239,14 @@ public static class NodeAecGate
         string.Equals(value, "node-aec-plugin", StringComparison.Ordinal);
 
     /// <summary>
-    /// Invokes the Node.aec Connector management window if loaded in the AppDomain.
+    /// Opens the Node.aec Connector's <i>Minha Conta</i> window when the Connector add-in is
+    /// loaded in this Revit process; otherwise does nothing (no window, no exception).
+    /// Show the failure to the user first — never rely on this call alone.
     /// </summary>
+    /// <remarks>
+    /// Must run on Revit's UI thread (inside <c>IExternalCommand.Execute</c> or an
+    /// <c>ExternalEvent</c> handler), because it creates a WPF window.
+    /// </remarks>
     public static void OpenConnector()
     {
         try

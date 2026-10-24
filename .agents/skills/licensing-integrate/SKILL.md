@@ -125,7 +125,8 @@ public class App : IExternalApplication
     public Result OnStartup(UIControlledApplication application)
     {
         // 1. Invariant: Always use the canonical "Node.aec" tab
-        try { application.CreateRibbonTab(TabName); } catch (Autodesk.Revit.Exceptions.ArgumentException) { }
+        try { application.CreateRibbonTab(TabName); }
+        catch (Autodesk.Revit.Exceptions.ArgumentException) { /* tab already exists: expected */ }
 
         // Defensive acquisition: prevent ArgumentException if panel already exists
         var panel = application.GetRibbonPanels(TabName)
@@ -201,6 +202,12 @@ public class MeuComandoComercial : IExternalCommand
 }
 ```
 
+Gate call rules:
+- `Validate` never throws, so don't wrap it in `try/catch`.
+- Call it once per `Execute`, never from `IExternalCommandAvailability` (it reads and verifies the lease on every call).
+- `OpenConnector()` creates a WPF window: Revit UI thread only (`Execute` or an `ExternalEvent` handler).
+- `check.LicenseKey` is the end user's secret: never log, display, or transmit it.
+
 ### Recipe 5: Deployment format
 
 `NodeAecGate` is location-independent: it reads `%APPDATA%\NodeAec\` and finds the
@@ -220,4 +227,6 @@ applies only to the Connector itself.
 - [ ] All plugin commands and panels are consolidated under the **`Node.aec`** tab.
 - [ ] Executing a protected command without license shows `check.Message` as-is in the TaskDialog, with the link to the **Node.aec Connector**.
 - [ ] Panel name is unique to the product and lives on the `Node.aec` tab.
+- [ ] `Validate` is never called from `IExternalCommandAvailability`; `LicenseKey` is never logged or displayed.
+- [ ] The commit hash of the copied gate files is recorded in the partner repository (needed to update after a signing-key rotation).
 - [ ] Offline operation functions properly with the local master lease.
