@@ -2,7 +2,7 @@
 ;
 ; ONE Setup.exe == ONE compatibility group of Revit years. Compiled automatically
 ; by scripts/release.ps1:
-;   ISCC.exe /DAppVersion=0.1.2 /DAppVersionNum=0.1.2
+;   ISCC.exe /DAppVersion=0.2.0 /DAppVersionNum=0.2.0
 ;            /DGroupLabel=2023-2024 /DRevitYears=2023,2024
 ;            /DAppId={B0438DCE-26F6-42C9-BDC2-710A6D0C1F0E}
 ;            /DPreviousAppIds={B0438DCE-...};{4056654E-...}
@@ -37,10 +37,10 @@
 ; NOTE: this file must stay plain ASCII (ISCC reads scripts as ANSI/UTF-8-BOM).
 
 #ifndef AppVersion
-  #define AppVersion "0.1.2"
+  #error AppVersion is required: compile with /DAppVersion=0.2.0 (same as <Version> in NodeAec.Connector.csproj).
 #endif
 #ifndef AppVersionNum
-  #define AppVersionNum "0.1.2"
+  #error AppVersionNum is required: compile with /DAppVersionNum=0.2.0 (numeric x.y.z form of AppVersion).
 #endif
 #ifndef RevitYears
   #error RevitYears is required: compile with /DRevitYears=2023,2024 (the compatible Revit years of this build).

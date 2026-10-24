@@ -23,11 +23,15 @@
   standard location). Without it, only the .zip is produced - no failure.
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.1.2 -RevitYear 2025-2026
-  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.1.2 -RevitYear 2025-2026 -Install
+  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.2.0 -RevitYear 2025-2026
+  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.2.0 -RevitYear 2025-2026 -Install
+
+  -Version has no default and must equal <Version> in NodeAec.Connector.csproj:
+  the Setup/zip name, the installer metadata and the DLL/API version all come
+  from the same number.
 #>
 param(
-  [string]$Version = "0.1.2",
+  [string]$Version,
   [string]$RevitYear = "2025-2026",
   [string]$Configuration = "Release",
   [switch]$Install,
@@ -47,8 +51,14 @@ if ($args.Count -gt 0) {
 # Um token posicional inesperado — ex.: "-RevitYear=2026" passado entre aspas em
 # vez de -RevitYear 2025-2026 — cai no primeiro parâmetro ($Version) e seguiria
 # para o build sem aviso. Validar o formato falha alto antes de qualquer trabalho.
+# Sem default: um Setup com versão esquecida sairia com um número antigo no nome
+# e nos metadados do instalador, sem aviso.
+if ([string]::IsNullOrWhiteSpace($Version)) {
+  throw "-Version é obrigatório (ex.: -Version 0.2.0). Use o mesmo valor de <Version> em src\NodeAec.Connector\NodeAec.Connector.csproj."
+}
+
 if ($Version -notmatch '^\d+\.\d+(\.\d+){0,2}([.-][0-9A-Za-z]+)*$') {
-  throw "Versão inválida: '$Version'. Use o formato SemVer (ex.: 0.1.2 ou 0.1.2-rc1) e passe o grupo com -RevitYear <grupo>."
+  throw "Versão inválida: '$Version'. Use o formato SemVer (ex.: 0.2.0 ou 0.2.0-rc1) e passe o grupo com -RevitYear <grupo>."
 }
 
 # Um instalador por grupo de compatibilidade do Revit. O grupo define os anos
@@ -115,6 +125,18 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($TargetFramework)) {
   throw "Não foi possível resolver TargetFramework para RevitYear=$BuildYear (exit $LASTEXITCODE)."
 }
 $OutDir = Join-Path $ConnectorRoot "src\NodeAec.Connector\bin\$BuildYear\$Configuration\$TargetFramework"
+
+# O build não recebe -Version: a DLL, o ConnectorConfig.Version enviado à API e o
+# título das janelas vêm do csproj. Divergir aqui geraria um Setup "0.3.0" com
+# binário 0.2.0 dentro, então a versão pedida precisa ser a do projeto.
+$ProjectVersion = (& dotnet msbuild $Project -getProperty:Version -p:RevitYear=$BuildYear -nologo -v:quiet |
+  Select-Object -Last 1).ToString().Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($ProjectVersion)) {
+  throw "Não foi possível ler <Version> de $Project (exit $LASTEXITCODE)."
+}
+if ($Version -ne $ProjectVersion) {
+  throw "-Version $Version difere de <Version>$ProjectVersion</Version> em NodeAec.Connector.csproj. Atualize o csproj (e ConnectorConfig.Version) ou passe -Version $ProjectVersion."
+}
 
 if (-not $SkipBuild) {
   Write-Host "==> dotnet build $Sln -c $Configuration -p:RevitYear=$BuildYear ($TargetFramework)"

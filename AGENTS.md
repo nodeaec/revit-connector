@@ -96,7 +96,7 @@ dotnet build NodeAec.Connector.sln -c Release
 dotnet test NodeAec.Connector.sln -c Release
 
 # Package and install into local Revit 2026 via the 2025-2026 group (repeat with -RevitYear 2023-2024 and -RevitYear 2027 for the other groups)
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.2 -RevitYear 2025-2026 -Install
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.2.0 -RevitYear 2025-2026 -Install
 ```
 
 > [!WARNING]

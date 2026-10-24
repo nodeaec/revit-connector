@@ -42,19 +42,19 @@ for the remaining ones.
 
 ```powershell
 # Run from the repository root
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.2 -RevitYear 2025-2026
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.2.0 -RevitYear 2025-2026
 ```
 
 Output:
 - Staged folder: `release\stage\NodeAec.Connector\`
-- Archive: `release\NodeAec.Connector-0.1.2-R2025-2026.zip`
-- Installer: `release\NodeAec.Connector-0.1.2-R2025-2026-Setup.exe` (when Inno Setup 6 is installed)
+- Archive: `release\NodeAec.Connector-0.2.0-R2025-2026.zip`
+- Installer: `release\NodeAec.Connector-0.2.0-R2025-2026-Setup.exe` (when Inno Setup 6 is installed)
 - Console output: Displays the computed SHA-256 hashes.
 
 ### 2. Packaging + Automatic Local Installation
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.1.2 -RevitYear 2025-2026 -Install
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.2.0 -RevitYear 2025-2026 -Install
 ```
 
 This builds, packages, and deploys the add-in to Revit's discovery directories for
@@ -121,7 +121,7 @@ A compliant release package must contain:
 
 | Parameter | Type | Default | Purpose |
 |---|---|---|---|
-| `-Version` | String | `"0.1.2"` | SemVer release version for the archive and Setup names |
+| `-Version` | String | *(required)* | SemVer release version for the archive and Setup names. No default: the script fails when it is missing or differs from `<Version>` in `NodeAec.Connector.csproj` |
 | `-RevitYear` | String | `"2025-2026"` | Revit compatibility group (`2023-2024`, `2025-2026`, `2027`) or a single year (`2023`..`2027`, resolved to its group) |
 | `-Configuration` | String | `"Release"` | Build configuration (`Release` or `Debug`) |
 | `-Install` | Switch | `false` | When set, deploys files into `%ProgramData%\Autodesk\Revit\Addins\<Ano>\` for every year of the group installed locally |

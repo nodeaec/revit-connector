@@ -59,7 +59,7 @@ account, issued for the reported machine.
   "machineId": "3b7c89f1a0e4d2...",
   "deviceName": "ESTACAO-PROJETO-01",
   "platform": "Windows / Revit 2026",
-  "connectorVersion": "0.1.2"
+  "connectorVersion": "0.2.0"
 }
 ```
 
@@ -129,7 +129,7 @@ Activates a manual `NAEC-XXXX-XXXX-XXXX-XXXX` key.
   "machineId": "3b7c89f1a0e4d2...",
   "deviceName": "ESTACAO-PROJETO-01",
   "platform": "Windows / Revit 2026",
-  "clientVersion": "0.1.2"
+  "clientVersion": "0.2.0"
 }
 ```
 
