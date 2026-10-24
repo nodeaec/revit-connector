@@ -8,7 +8,9 @@ How the Node.aec Connector works internally. For integrating a plugin, read the
 ## Hub & Micro-Gate
 
 Node.aec keeps sign-in, activation and encryption in one **Hub** (the Connector). Each
-plugin gets a local **Micro-Gate** (`NodeAecGate`). A partner plugin has no HTTP client,
+plugin gets a local **Micro-Gate**: the `NodeAec.Licensing.Lite` NuGet package
+(`Gate.Validate(slug)`). The Connector keeps its own copy, `NodeAecGate`, in behavioral
+parity with Lite ([lite-adoption.md](lite-adoption.md)). A partner plugin has no HTTP client,
 no activation screens, no individual keys (`NAEC-XXXX-...`), and no encryption of its own.
 
 ```
@@ -18,17 +20,17 @@ no activation screens, no individual keys (`NAEC-XXXX-...`), and no encryption o
 |  [ "Node.aec" Tab ]                                                      |
 |                                                                          |
 |  +---------------------------+      +----------------------------------+ |
-|  |   Node.aec Connector      |      |      Partner Plugins             | |
+|  |   Node.aec Connector      |      |  Partner Plugins (Lite package)  | |
 |  |      (Central Hub)        |      |                                  | |
 |  |                           |      |    public Result Execute(...)    | |
 |  |  - Browser SSO (loopback) |      |    {                             | |
-|  |  - Master Entitlements    |      |      var r = NodeAecGate         | |
+|  |  - Master Entitlements    |      |      var r = Gate                | |
 |  |    Lease + heartbeat      |      |              .Validate(slug);    | |
 |  |  - DPAPI storage          |      |      if (!r.IsLicensed)          | |
 |  |  - JWKS / Ed25519         |      |          return Result.Cancelled;| |
 |  |  - Tab dedup.             |      |      }                           | |
 |  +---------------------------+      +----------------------------------+ |
-|   |  writes                                ^  reads, < 1 ms, no network  |
+|   |  writes                                ^  reads locally, no network  |
 |   v                                        |                             |
 |   %APPDATA%\NodeAec\entitlements.lease  (signed, DPAPI-encrypted)        |
 |                                                                          |
@@ -45,7 +47,7 @@ What the Hub takes off the partner plugin:
    and *Meus Plugins* windows.
 3. **No encryption management**: the Hub writes the lease with `CurrentUser` DPAPI, and the plugin only reads it.
 4. **One sign-in**: every product on the account is synced together.
-5. **Local validation in < 1 ms**, with 30 days of offline tolerance.
+5. **Local validation with no network**, with 30 days of offline tolerance.
 6. **One Ribbon tab**: everything lives on `Node.aec`.
 
 ---
@@ -59,7 +61,7 @@ What the Hub takes off the partner plugin:
 | 3 | Sync | `POST /account/entitlements/lease` returns the Ed25519-signed **Master Entitlements Lease**. |
 | 4 | Response received | `GET /license/jwks` refreshes the public-key cache, then the lease is written to `%APPDATA%\NodeAec\entitlements.lease` with DPAPI. A failed write shows an error, and the lease is never written in plaintext. |
 | 5 | Every Revit launch | Background heartbeat (`Task.Run`): `POST /license/validate` renews the lease. If the network fails, nothing is shown to the user and the failure goes to `connector.log`. |
-| 6 | Partner plugin runs | `NodeAecGate.Validate(slug)` checks signature → `iss` → `scope` → `aud` → `iat` → `mid` → `exp` → `slug`. **No network.** |
+| 6 | Partner plugin runs | `Gate.Validate(slug)` (Lite) checks signature → `iss` → `scope` → `aud` → `iat` → `mid` → `exp` → `slug`. **No network.** |
 | 7 | No internet | The local lease stays valid until its `exp` (30 days by default). Each online launch extends it. |
 
 HTTP contract (endpoints, payloads, claims, error codes): [licensing-api.md](licensing-api.md).
@@ -85,7 +87,7 @@ HTTP contract (endpoints, payloads, claims, error codes): [licensing-api.md](lic
 - **Known limits** (inherent to a check that runs on the user's machine): binary patching
   of a plugin, a frozen clock while offline, an administrator cloning `MachineGuid`, and
   any process running as the same Windows user reading the decrypted lease. See
-  [Partner Integration Guide §8](PARTNER_INTEGRATION.md#8-what-the-gate-protects-against-and-what-it-doesnt).
+  [Partner Integration Guide §7](PARTNER_INTEGRATION.md#7-what-the-gate-protects-against-and-what-it-doesnt).
 - **Diagnostics**: API errors map to stable codes. A sanitized log goes to
   `%APPDATA%\NodeAec\connector.log` (512 KB rotation, no tokens).
 
@@ -113,7 +115,7 @@ revit-connector/
 ├── src/NodeAec.Connector/
 │   ├── Auth/                          # Browser SSO (loopback, RFC 8252)
 │   ├── Client/                        # API client (Master Entitlements Lease)
-│   ├── Gate/                          # NodeAecGate — what partner plugins call
+│   ├── Gate/                          # NodeAecGate — Connector's gate (Lite parity)
 │   ├── Storage/                       # DPAPI persistence in %APPDATA%\NodeAec
 │   ├── UI/                            # WPF windows
 │   └── App.cs                         # IExternalApplication (Ribbon and dedup)

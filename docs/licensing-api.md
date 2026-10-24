@@ -12,7 +12,7 @@ payloads, lease claims, the Browser SSO return, and error mapping.
 > `Auth/DesktopAuthService.cs`, `Gate/NodeAecGate.cs`, `Models/MasterLeasePayload.cs`.
 
 For the end-user view (installation, windows, messages) see the
-[User Manual](USER_MANUAL.md). To protect a partner plugin with the Micro-SDK, see
+[User Manual](USER_MANUAL.md). To protect a partner plugin with the `NodeAec.Licensing.Lite` package, see
 [Partner Integration Guide](PARTNER_INTEGRATION.md).
 
 ---

@@ -5,7 +5,7 @@ description: Integrate Node.aec licensing into an existing Autodesk Revit plugin
 
 # Licensing Integrate (Hub & Micro-Gate Architecture)
 
-This skill guides the end-to-end integration of Node.aec licensing into an Autodesk Revit add-in using the **Hub & Micro-Gate (NodeAecGate)** pattern. It enforces a strict pre-implementation interview (Grilling Phase), fixed architectural invariants, and drop-in code recipes.
+This skill guides the end-to-end integration of Node.aec licensing into an Autodesk Revit add-in using the **Hub & Micro-Gate (`NodeAec.Licensing.Lite`)** pattern. It enforces a strict pre-implementation interview (Grilling Phase), fixed architectural invariants, and drop-in code recipes.
 
 ---
 
@@ -17,7 +17,7 @@ This skill guides the end-to-end integration of Node.aec licensing into an Autod
 
 ### Non-Negotiable Invariants (Do NOT Ask the User):
 1. **Hub & Micro-Gate Architecture**: Partner plugins DO NOT implement HTTP clients, cloud auth, or license manager UIs. All account SSO, seat management, lease sync, and manual key activations are handled by the central **Node.aec Connector**.
-2. **Instant Local Validation (< 1ms, Zero Network)**: Plugins validate authorization locally using `NodeAecGate.Validate(slug)`. Never perform HTTP requests on Revit commands or application startup.
+2. **Instant Local Validation (Zero Network)**: Plugins validate authorization locally using `Gate.Validate(slug)` from the `NodeAec.Licensing.Lite` NuGet package. Never copy gate source files or `NodeAec.Connector.dll` into a partner plugin. Never perform HTTP requests on Revit commands or application startup.
 3. **Ribbon Tab**: The plugin MUST ALWAYS place its panels and buttons in the canonical **`Node.aec`** tab (`TabName = "Node.aec"`). If the plugin currently has its own ribbon tab or scattered commands, migrate all panels and commands to the `Node.aec` tab. Never create a separate tab.
 4. **Offline Tolerance**: Leases stored in `%APPDATA%\NodeAec\entitlements.lease` allow up to 30 days of seamless offline operation.
 
@@ -27,11 +27,11 @@ This skill guides the end-to-end integration of Node.aec licensing into an Autod
 
 #### 1. Revit Version & .NET Target Framework
 - **Question**: *"Which Autodesk Revit versions does this plugin target?"*
-- **Context**: Revit 2025 and 2026+ require **.NET 8** (`net8.0-windows`). Revit 2023–2024 require **.NET Framework 4.8** (`net48`).
+- **Context**: Revit 2025/2026 require **.NET 8** (`net8.0-windows`), Revit 2027 requires **.NET 10** (`net10.0-windows`), and Revit 2023–2024 require **.NET Framework 4.8** (`net48`).
 - **Options**:
   - `A` (Recommended for modern plugins): .NET 8 exclusive (`<TargetFramework>net8.0-windows</TargetFramework>`).
   - `B`: .NET Framework 4.8 exclusive (`<TargetFramework>net48</TargetFramework>`).
-  - `C`: Multi-targeting (`<TargetFrameworks>net8.0-windows;net48</TargetFrameworks>`).
+  - `C`: Multi-targeting (`<TargetFrameworks>net48;net8.0-windows;net10.0-windows</TargetFrameworks>`).
 
 #### 2. Product Slug on Node.aec
 - **Question**: *"What is the registered product slug on Node.aec (`https://nodeaec.com.br/products/{slug}`)? If not yet registered, what slug should we use?"*
@@ -52,76 +52,34 @@ This skill guides the end-to-end integration of Node.aec licensing into an Autod
 ## 📋 Integration Recipes
 
 > [!IMPORTANT]
-> The human-facing source of truth is [`docs/PARTNER_INTEGRATION.md`](../../../docs/PARTNER_INTEGRATION.md).
-> Keep these recipes consistent with it.
+> The human-facing source of truth is [`docs/PARTNER_INTEGRATION.md`](../../../docs/PARTNER_INTEGRATION.md),
+> and the complete reference add-in is `revit-sample-plugin`. Keep these recipes consistent with both.
 
-### Recipe 1: Copy the gate source files
+### Recipe 1: Package and project file (`.csproj`)
 
-Copy from `github.com/nodeaec/revit-connector` (`src/NodeAec.Connector/`) into the plugin,
-**keeping folders and namespaces unchanged** (`NodeAec.Connector.*`). This is the full
-compile closure of `NodeAecGate`. Anything less fails to build:
-
-1. `Gate/NodeAecGate.cs`
-2. `Hardware/HardwareId.cs`
-3. `Cryptography/LeaseSignatureVerifier.cs`
-4. `Storage/LeaseStorage.cs`, `Storage/SigningKeyStore.cs`
-5. `Models/*.cs` (all four)
-6. `Config/ConnectorConfig.cs` (compiled-in Ed25519 public key)
-7. `Diagnostics/ConnectorLog.cs`
-8. `Compatibility/NetFrameworkPolyfills.cs`: **`net48` only** (records need `IsExternalInit`)
-
-Do **not** copy `Auth/`, `Client/`, `UI/` or `App.cs`.
-
-This closure plus Recipe 2 was compiled standalone for `net48`, `net8.0-windows` and
-`net10.0-windows` with 0 errors / 0 warnings. If a clean machine raises
-`FileNotFoundException` for BouncyCastle or System.Text.Json, add the add-in-folder
-resolver shown in `docs/PARTNER_INTEGRATION.md` (same as the Connector's `App.cs`).
-
-### Recipe 2: Project file (`.csproj`)
-
-The copied files use file-scoped namespaces, records and nullable annotations, so
-`LangVersion latest` is mandatory on `net48` (whose default is C# 7.3).
+```powershell
+dotnet add package NodeAec.Licensing.Lite   # latest version on nuget.org
+```
 
 ```xml
 <PropertyGroup>
-  <LangVersion>latest</LangVersion>
-  <Nullable>enable</Nullable>
-  <!-- net8/net10: ProtectedData comes from Microsoft.WindowsDesktop.App. Without UseWPF
-       (or an explicit FrameworkReference to it), net10.0-windows does not compile. -->
-  <UseWPF>true</UseWPF>
-  <!-- Copies NuGet dependency DLLs to the add-in folder, never RevitAPI*.dll -->
+  <!-- Copies Lite + BouncyCastle (+ net48 System.Text.Json/ProtectedData) next to the add-in DLL -->
   <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-  <!-- net48 reference assemblies are nullable-oblivious: false positives only -->
-  <NoWarn Condition="'$(TargetFramework)' == 'net48'">$(NoWarn);CS8602;CS8603;CS8604</NoWarn>
+  <!-- On net8/net10 keeps ProtectedData.dll out of the payload (Revit provides it) -->
+  <UseWPF>true</UseWPF>
 </PropertyGroup>
-
-<ItemGroup>
-  <!-- Ed25519 lease signature verification -->
-  <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
-</ItemGroup>
-
-<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
-  <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="4.7.0" />
-  <PackageReference Include="System.Text.Json" Version="8.0.5" />
-  <Reference Include="System.Net.Http" />
-</ItemGroup>
-
-<ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
-  <!-- ExcludeAssets="runtime": compile against it, never copy it to the payload -->
-  <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" ExcludeAssets="runtime" />
-</ItemGroup>
-<!-- net10.0-windows: nothing extra -->
 ```
 
-> [!NOTE]
-> `System.Security.Cryptography.ProtectedData.dll` is a staged payload item **only for
-> `net48`** (Revit 2023/2024), where the NuGet package is its only source. On
-> `net8.0-windows`/`net10.0-windows` (Revit 2025+) the assembly ships inside the host's
-> `Microsoft.WindowsDesktop.App` runtime (verified in the 8.0.31 and 10.0.12 packs), so it
-> must **not** be copied into the add-in folder. Encrypting with `ProtectedData` is
-> unaffected on every target.
+Verified with `NodeAec.Licensing.Lite` 0.1.0 for `net48`, `net8.0-windows` and
+`net10.0-windows`: 0 errors, 0 warnings, no extra package references needed. Without
+`UseWPF`, `System.Security.Cryptography.ProtectedData.dll` lands in the 2025+ payload.
 
-### Recipe 3: Application Lifecycle (`App.cs`) — Ribbon on the `Node.aec` tab
+Payload per Revit year: 2023/2024 → `NodeAec.Licensing.Lite.dll`, `BouncyCastle.Cryptography.dll`,
+`System.Security.Cryptography.ProtectedData.dll`, `System.Text.Json.dll` + dependencies;
+2025+ → `NodeAec.Licensing.Lite.dll`, `BouncyCastle.Cryptography.dll`. Never `RevitAPI*.dll`,
+`AdWindows.dll` or `NodeAec.Connector.dll`.
+
+### Recipe 2: Application Lifecycle (`App.cs`) — Ribbon on the `Node.aec` tab
 
 ```csharp
 using System;
@@ -148,10 +106,10 @@ public class App : IExternalApplication
             "MeuPlugin_Comando",
             "Executar\nComando",
             typeof(App).Assembly.Location,
-            "SeuNamespace.Commands.MeuComandoComercial"
+            "SeuPlugin.Commands.MeuComandoComercial"
         )
         {
-            ToolTip = "Executa a ferramenta comercial protegida via NodeAecGate."
+            ToolTip = "Executa a ferramenta comercial protegida pelo Node.aec."
         };
         panel.AddItem(btn);
 
@@ -165,18 +123,19 @@ public class App : IExternalApplication
 Panel names must be unique to the product (`Conector` is reserved). Never use `License` /
 `Licensing` as tab or panel names, because the Connector removes them as legacy elements.
 
-### Recipe 4: Protecting an `IExternalCommand`
+### Recipe 3: Protecting an `IExternalCommand`
 
-`check.Message` is a complete, end-user-facing explanation of the **one** specific failure
-reason, already including the next step (e.g. "Abra o Node.aec Connector…") where it
-applies. Show it as-is: never wrap it in a list of possible causes or append a second
-"open the Connector" sentence.
+`gate.Message` is a complete, end-user-facing explanation of the **one** specific failure
+reason, already including the next step where it applies. Show it as-is: never wrap it in
+a list of possible causes or append a second "open the Connector" sentence.
 
 ```csharp
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using NodeAec.Connector.Gate;
+using NodeAec.Licensing;
+
+namespace SeuPlugin.Commands;
 
 [Transaction(TransactionMode.Manual)]
 public class MeuComandoComercial : IExternalCommand
@@ -185,14 +144,14 @@ public class MeuComandoComercial : IExternalCommand
 
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
-        // 1. Instant local check (< 1ms, zero network)
-        var check = NodeAecGate.Validate(ProductSlug);
-        if (!check.IsLicensed)
+        // 1. Instant local check (zero network, never throws)
+        var gate = Gate.Validate(ProductSlug);
+        if (!gate.IsLicensed)
         {
             var dialog = new TaskDialog("Node.aec")
             {
                 MainInstruction = "Licença necessária",
-                MainContent = check.Message,
+                MainContent = gate.Message,
                 CommonButtons = TaskDialogCommonButtons.Close
             };
             dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Abrir Node.aec Connector");
@@ -201,7 +160,7 @@ public class MeuComandoComercial : IExternalCommand
             // which is why the dialog always comes first.
             if (dialog.Show() == TaskDialogResult.CommandLink1)
             {
-                NodeAecGate.OpenConnector();
+                Gate.OpenConnector();
             }
 
             return Result.Cancelled;
@@ -214,30 +173,36 @@ public class MeuComandoComercial : IExternalCommand
 ```
 
 Gate call rules:
-- `Validate` never throws, so don't wrap it in `try/catch`.
+- `Validate` never throws, so don't wrap it in `try/catch`. Branch only on `IsLicensed`. Never match `Message` text.
 - Call it once per `Execute`, never from `IExternalCommandAvailability` (it reads and verifies the lease on every call).
-- `OpenConnector()` creates a WPF window: Revit UI thread only (`Execute` or an `ExternalEvent` handler).
-- `check.LicenseKey` is the end user's secret: never log, display, or transmit it.
+- `Gate.OpenConnector()` creates a WPF window: Revit UI thread only (`Execute` or an `ExternalEvent` handler).
+- `gate.LicenseKey` is the end user's secret: never log, display, or transmit it.
 
-### Recipe 5: Deployment format
+### Recipe 4: Deployment format
 
-`NodeAecGate` is location-independent: it reads `%APPDATA%\NodeAec\` and finds the
+The gate is location-independent: it reads `%APPDATA%\NodeAec\` and finds the
 Connector by assembly name in the Revit process. The partner keeps whatever format it
 already uses: a `.addin` manifest under `Addins\<year>\` or a `.bundle` under
 `ApplicationPlugins\`. The `Addins\<year>\NodeAec.Connector\` path in this repository
 applies only to the Connector itself.
 
+### Recipe 5: Updates and key rotation
+
+Lite verifies against compiled public keys. Planned rotations ship a Lite version that
+trusts old + new keys first (announced in advance); a security emergency switches
+immediately. Either way the partner updates `NodeAec.Licensing.Lite`, rebuilds and
+republishes. Advise the partner to keep that path fast.
+
 ---
 
 ## ✅ Validation Checklist
 
-- [ ] Project builds with **0 errors**.
-- [ ] `System.Security.Cryptography.ProtectedData.dll` is present in the add-in output folder **only when targeting `net48`** (Revit 2023/2024); on `net8.0-windows`/`net10.0-windows` it is provided by `Microsoft.WindowsDesktop.App` and must be absent.
-- [ ] No `RevitAPI*.dll` assemblies copied into output.
+- [ ] Project builds with **0 errors** for every targeted Revit year.
+- [ ] `NodeAec.Licensing.Lite` comes from a `PackageReference`; no copied gate sources, no `NodeAec.Connector.dll`.
+- [ ] Payload matches Recipe 1 (ProtectedData only on `net48`); no `RevitAPI*.dll` / `AdWindows.dll`.
 - [ ] No HTTP clients or login forms implemented inside the partner plugin.
-- [ ] All plugin commands and panels are consolidated under the **`Node.aec`** tab.
-- [ ] Executing a protected command without license shows `check.Message` as-is in the TaskDialog, with the link to the **Node.aec Connector**.
-- [ ] Panel name is unique to the product and lives on the `Node.aec` tab.
+- [ ] All panels are on the **`Node.aec`** tab, with a panel name unique to the product.
+- [ ] Each protected command calls `Gate.Validate(slug)` first and branches only on `IsLicensed`.
+- [ ] Without a license the TaskDialog shows `gate.Message` as-is (no list of causes) with the link to the **Node.aec Connector**.
 - [ ] `Validate` is never called from `IExternalCommandAvailability`; `LicenseKey` is never logged or displayed.
-- [ ] The commit hash of the copied gate files is recorded in the partner repository (needed to update after a signing-key rotation).
-- [ ] Offline operation functions properly with the local master lease.
+- [ ] Offline operation works with the local master lease.

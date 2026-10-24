@@ -8,7 +8,8 @@ Official repository: [github.com/nodeaec/revit-connector](https://github.com/nod
 
 ## 🎯 Repository Scope and Mission
 
-The `revit-connector` repository maintains the **Node.aec Connector** — the official desktop governance, licensing, and unified-Ribbon add-in from **Node.aec** for Autodesk Revit — plus the public contracts for partner-plugin integration via `NodeAecGate`.
+The `revit-connector` repository maintains the **Node.aec Connector** — the official desktop governance, licensing, and unified-Ribbon add-in from **Node.aec** for Autodesk Revit — plus the partner-facing integration docs. Partner plugins integrate through the
+`NodeAec.Licensing.Lite` NuGet package (repository `revit-licensing-lite`), not through code from this repository.
 The goal is to accelerate the AEC/BIM developer ecosystem by standardizing integration with the Node.aec platform (licensing, catalog, updates) and serving as an engineering reference for professional plugins.
 
 ### Primary Project in the Repository
@@ -16,7 +17,7 @@ The goal is to accelerate the AEC/BIM developer ecosystem by standardizing integ
 1. **`NodeAec.Connector`**:
    - The **central desktop governance Hub** and unified Ribbon for Node.aec in Autodesk Revit.
    - Manages browser SSO authentication (RFC 8252 loopback), master entitlements lease sync (`entitlements.lease`), and the user interface for manual NAEC key activation.
-   - Provides the `NodeAecGate` micro-SDK (`NodeAecGate.Validate(slug)`), letting third-party plugins validate rights in `< 1ms` securely, locally, and with no blocking network calls.
+   - Contains `NodeAecGate` (`NodeAecGate.Validate(slug)`), the Connector's own copy of the offline gate. It is kept in behavioral parity with `NodeAec.Licensing.Lite` (`tests/NodeAec.Connector.Tests/NodeAecGateVsLiteTests.cs`, `docs/lite-adoption.md`); third-party plugins use the Lite package, never these files.
    - Manages the canonical **`Node.aec`** tab and deduplication via `Autodesk.Windows.ComponentManager`.
 
 > [!NOTE]

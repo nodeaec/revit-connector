@@ -26,21 +26,24 @@ Everything appears on a single **Node.aec** tab in the Revit Ribbon.
 
 ## Plugin integration in 30 seconds
 
-Copy the gate files into your plugin ([which ones](docs/PARTNER_INTEGRATION.md#2-copy-the-gate-source-files-into-your-project)),
-then at the start of each paid command:
+Add the [`NodeAec.Licensing.Lite`](https://www.nuget.org/packages/NodeAec.Licensing.Lite)
+package (`dotnet add package NodeAec.Licensing.Lite`), then at the start of each paid command:
 
 ```csharp
-var check = NodeAecGate.Validate("meu-plugin");
-if (!check.IsLicensed)
+using NodeAec.Licensing;
+
+var gate = Gate.Validate("meu-plugin");
+if (!gate.IsLicensed)
 {
-    TaskDialog.Show("Node.aec", check.Message); // the message already explains why and what to do
+    TaskDialog.Show("Node.aec", gate.Message); // the message already explains why and what to do
     return Result.Cancelled;
 }
 ```
 
-The check runs locally, takes under 1 ms and never touches the network. Your plugin can be
-installed as a `.addin` or as a `.bundle`. The full guide covers packages, the Ribbon tab,
-packaging and a nicer dialog.
+The check runs locally and never touches the network. Your plugin can be
+installed as a `.addin` or as a `.bundle`. The full guide covers the Ribbon tab,
+packaging and a nicer dialog; the [Sample Plugin](https://github.com/nodeaec/revit-sample-plugin)
+is a complete working example.
 
 ---
 
