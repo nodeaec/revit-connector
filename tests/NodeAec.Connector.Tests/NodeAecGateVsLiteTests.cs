@@ -203,8 +203,9 @@ public class NodeAecGateVsLiteTests : IDisposable
     [Fact]
     public void Signature_InvalidPinOverride_FailsClosed_HubOnlyDivergence()
     {
-        // Divergência intencional documentada: o Hub (operação) aceita override via
-        // `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` e falha fechado quando inválido; o Lite
+        // Divergência intencional documentada: o Hub aceita override via
+        // `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` (só em builds NODEAEC_ANCHOR_OVERRIDE, como este
+        // projeto de testes) e falha fechado quando inválido; o Lite
         // é âncora-só e ignora a variável. A delegação precisa preservar este ramo.
         using var badPin = TestHelpers.WithLicensePin("não-é-base64!!");
         string jwt = TestHelpers.CreateSignedJwt(

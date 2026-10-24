@@ -82,14 +82,21 @@ public static class ConnectorConfig
         "MCowBQYDK2VwAyEArMYcaZMAlBeimfR6twrHZndEWOSaIHlSURYFhTjalMg=";
 
     /// <summary>
-    /// Operations-time override of the compiled-in anchor, set via
-    /// <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c> (base64 SPKI Ed25519).
-    /// When present it takes precedence over <see cref="DefaultLicensePublicKeySpkiBase64"/>;
-    /// when invalid, verification fails closed — it never silently falls back to the
-    /// compiled-in key. There is never a private key in this repository.
+    /// Override of the compiled-in anchor via <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>
+    /// (base64 SPKI Ed25519), honored <b>only</b> in builds that define
+    /// <c>NODEAEC_ANCHOR_OVERRIDE</c> (the headless test project, or a deliberate
+    /// non-production build). Production builds — the Connector and every partner copy of
+    /// this file — always return <c>null</c>: an environment variable is user-controlled,
+    /// so honoring it would let anyone pin their own key and sign a lease for any product.
+    /// When honored and invalid, verification fails closed — it never silently falls back to
+    /// the compiled-in key. There is never a private key in this repository.
     /// </summary>
+#if NODEAEC_ANCHOR_OVERRIDE
     public static string? LicensePublicKeySpkiOverride =>
         Environment.GetEnvironmentVariable("NODEAEC_LICENSE_PUBLIC_KEY_SPKI");
+#else
+    public static string? LicensePublicKeySpkiOverride => null;
+#endif
 
     /// <summary>
     /// Reads the environment variable and delegates HTTPS validation to

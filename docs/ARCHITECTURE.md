@@ -72,8 +72,10 @@ HTTP contract (endpoints, payloads, claims, error codes): [licensing-api.md](lic
 - **Compiled trust anchor**: the production public key is compiled in
   (`ConnectorConfig.DefaultLicensePublicKeySpkiBase64`) and is the **only** key accepted.
   The JWKS cache (`%APPDATA%\NodeAec\license-jwks.json`) is used to discover keys (`kid`)
-  and signal rotation, but it is never trusted to verify a lease. Operations may override the anchor with
-  `NODEAEC_LICENSE_PUBLIC_KEY_SPKI`. If no usable anchor is available, the gate denies access.
+  and signal rotation, but it is never trusted to verify a lease. `NODEAEC_LICENSE_PUBLIC_KEY_SPKI`
+  can replace the anchor **only in test builds** (`NODEAEC_ANCHOR_OVERRIDE`). Production
+  ignores it, because an environment variable is user-controlled. If no usable anchor is
+  available, the gate denies access.
 - **DPAPI storage**: `entitlements.lease` and `session.json` are encrypted with
   `DataProtectionScope.CurrentUser`. A DPAPI failure never falls back to plaintext.
 - **Machine binding**: the lease carries a SHA-256 of the Windows `MachineGuid`. A copied file

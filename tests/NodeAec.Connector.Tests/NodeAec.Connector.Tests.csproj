@@ -6,6 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
     <RootNamespace>NodeAec.Connector.Tests</RootNamespace>
+    <!-- Lets the tests pin the RFC 8032 test key via NODEAEC_LICENSE_PUBLIC_KEY_SPKI.
+         Never define this in the add-in project: production ignores the variable. -->
+    <DefineConstants>$(DefineConstants);NODEAEC_ANCHOR_OVERRIDE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

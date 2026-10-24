@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using NodeAec.Connector.Config;
 using Xunit;
 
@@ -99,5 +100,33 @@ public class ConnectorConfigTests
         const string expected = "Windows / Revit 2026";
 #endif
         Assert.Equal(expected, ConnectorConfig.PlatformDescription);
+    }
+
+    /// <summary>
+    /// O override da âncora (<c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>) só vale em builds com
+    /// <c>NODEAEC_ANCHOR_OVERRIDE</c>. A variável é controlada pelo usuário: se o add-in
+    /// definisse a constante, qualquer um fixaria a própria chave e assinaria um lease.
+    /// Este teste falha se a constante vazar para o projeto do add-in ou para o matrix.
+    /// </summary>
+    [Theory]
+    [InlineData("Directory.Build.props")]
+    [InlineData("src/NodeAec.Connector/NodeAec.Connector.csproj")]
+    public void AnchorOverrideConstant_IsNeverDefinedForTheAddIn(string relativePath)
+    {
+        string content = File.ReadAllText(Path.Combine(FindRepositoryRoot(), relativePath));
+
+        Assert.DoesNotContain("NODEAEC_ANCHOR_OVERRIDE", content);
+    }
+
+    /// <summary>Sobe a partir da pasta de saída dos testes até a raiz que contém a solution.</summary>
+    private static string FindRepositoryRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "NodeAec.Connector.sln")))
+        {
+            dir = dir.Parent;
+        }
+
+        return dir?.FullName ?? throw new DirectoryNotFoundException("Raiz do repositório (NodeAec.Connector.sln) não encontrada.");
     }
 }

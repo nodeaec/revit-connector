@@ -24,7 +24,7 @@ For the end-user view (installation, windows, messages) see the
 | `NODEAEC_API_URL` | `https://api.nodeaec.com.br` | Base for all `/license/*` and `/account/*` endpoints |
 | `NODEAEC_AUTH_URL` | `https://nodeaec.com.br/auth/desktop` | Login page opened in the browser |
 | `NODEAEC_CATALOG_URL` | `https://nodeaec.com.br/products` | Catalog opened by the *Explorar Catálogo* button |
-| `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` | *(unset)* | Operations override of the anchor compiled into the add-in. The anchor is the only verification key; the cached JWKS is discovery/diagnostics only. An invalid override fails verification closed |
+| `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` | *(unset)* | Override of the anchor compiled into the add-in, **ignored by production builds**: it is honored only when compiled with `NODEAEC_ANCHOR_OVERRIDE` (the test project). An environment variable is user-controlled, so honoring it in production would let anyone pin their own key. When honored, an invalid value fails verification closed |
 
 Fixed production endpoint: **`https://api.nodeaec.com.br`**. There is no private key in this
 repository — the client only holds the public key used to **verify** signatures.
@@ -169,7 +169,7 @@ The client only accepts keys with `kty = OKP`, `crv = Ed25519`, and `x` decoding
 bytes. The result is cached at `%APPDATA%\NodeAec\license-jwks.json` (atomic write)
 for `kid` discovery and diagnostics only: **signature verification uses
 exclusively the anchor compiled into the add-in** (`ConnectorConfig.DefaultLicensePublicKeySpkiBase64`,
-overridable via `NODEAEC_LICENSE_PUBLIC_KEY_SPKI`). A JWKS key other than the anchor
+overridable via `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` only in `NODEAEC_ANCHOR_OVERRIDE` test builds). A JWKS key other than the anchor
 is recorded as a rotation signal and **never** verifies a lease. With no usable anchor,
 **the gate fails closed**.
 

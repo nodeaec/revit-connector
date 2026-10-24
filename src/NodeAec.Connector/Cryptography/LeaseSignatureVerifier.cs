@@ -13,7 +13,8 @@ namespace NodeAec.Connector.Cryptography;
 /// Verifies the Ed25519 (RFC 8032) signature of lease tokens issued by the Node.aec platform
 /// before any claim is trusted. The only candidate key is the anchor compiled into the
 /// add-in (<see cref="ConnectorConfig.DefaultLicensePublicKeySpkiBase64"/>), replaceable
-/// by operations via <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>.
+/// via <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c> only in <c>NODEAEC_ANCHOR_OVERRIDE</c> builds
+/// (see <see cref="ConnectorConfig.LicensePublicKeySpkiOverride"/>).
 /// The cached JWKS (<c>%APPDATA%\NodeAec\license-jwks.json</c>, refreshed by
 /// <c>GET /license/jwks</c>) is no longer a trust source: it serves <c>kid</c> discovery
 /// and rotation signaling, and an off-anchor key never verifies.
@@ -141,8 +142,9 @@ public static class LeaseSignatureVerifier
     }
 
     /// <summary>
-    /// Resolves the effective verification anchor: the operations override
-    /// (<c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>) when set and valid; otherwise the key
+    /// Resolves the effective verification anchor: the override
+    /// (<c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>, honored only in <c>NODEAEC_ANCHOR_OVERRIDE</c>
+    /// builds) when set and valid; otherwise the key
     /// compiled into the add-in. A set-but-invalid override is fail-closed — it never falls
     /// back silently to the compiled-in key.
     /// </summary>

@@ -32,9 +32,10 @@ Enabling delegation now would be premature for four reasons verified in code:
    1, 2, and 4.
 4. **Intentional Hub-vs-Lite behavioral divergence.** Naive delegation
    (swapping the `Validate` body for a Lite call) would regress the Hub:
-   - the operations override `NODEAEC_LICENSE_PUBLIC_KEY_SPKI`
-     (`ConnectorConfig.cs:91-92`, `LeaseSignatureVerifier.cs:153-167`) — Lite is
-     anchor-only by design (plan §7) and ignores the variable;
+   - the `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` override (`ConnectorConfig.LicensePublicKeySpkiOverride`,
+     `LeaseSignatureVerifier.TryGetAnchorKey`) — now compiled in only for
+     `NODEAEC_ANCHOR_OVERRIDE` test builds, so production Hub and Lite are both
+     anchor-only; the divergence remains only in the test build;
    - `WARN`/`ERROR` logs via `ConnectorLog` (rejected signature, unavailable
      Machine ID, unexpected error) — Lite is silent;
    - the JWKS rotation warning (`SignalJwksOutsideAnchor`, once per process).
@@ -86,7 +87,7 @@ Against Lite `1.0.0-preview.1` (`src/NodeAec.Licensing.Lite/Gate.cs` and
 
 | Behavior | Connector (Hub) | Lite | Delegation action |
 |---|---|---|---|
-| `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` | valid/invalid override (fails closed) | ignored | keep the Hub branch: with the override set, use the current local path; without it, delegate |
+| `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` | honored only in `NODEAEC_ANCHOR_OVERRIDE` test builds (fails closed); ignored in production | ignored | keep the Hub branch for the test build; production delegates |
 | `ConnectorLog` WARN/ERROR | yes (3 points in the Gate + JWKS rotation) | no | keep logs in the Hub wrapper |
 | JWKS rotation warning | `SignalJwksOutsideAnchor` | does not exist | keep in the Hub |
 | `TryVerify(jwt, out reason)` / `Evaluate` | granularity used by `ConnectorApiClient` (M1) | Lite's own API | do not remove; only the `Validate` body delegates |
@@ -103,8 +104,8 @@ Prerequisites (do not start before): frozen Lite namespace + approved `CONTRACT.
      18 byte-identical messages (map `Snapshot`→`GateResult` field by field:
      `IsLicensed`, `LicenseType`, `LicenseKey`, `ProductName`, `ExpiresAt`,
      `Message` verbatim);
-   - keep the override branch: `LicensePublicKeySpkiOverride` set →
-     current local path (operations behavior); unset → delegate to Lite;
+   - keep the override branch: `LicensePublicKeySpkiOverride` set (test builds only) →
+     current local path; unset → delegate to Lite;
    - keep the Gate's 3 `ConnectorLog.Write` calls and the `SignalJwksOutsideAnchor`;
    - keep the `AssemblyResolve` in `App.cs:32-55` and the 6h `HeartbeatPeriod`.
 3. Extend `NodeAecGateVsLiteTests.cs`: with the package referenced, add the
