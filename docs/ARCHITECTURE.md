@@ -82,6 +82,10 @@ HTTP contract (endpoints, payloads, claims, error codes): [licensing-api.md](lic
   fails on another computer.
 - **Offline / air-gapped**: manual key entry (`NAEC-XXXX-...`). Importing `.lease` files is
   planned but not available yet.
+- **Known limits** (inherent to a check that runs on the user's machine): binary patching
+  of a plugin, a frozen clock while offline, an administrator cloning `MachineGuid`, and
+  any process running as the same Windows user reading the decrypted lease. See
+  [Partner Integration Guide §8](PARTNER_INTEGRATION.md#8-what-the-gate-protects-against-and-what-it-doesnt).
 - **Diagnostics**: API errors map to stable codes. A sanitized log goes to
   `%APPDATA%\NodeAec\connector.log` (512 KB rotation, no tokens).
 

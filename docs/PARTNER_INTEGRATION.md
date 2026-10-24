@@ -67,8 +67,13 @@ Add the following to your `.csproj`, picking the block that matches the Revit ye
 <PropertyGroup>
   <LangVersion>latest</LangVersion>
   <Nullable>enable</Nullable>
+  <!-- Needed on net8/net10: DPAPI (ProtectedData) comes from the Windows Desktop runtime.
+       Most Revit add-ins already have it. -->
+  <UseWPF>true</UseWPF>
   <!-- Copies NuGet DLLs (BouncyCastle, etc.) next to your add-in DLL -->
   <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  <!-- net48 reference assemblies have no nullable annotations: these are false positives -->
+  <NoWarn Condition="'$(TargetFramework)' == 'net48'">$(NoWarn);CS8602;CS8603;CS8604</NoWarn>
 </PropertyGroup>
 
 <!-- All Revit years -->
@@ -83,13 +88,22 @@ Add the following to your `.csproj`, picking the block that matches the Revit ye
   <Reference Include="System.Net.Http" />
 </ItemGroup>
 
-<!-- Revit 2025/2026 (net8.0-windows) only -->
+<!-- Revit 2025/2026 (net8.0-windows) only: compile against it, never ship it -->
 <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
-  <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" ExcludeAssets="runtime" />
 </ItemGroup>
 
 <!-- Revit 2027 (net10.0-windows): nothing extra -->
 ```
+
+> [!NOTE]
+> If your project can't use `UseWPF`, add
+> `<FrameworkReference Include="Microsoft.WindowsDesktop.App" />` for the `net8`/`net10`
+> targets instead. Without one of the two, `net10.0-windows` doesn't compile
+> (`ProtectedData` not found).
+
+This setup has been compiled for `net48`, `net8.0-windows` and `net10.0-windows` (0 errors,
+0 warnings) using only the files from step 2 and the examples in this guide.
 
 **What must go in your installer, next to your plugin DLL:**
 
@@ -99,6 +113,39 @@ Add the following to your `.csproj`, picking the block that matches the Revit ye
 | 2025 / 2026 / 2027 | `BouncyCastle.Cryptography.dll` only. **Do not** ship `System.Security.Cryptography.ProtectedData.dll` — Revit already provides it. |
 
 Never ship `RevitAPI.dll`, `RevitAPIUI.dll` or `AdWindows.dll`.
+
+### If Revit can't find BouncyCastle or System.Text.Json
+
+Revit normally finds DLLs that sit next to your add-in DLL. If a clean machine shows
+`FileNotFoundException` / `Could not load file or assembly 'BouncyCastle.Cryptography'`
+when a protected command runs, register a resolver in your `IExternalApplication`.
+The Connector uses the same safety net (`App.cs`):
+
+```csharp
+static App()
+{
+#if NET8_0_OR_GREATER
+    System.Runtime.Loader.AssemblyLoadContext.Default.Resolving += (_, name) => LoadFromAddInFolder(name);
+#endif
+    AppDomain.CurrentDomain.AssemblyResolve += (_, args) => LoadFromAddInFolder(new AssemblyName(args.Name));
+}
+
+private static Assembly? LoadFromAddInFolder(AssemblyName name)
+{
+    try
+    {
+        string dir = Path.GetDirectoryName(typeof(App).Assembly.Location) ?? AppDomain.CurrentDomain.BaseDirectory;
+        string candidate = Path.Combine(dir, $"{name.Name}.dll");
+        return File.Exists(candidate) ? Assembly.LoadFrom(candidate) : null;
+    }
+    catch
+    {
+        return null; // let Revit report the original load failure
+    }
+}
+```
+
+(Needs `using System; using System.IO; using System.Reflection;`.)
 
 ---
 
@@ -171,6 +218,8 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using NodeAec.Connector.Gate;
 
+namespace MeuPlugin.Commands; // must match the class name given to PushButtonData
+
 [Transaction(TransactionMode.Manual)]
 public class MeuComando : IExternalCommand
 {
@@ -236,7 +285,10 @@ When `IsLicensed` is `true`, you can also read `check.LicenseType`, `check.Produ
 
 ### Rules for calling the gate
 
-- **No `try/catch` needed.** `Validate` never throws, and every failure comes back as `IsLicensed = false`.
+- **No `try/catch` needed.** `Validate` never throws, and every failure comes back as
+  `IsLicensed = false`. The one exception is a packaging bug: if a dependency DLL from step 3
+  is missing, .NET throws `FileNotFoundException` before the gate code runs. Testing on a
+  clean machine catches that.
 - **Call it once per command execution**, at the top of `Execute`. It reads and verifies the
   license file on every call (no cache). That's fast, but not free.
 - **Never call it from `IExternalCommandAvailability`.** Revit evaluates availability
@@ -291,7 +343,26 @@ The copied files include the Node.aec **public key** used to verify licenses
 
 ---
 
-## 8. Checklist before you ship
+## 8. What the gate protects against, and what it doesn't
+
+The gate stops normal users from running your plugin without a license. It stops
+copying the license file to another PC, editing it, forging it, or using it after the
+offline period ends. Like any license check that runs on the user's machine, it does **not**
+stop a determined attacker who controls that machine:
+
+- **Patching your DLL.** Anyone can decompile a .NET assembly and remove the
+  `if (!check.IsLicensed)` branch. If that matters for your product, obfuscate your
+  plugin. That's your responsibility, not the gate's.
+- **Freezing the clock.** Offline, the expiry check trusts the Windows clock. A user who
+  keeps the clock between the last sync and the expiry date keeps the license valid.
+- **Cloning the machine ID.** A Windows administrator can copy the `MachineGuid` of a
+  licensed computer to another one.
+- **Reading the license.** The license file is encrypted per Windows user, so any
+  program running as that user can read it, license keys included.
+
+---
+
+## 9. Checklist before you ship
 
 - [ ] Builds with 0 errors for every Revit year you support.
 - [ ] All your panels are on the `Node.aec` tab, with a panel name unique to your product.

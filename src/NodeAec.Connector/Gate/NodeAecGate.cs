@@ -81,7 +81,9 @@ public static class NodeAecGate
     /// </summary>
     /// <remarks>
     /// Never throws: every failure, including unexpected ones, comes back as
-    /// <see cref="GateResult.Failure"/>, so callers need no <c>try/catch</c>. Each call reads
+    /// <see cref="GateResult.Failure"/>, so callers need no <c>try/catch</c>. The only
+    /// exception is a packaging fault: when a dependency (System.Text.Json, BouncyCastle,
+    /// ProtectedData) is missing, the runtime throws while loading this code, before it runs. Each call reads
     /// and verifies the lease from disk (no cache), so call it once per command execution
     /// and never from <c>IExternalCommandAvailability</c>, which Revit evaluates constantly.
     /// Safe to call from any thread.

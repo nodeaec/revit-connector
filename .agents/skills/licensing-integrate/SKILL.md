@@ -72,6 +72,11 @@ compile closure of `NodeAecGate`. Anything less fails to build:
 
 Do **not** copy `Auth/`, `Client/`, `UI/` or `App.cs`.
 
+This closure plus Recipe 2 was compiled standalone for `net48`, `net8.0-windows` and
+`net10.0-windows` with 0 errors / 0 warnings. If a clean machine raises
+`FileNotFoundException` for BouncyCastle or System.Text.Json, add the add-in-folder
+resolver shown in `docs/PARTNER_INTEGRATION.md` (same as the Connector's `App.cs`).
+
 ### Recipe 2: Project file (`.csproj`)
 
 The copied files use file-scoped namespaces, records and nullable annotations, so
@@ -81,8 +86,13 @@ The copied files use file-scoped namespaces, records and nullable annotations, s
 <PropertyGroup>
   <LangVersion>latest</LangVersion>
   <Nullable>enable</Nullable>
+  <!-- net8/net10: ProtectedData comes from Microsoft.WindowsDesktop.App. Without UseWPF
+       (or an explicit FrameworkReference to it), net10.0-windows does not compile. -->
+  <UseWPF>true</UseWPF>
   <!-- Copies NuGet dependency DLLs to the add-in folder, never RevitAPI*.dll -->
   <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  <!-- net48 reference assemblies are nullable-oblivious: false positives only -->
+  <NoWarn Condition="'$(TargetFramework)' == 'net48'">$(NoWarn);CS8602;CS8603;CS8604</NoWarn>
 </PropertyGroup>
 
 <ItemGroup>
@@ -97,7 +107,8 @@ The copied files use file-scoped namespaces, records and nullable annotations, s
 </ItemGroup>
 
 <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
-  <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  <!-- ExcludeAssets="runtime": compile against it, never copy it to the payload -->
+  <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" ExcludeAssets="runtime" />
 </ItemGroup>
 <!-- net10.0-windows: nothing extra -->
 ```
