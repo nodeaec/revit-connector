@@ -13,7 +13,7 @@ payloads, lease claims, the Browser SSO return, and error mapping.
 
 For the end-user view (installation, windows, messages) see the
 [User Manual](USER_MANUAL.md). To protect a partner plugin with the Micro-SDK, see
-[Integrating with `NodeAecGate`](../README.md#-integrating-partner-plugins-with-nodeaecgate).
+[Partner Integration Guide](PARTNER_INTEGRATION.md).
 
 ---
 

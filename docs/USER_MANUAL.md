@@ -370,8 +370,8 @@ The Connector is designed to **work without internet** day to day:
 **The "Meus Plugins" button is gray (disabled)**
 → Expected behavior: it only enables **after sign-in**. Click **Minha Conta** and sign in.
 
-**A partner plugin shows "Node.aec — Licença Necessária"**
-→ That product's license is not unlocked on this machine. Possible reasons:
+**A partner plugin says "Licença necessária"**
+→ That product's license is not unlocked on this machine. The dialog shows exactly one of these reasons:
 - *"Nenhuma credencial do Node.aec encontrada nesta estação…"* → open **Minha Conta** and sign in (or activate a key).
 - *"A concessão de licenças foi emitida para outra estação de trabalho…"* → the license belongs to another computer; activate it on this machine.
 - *"O produto '…' não consta nas licenças ativas desta conta…"* → purchase/activate the product in the catalog.

@@ -20,7 +20,7 @@ The goal is to accelerate the AEC/BIM developer ecosystem by standardizing integ
    - Manages the canonical **`Node.aec`** tab and deduplication via `Autodesk.Windows.ComponentManager`.
 
 > [!NOTE]
-> If your goal is to explain how to integrate Node.aec licensing into an **external user plugin**, see the [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) skill and the [README integration section](README.md#-integrating-partner-plugins-with-nodeaecgate). This file governs **internal development of this repository**.
+> If your goal is to explain how to integrate Node.aec licensing into an **external user plugin**, see the [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) skill and the [Partner Integration Guide](docs/PARTNER_INTEGRATION.md). This file governs **internal development of this repository**.
 
 ---
 
