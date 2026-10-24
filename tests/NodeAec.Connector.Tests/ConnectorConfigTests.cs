@@ -118,6 +118,31 @@ public class ConnectorConfigTests
         Assert.DoesNotContain("NODEAEC_ANCHOR_OVERRIDE", content);
     }
 
+    /// <summary>
+    /// <c>ConnectorConfig.Version</c> vai para a API e para o título das janelas; o bump de
+    /// versão no csproj já esqueceu a constante uma vez (0.2.0 no csproj, 0.1.2 enviado).
+    /// </summary>
+    [Fact]
+    public void Version_MatchesAddInProjectVersion()
+    {
+        string csproj = File.ReadAllText(
+            Path.Combine(FindRepositoryRoot(), "src/NodeAec.Connector/NodeAec.Connector.csproj"));
+        var match = System.Text.RegularExpressions.Regex.Match(csproj, "<Version>([^<]+)</Version>");
+
+        Assert.True(match.Success, "NodeAec.Connector.csproj sem <Version>.");
+        Assert.Equal(match.Groups[1].Value.Trim(), ConnectorConfig.Version);
+    }
+
+    /// <summary>
+    /// A âncora de produção nunca pode ser a chave pública do vetor RFC 8032 usado nos testes:
+    /// a chave privada correspondente é pública, e qualquer um assinaria leases com ela.
+    /// </summary>
+    [Fact]
+    public void DefaultAnchor_IsNotTheRfc8032TestKey()
+    {
+        Assert.NotEqual(TestHelpers.TestLicensePinSpkiBase64, ConnectorConfig.DefaultLicensePublicKeySpkiBase64);
+    }
+
     /// <summary>Sobe a partir da pasta de saída dos testes até a raiz que contém a solution.</summary>
     private static string FindRepositoryRoot()
     {
