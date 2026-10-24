@@ -5,7 +5,7 @@
 > described here is active code. The Connector validates licenses with its own
 > `NodeAecGate.Validate(slug)` today, and that is the **current design** — the
 > sections below describe what a future swap would look like, not what the add-in
-> does now. Current behavior is documented in the [README](../README.md),
+> does now. Current behavior is documented in [ARCHITECTURE.md](ARCHITECTURE.md),
 > [AGENTS.md](../AGENTS.md), and [licensing-api.md](licensing-api.md).
 
 > Status on 2026-10-02: **delegation NOT active**. Adopted path: this document + the
