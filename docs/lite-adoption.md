@@ -95,7 +95,7 @@ Against Lite `1.0.0-preview.1` (`src/NodeAec.Licensing.Lite/Gate.cs` and
 ## 4. Swap plan (for the real-delegation agent)
 
 Prerequisites (do not start before): frozen Lite namespace + approved `CONTRACT.md`
-(wave 0) + Lite 1.x published on NuGet.org with `.snk`/Authenticode.
+(wave 0) + Lite published on NuGet.org strong-named (`.snk`).
 
 1. Add a `PackageReference` to Lite (pinned version `x.y.*`) in
    `NodeAec.Connector.csproj`. Never a relative `ProjectReference` across repos.
