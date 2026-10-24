@@ -38,7 +38,8 @@ A complete working example is the [Sample Plugin](https://github.com/nodeaec/rev
 dotnet add package NodeAec.Licensing.Lite
 ```
 
-Use the latest version on [nuget.org](https://www.nuget.org/packages/NodeAec.Licensing.Lite).
+Use the latest version on [nuget.org](https://www.nuget.org/packages/NodeAec.Licensing.Lite)
+(0.3.0 or later for `Reason` and English messages).
 The package targets `net48` (Revit 2023/2024), `net8.0-windows` (2025/2026) and
 `net10.0-windows` (2027). NuGet picks the right one for your project.
 
@@ -71,6 +72,7 @@ Never ship `RevitAPI.dll`, `RevitAPIUI.dll`, `AdWindows.dll` or `NodeAec.Connect
 Call `Gate.Validate` at the start of each paid command:
 
 ```csharp
+using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -88,13 +90,19 @@ public class MeuComando : IExternalCommand
         var gate = Gate.Validate(ProductSlug);
         if (!gate.IsLicensed)
         {
-            ShowLicenseRequired(gate.Message);
+            ShowLicenseRequired(gate.GetMessage(UserLanguage(commandData)));
             return Result.Cancelled;
         }
 
         // ... your command ...
         return Result.Succeeded;
     }
+
+    // Node.aec messages come in Portuguese and English: follow Revit's UI language.
+    private static MessageLanguage UserLanguage(ExternalCommandData commandData) =>
+        commandData.Application.Application.Language == LanguageType.Brazilian_Portuguese
+            ? MessageLanguage.Portuguese
+            : MessageLanguage.English;
 
     private static void ShowLicenseRequired(string reason)
     {
@@ -116,25 +124,36 @@ public class MeuComando : IExternalCommand
 
 That's the whole integration.
 
-### What `gate.Message` contains
+### What the message contains
 
-When `IsLicensed` is `false`, **`gate.Message` is the complete explanation for the end
-user**. It names the one specific reason and tells them what to do. Show it as-is.
+When `IsLicensed` is `false`, **the message is the complete explanation for the end user**.
+It names the one specific reason and tells them what to do. Show it as-is.
 Don't add a list of possible causes around it, because the user can't tell which one
 applies, and don't repeat "open the Connector". The message already says so where it applies.
 
-| Situation | Example of `gate.Message` (Portuguese, shown to the user) |
-|---|---|
-| User never signed in on this computer, or the Connector is not installed | *Nenhuma credencial do Node.aec encontrada nesta estação. Abra o Node.aec Connector na Ribbon para entrar com sua conta ou ativar sua licença.* |
-| Account has no license for your slug | *O produto 'meu-plugin' não consta nas licenças ativas desta conta. Adquira ou ative no catálogo Node.aec.* |
-| Trial or license expired | *A licença ou período de teste de 'Meu Plugin' expirou em 01/10/2026.* |
-| Seat limit reached | *O limite de computadores simultâneos para 'Meu Plugin' foi atingido.* |
-| More than 30 days offline | *O prazo de tolerância offline expirou em 01/10/2026. Conecte-se à internet para sincronizar.* |
-| License file copied from another PC | *A concessão de licenças foi emitida para outra estação de trabalho (Hardware ID divergente).* |
-| File tampered, corrupted, or wrong format | *A licença local não passou na verificação de segurança. Conecte-se à internet e clique em atualizar no Node.aec Connector.* |
-| Computer clock set wrong | *A data da licença local é inválida. Confira a data e hora deste computador e tente novamente.* |
+`gate.GetMessage(MessageLanguage.English)` and `gate.GetMessage(MessageLanguage.Portuguese)`
+return the same message in each language. `gate.Message` is the Portuguese one.
 
-Messages are in Portuguese (PT-BR) only for now.
+`gate.Reason` says which case it is, as a `GateReason` value. Use it to log, or to react to a
+specific case (for example, offer a "Buy" link on `ProductNotFound`), without parsing text.
+
+| Situation | `gate.Reason` | Message (English) |
+|---|---|---|
+| User never signed in on this computer, or the Connector is not installed | `NoLease` | *No Node.aec credentials were found on this computer. Open the Node.aec Connector on the Ribbon to sign in or activate your license.* |
+| Account has no license for your slug | `ProductNotFound` | *The product 'meu-plugin' is not among this account's active licenses. Buy or activate it in the Node.aec catalog.* |
+| Trial or license expired | `LicenseExpired` | *The license or trial of 'Meu Plugin' expired on Oct 1, 2026.* |
+| Seat limit reached | `SeatLimitReached` | *All computers allowed for 'Meu Plugin' are already in use.* |
+| License revoked, suspended or not granted | `LicenseInactive` | *The license of 'Meu Plugin' has status 'revoked'.* |
+| More than 30 days offline | `OfflineGraceExpired` | *The offline grace period expired on Oct 1, 2026. Connect to the internet to synchronize.* |
+| License file copied from another PC | `MachineMismatch` | *The licenses were issued for another computer (Hardware ID mismatch).* |
+| File tampered or forged | `SignatureInvalid` | *The local license failed the security check. Connect to the internet and click refresh in the Node.aec Connector.* |
+| Computer clock set wrong | `ClockInvalid` | *The local license date is invalid. Check this computer's date and time and try again.* |
+| Your code passed an empty slug | `MissingProductSlug` | *No product slug was given for validation.* |
+
+The full list, with the Portuguese text, is in the
+[Lite README](https://github.com/nodeaec/licensing-lite#reasons-and-messages). On success,
+`Reason` is `Licensed`. New reasons may be added in later versions, so a `switch` over
+`GateReason` needs a `default` branch.
 
 When `IsLicensed` is `true`, you can also read `gate.LicenseType`, `gate.ProductName` and
 `gate.ExpiresAt` (e.g. to show "trial ends on ..." in your UI). `ExpiresAt == null` means
@@ -148,8 +167,8 @@ no end date, not "expired".
 
 - **No `try/catch` needed.** `Validate` never throws. Every failure comes back as
   `IsLicensed = false`.
-- **Branch only on `IsLicensed`.** Never compare `Message` text to decide what to do,
-  because the wording can change between versions.
+- **Decide only on `IsLicensed`.** Use `Reason` to log or to adapt your UI, never to let a
+  command run. Never compare message text: the wording can change between versions.
 - **Call it once per command execution**, at the top of `Execute`. It reads and verifies the
   license file on every call. That's fast, but not free.
 - **Never call it from `IExternalCommandAvailability`.** Revit evaluates availability
@@ -323,7 +342,7 @@ stop a determined attacker who controls that machine:
 - [ ] Builds with 0 errors for every Revit year you support.
 - [ ] All your panels are on the `Node.aec` tab, with a panel name unique to your product.
 - [ ] Each paid command calls `Gate.Validate("<your-slug>")` first and branches only on `IsLicensed`.
-- [ ] The "license required" dialog shows `gate.Message` as-is, with no list of causes around it.
+- [ ] The "license required" dialog shows the gate's message as-is (in the user's language), with no list of causes around it.
 - [ ] `gate.LicenseKey` is never logged or displayed.
 - [ ] `Validate` is not called from any `IExternalCommandAvailability`.
 - [ ] The installer ships the files from step 2, and no `RevitAPI*.dll` / `AdWindows.dll` / `NodeAec.Connector.dll`.

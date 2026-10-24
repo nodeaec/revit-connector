@@ -8,9 +8,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using NodeAec.Connector.Config;
 using NodeAec.Connector.Cryptography;
-using NodeAec.Connector.Hardware;
 using NodeAec.Connector.Models;
 using NodeAec.Connector.Storage;
+using NodeAec.Licensing.Cryptography;
 
 namespace NodeAec.Connector.Client;
 
@@ -68,7 +68,7 @@ public class ConnectorApiClient
     /// <returns><c>true</c> when the Machine ID was resolved.</returns>
     private static bool TryResolveMachineId(out string machineId, out SyncResult? failure)
     {
-        if (HardwareId.TryGetMachineId(out machineId, out string? reason))
+        if (LeaseTrust.TryGetMachineId(out machineId, out string? reason))
         {
             failure = null;
             return true;
@@ -424,7 +424,7 @@ public class ConnectorApiClient
     {
         // 1. Signature first: without it no claim deserves trust. A missing key
         //    is not rejection — it is inability to verify (the caller propagates "unverified").
-        LeaseSignatureVerifier.VerificationOutcome outcome = LeaseSignatureVerifier.Evaluate(leaseToken, out reason);
+        LeaseSignatureVerifier.VerificationOutcome outcome = LeaseTrust.Evaluate(leaseToken, out reason);
         if (outcome == LeaseSignatureVerifier.VerificationOutcome.Rejected)
         {
             return LeaseVerdict.Rejected;
@@ -445,7 +445,7 @@ public class ConnectorApiClient
             return LeaseVerdict.Rejected;
         }
 
-        if (!HardwareId.TryGetMachineId(out string currentMachineId, out string? machineIdReason))
+        if (!LeaseTrust.TryGetMachineId(out string currentMachineId, out string? machineIdReason))
         {
             reason = $"Machine ID indisponível: {machineIdReason}";
             return LeaseVerdict.Rejected;

@@ -20,8 +20,9 @@
     <PackageReference Include="Nice3point.Revit.Api.AdWindows" Version="$(RevitApiPkgVersion)" PrivateAssets="all" ExcludeAssets="runtime" />
     <!-- Versão derivada do TFM; vazia em net10.0-windows, que já traz o DPAPI na caixa. -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="$(DpapiPkgVersion)" Condition="'$(DpapiPkgVersion)' != ''" />
-    <!-- Ed25519 (RFC 8032): verificação de assinatura dos leases. Gerenciado, sem dependências nativas. -->
-    <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
+    <!-- Lease signature check and Machine ID: the same package partner plugins use, so the Hub
+         accepts exactly what their gates accept. Brings BouncyCastle (Ed25519) with it. -->
+    <PackageReference Include="NodeAec.Licensing.Lite" Version="0.3.0" />
   </ItemGroup>
 
   <ItemGroup>

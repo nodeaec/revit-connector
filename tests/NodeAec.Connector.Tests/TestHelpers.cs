@@ -6,9 +6,10 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using NodeAec.Connector.Hardware;
+using NodeAec.Connector.Cryptography;
 using NodeAec.Connector.Models;
 using NodeAec.Connector.Storage;
+using NodeAec.Licensing.Cryptography;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Crypto.Signers;
@@ -42,8 +43,8 @@ public static class TestHelpers
     };
 
     /// <summary>
-    /// Pin de teste (SPKI base64) da chave RFC 8032: é o valor injetado em
-    /// <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c> pelos testes que verificam assinatura.
+    /// Pin de teste (SPKI base64) da chave RFC 8032: a âncora que <see cref="WithTestLicensePin"/>
+    /// coloca no lugar das âncoras do Lite.
     /// </summary>
     public static string TestLicensePinSpkiBase64 { get; } = CreateTestLicensePin();
 
@@ -139,7 +140,7 @@ public static class TestHelpers
     /// </summary>
     public static string CurrentMachineId()
     {
-        if (!HardwareId.TryGetMachineId(out string machineId, out string? reason))
+        if (!LeaseTrust.TryGetMachineId(out string machineId, out string? reason))
         {
             throw new InvalidOperationException($"MachineGuid indisponível no ambiente de teste: {reason}");
         }
@@ -148,61 +149,120 @@ public static class TestHelpers
     }
 
     /// <summary>
-    /// Substitui o leitor do MachineGuid durante o escopo e restaura leitor + cache ao final
-    /// (use sempre com <c>using</c>). A suíte roda com paralelismo desabilitado, então o
-    /// leitor global pode ser trocado sem risco de corrida.
+    /// Substitui o leitor do Machine ID do <see cref="LeaseTrust"/> durante o escopo e restaura
+    /// o leitor do Lite ao final (use sempre com <c>using</c>). A suíte roda com paralelismo
+    /// desabilitado, então o leitor global pode ser trocado sem risco de corrida.
     /// </summary>
-    /// <param name="machineGuid">Valor devolvido pelo leitor; <c>null</c> simula GUID ilegível.</param>
+    /// <param name="machineGuid">MachineGuid simulado; <c>null</c> ou vazio simula GUID ilegível.</param>
     public static IDisposable WithMachineGuid(string? machineGuid)
     {
-        Func<string?> previous = HardwareId.MachineGuidReader;
-        HardwareId.MachineGuidReader = () => machineGuid;
-        HardwareId.ResetCacheForTests();
+        Func<string?> previous = LeaseTrust.MachineIdReader;
+        LeaseTrust.MachineIdReader = () => string.IsNullOrWhiteSpace(machineGuid) ? null : Sha256HexLower(machineGuid!.Trim());
 
-        return new MachineGuidScope(previous);
+        return new Restore(() => LeaseTrust.MachineIdReader = previous);
     }
 
     /// <summary>
-    /// Define o pin de teste (chave RFC 8032) como âncora durante o escopo e restaura o valor
-    /// anterior ao final. Use sempre com <c>using</c>; o pin real é compilado no add-in.
+    /// Mesmo formato do Machine ID do Lite: SHA-256 do MachineGuid em hex minúsculo (64 caracteres).
+    /// </summary>
+    public static string Sha256HexLower(string value)
+    {
+        using var sha = System.Security.Cryptography.SHA256.Create();
+        return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Usa a chave RFC 8032 como única âncora durante o escopo. Use sempre com <c>using</c>;
+    /// as âncoras reais estão compiladas no Lite e não podem ser trocadas de fora.
     /// </summary>
     public static IDisposable WithTestLicensePin() => WithLicensePin(TestLicensePinSpkiBase64);
 
     /// <summary>
-    /// Define a âncora de verificação (<c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>) durante o escopo
-    /// e restaura o valor anterior ao final. <c>null</c> remove o override (volta ao pin
-    /// compilado); string inválida exercita a falha fechada.
+    /// Troca a verificação de assinatura do <see cref="LeaseTrust"/> por uma que aceita só
+    /// <paramref name="spkiBase64"/>, com as mesmas regras do Lite (EdDSA, 64 bytes, Ed25519).
+    /// <c>null</c> mantém o verificador do Lite; uma chave inválida exercita
+    /// <see cref="LeaseSignatureVerifier.VerificationOutcome.NoKeysAvailable"/>.
     /// </summary>
     public static IDisposable WithLicensePin(string? spkiBase64)
     {
-        const string variable = "NODEAEC_LICENSE_PUBLIC_KEY_SPKI";
-        string? previous = Environment.GetEnvironmentVariable(variable);
-        Environment.SetEnvironmentVariable(variable, spkiBase64);
-
-        return new LicensePinScope(previous);
-    }
-
-    private sealed class LicensePinScope : IDisposable
-    {
-        private readonly string? _previous;
-
-        public LicensePinScope(string? previous) => _previous = previous;
-
-        public void Dispose() =>
-            Environment.SetEnvironmentVariable("NODEAEC_LICENSE_PUBLIC_KEY_SPKI", _previous);
-    }
-
-    private sealed class MachineGuidScope : IDisposable
-    {
-        private readonly Func<string?> _previous;
-
-        public MachineGuidScope(Func<string?> previous) => _previous = previous;
-
-        public void Dispose()
+        var previousCheck = LeaseTrust.VerifySignature;
+        var previousTrusted = LeaseTrust.IsTrustedKey;
+        if (spkiBase64 != null)
         {
-            HardwareId.MachineGuidReader = _previous;
-            HardwareId.ResetCacheForTests();
+            bool usable = LeaseSignatureVerifier.TryDecodeSpkiBase64(spkiBase64, out byte[] anchor, out _);
+            LeaseTrust.VerifySignature = (string? jwt, out string? reason) => VerifyWith(usable ? anchor : null, jwt, out reason);
+            LeaseTrust.IsTrustedKey = key => usable && key.AsSpan().SequenceEqual(anchor);
         }
+
+        LeaseTrust.ResetRotationSignalForTests();
+        return new Restore(() =>
+        {
+            LeaseTrust.VerifySignature = previousCheck;
+            LeaseTrust.IsTrustedKey = previousTrusted;
+            LeaseTrust.ResetRotationSignalForTests();
+        });
+    }
+
+    /// <summary>Ed25519 check against a single test anchor, mirroring Lite's outcomes.</summary>
+    private static LeaseSignatureVerifier.VerificationOutcome VerifyWith(byte[]? anchor, string? jwt, out string? reason)
+    {
+        string[] parts = (jwt ?? string.Empty).Trim().Split('.');
+        if (parts.Length != 3)
+        {
+            reason = "estrutura JWT inválida";
+            return LeaseSignatureVerifier.VerificationOutcome.Rejected;
+        }
+
+        try
+        {
+            using var header = JsonDocument.Parse(DecodeBase64Url(parts[0]));
+            if (!header.RootElement.TryGetProperty("alg", out var alg) || alg.GetString() != LeaseSignatureVerifier.AcceptedAlgorithm)
+            {
+                reason = "algoritmo não suportado";
+                return LeaseSignatureVerifier.VerificationOutcome.Rejected;
+            }
+
+            byte[] signature = DecodeBase64Url(parts[2]);
+            if (anchor == null)
+            {
+                reason = "âncora pública de verificação indisponível";
+                return LeaseSignatureVerifier.VerificationOutcome.NoKeysAvailable;
+            }
+
+            var verifier = new Ed25519Signer();
+            verifier.Init(false, new Ed25519PublicKeyParameters(anchor, 0));
+            byte[] data = Encoding.ASCII.GetBytes($"{parts[0]}.{parts[1]}");
+            verifier.BlockUpdate(data, 0, data.Length);
+            if (signature.Length == 64 && verifier.VerifySignature(signature))
+            {
+                reason = null;
+                return LeaseSignatureVerifier.VerificationOutcome.Verified;
+            }
+        }
+        catch (Exception ex) when (ex is FormatException or JsonException)
+        {
+            reason = "token malformado";
+            return LeaseSignatureVerifier.VerificationOutcome.Rejected;
+        }
+
+        reason = "assinatura não corresponde à âncora de teste";
+        return LeaseSignatureVerifier.VerificationOutcome.Rejected;
+    }
+
+    private static byte[] DecodeBase64Url(string input)
+    {
+        string base64 = input.Replace('-', '+').Replace('_', '/');
+        base64 += (base64.Length % 4) switch { 2 => "==", 3 => "=", _ => string.Empty };
+        return Convert.FromBase64String(base64);
+    }
+
+    private sealed class Restore : IDisposable
+    {
+        private readonly Action _restore;
+
+        public Restore(Action restore) => _restore = restore;
+
+        public void Dispose() => _restore();
     }
 
     /// <summary>

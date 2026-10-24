@@ -125,11 +125,15 @@ Panel names must be unique to the product (`Conector` is reserved). Never use `L
 
 ### Recipe 3: Protecting an `IExternalCommand`
 
-`gate.Message` is a complete, end-user-facing explanation of the **one** specific failure
+The gate's message is a complete, end-user-facing explanation of the **one** specific failure
 reason, already including the next step where it applies. Show it as-is: never wrap it in
 a list of possible causes or append a second "open the Connector" sentence.
+`gate.GetMessage(MessageLanguage.English | Portuguese)` picks the language (`gate.Message` is
+Portuguese); `gate.Reason` (`GateReason`) names the case for logs or UI tweaks — never for
+deciding whether the command runs. Requires Lite 0.3.0+.
 
 ```csharp
+using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -148,10 +152,13 @@ public class MeuComandoComercial : IExternalCommand
         var gate = Gate.Validate(ProductSlug);
         if (!gate.IsLicensed)
         {
+            var language = commandData.Application.Application.Language == LanguageType.Brazilian_Portuguese
+                ? MessageLanguage.Portuguese
+                : MessageLanguage.English;
             var dialog = new TaskDialog("Node.aec")
             {
                 MainInstruction = "Licença necessária",
-                MainContent = gate.Message,
+                MainContent = gate.GetMessage(language),
                 CommonButtons = TaskDialogCommonButtons.Close
             };
             dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Abrir Node.aec Connector");
@@ -203,6 +210,6 @@ republishes. Advise the partner to keep that path fast.
 - [ ] No HTTP clients or login forms implemented inside the partner plugin.
 - [ ] All panels are on the **`Node.aec`** tab, with a panel name unique to the product.
 - [ ] Each protected command calls `Gate.Validate(slug)` first and branches only on `IsLicensed`.
-- [ ] Without a license the TaskDialog shows `gate.Message` as-is (no list of causes) with the link to the **Node.aec Connector**.
+- [ ] Without a license the TaskDialog shows the gate's message as-is, in the user's language (no list of causes), with the link to the **Node.aec Connector**.
 - [ ] `Validate` is never called from `IExternalCommandAvailability`; `LicenseKey` is never logged or displayed.
 - [ ] Offline operation works with the local master lease.

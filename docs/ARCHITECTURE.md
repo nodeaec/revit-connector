@@ -9,8 +9,9 @@ How the Node.aec Connector works internally. For integrating a plugin, read the
 
 Node.aec keeps sign-in, activation and encryption in one **Hub** (the Connector). Each
 plugin gets a local **Micro-Gate**: the `NodeAec.Licensing.Lite` NuGet package
-(`Gate.Validate(slug)`). The Connector keeps its own copy, `NodeAecGate`, in behavioral
-parity with Lite ([lite-adoption.md](lite-adoption.md)). A partner plugin has no HTTP client,
+(`Gate.Validate(slug)`). The Connector uses the same package to verify each lease before
+saving it and to compute the Machine ID ([lite-adoption.md](lite-adoption.md)), so the Hub and
+the plugins can never disagree about a lease. A partner plugin has no HTTP client,
 no activation screens, no individual keys (`NAEC-XXXX-...`), and no encryption of its own.
 
 ```
@@ -71,13 +72,11 @@ HTTP contract (endpoints, payloads, claims, error codes): [licensing-api.md](lic
 ## Security
 
 - **Signature first**: the lease's Ed25519 (RFC 8032) signature is checked before any claim is trusted.
-- **Compiled trust anchor**: the production public key is compiled in
-  (`ConnectorConfig.DefaultLicensePublicKeySpkiBase64`) and is the **only** key accepted.
-  The JWKS cache (`%APPDATA%\NodeAec\license-jwks.json`) is used to discover keys (`kid`)
-  and signal rotation, but it is never trusted to verify a lease. `NODEAEC_LICENSE_PUBLIC_KEY_SPKI`
-  can replace the anchor **only in test builds** (`NODEAEC_ANCHOR_OVERRIDE`). Production
-  ignores it, because an environment variable is user-controlled. If no usable anchor is
-  available, the gate denies access.
+- **Compiled trust anchors**: the production public keys are compiled into
+  `NodeAec.Licensing.Lite` and are the **only** keys accepted, by the Connector and by every
+  plugin. No environment variable or file can replace them. The JWKS cache
+  (`%APPDATA%\NodeAec\license-jwks.json`) is used to discover keys (`kid`) and signal rotation,
+  but it is never trusted to verify a lease. If no usable anchor is available, the gate denies access.
 - **DPAPI storage**: `entitlements.lease` and `session.json` are encrypted with
   `DataProtectionScope.CurrentUser`. A DPAPI failure never falls back to plaintext.
 - **Machine binding**: the lease carries a SHA-256 of the Windows `MachineGuid`. A copied file
@@ -115,7 +114,7 @@ revit-connector/
 ├── src/NodeAec.Connector/
 │   ├── Auth/                          # Browser SSO (loopback, RFC 8252)
 │   ├── Client/                        # API client (Master Entitlements Lease)
-│   ├── Gate/                          # NodeAecGate — Connector's gate (Lite parity)
+│   ├── Cryptography/                  # LeaseTrust — lease check and Machine ID via Lite
 │   ├── Storage/                       # DPAPI persistence in %APPDATA%\NodeAec
 │   ├── UI/                            # WPF windows
 │   └── App.cs                         # IExternalApplication (Ribbon and dedup)

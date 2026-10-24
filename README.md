@@ -35,7 +35,9 @@ using NodeAec.Licensing;
 var gate = Gate.Validate("meu-plugin");
 if (!gate.IsLicensed)
 {
-    TaskDialog.Show("Node.aec", gate.Message); // the message already explains why and what to do
+    // The message already explains why and what to do. gate.Message is Portuguese;
+    // gate.GetMessage(MessageLanguage.English) gives the English text.
+    TaskDialog.Show("Node.aec", gate.Message);
     return Result.Cancelled;
 }
 ```

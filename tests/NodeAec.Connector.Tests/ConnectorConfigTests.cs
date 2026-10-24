@@ -103,19 +103,23 @@ public class ConnectorConfigTests
     }
 
     /// <summary>
-    /// O override da âncora (<c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>) só vale em builds com
-    /// <c>NODEAEC_ANCHOR_OVERRIDE</c>. A variável é controlada pelo usuário: se o add-in
-    /// definisse a constante, qualquer um fixaria a própria chave e assinaria um lease.
-    /// Este teste falha se a constante vazar para o projeto do add-in ou para o matrix.
+    /// As âncoras de confiança ficam só no NodeAec.Licensing.Lite. Uma chave SPKI Ed25519
+    /// compilada aqui seria uma segunda fonte de confiança, que pode divergir da dos plugins
+    /// numa rotação. O prefixo base64 de todo SPKI Ed25519 é <c>MCowBQYDK2VwAyEA</c>.
     /// </summary>
-    [Theory]
-    [InlineData("Directory.Build.props")]
-    [InlineData("src/NodeAec.Connector/NodeAec.Connector.csproj")]
-    public void AnchorOverrideConstant_IsNeverDefinedForTheAddIn(string relativePath)
+    [Fact]
+    public void AddIn_CompilesNoTrustAnchor()
     {
-        string content = File.ReadAllText(Path.Combine(FindRepositoryRoot(), relativePath));
+        string src = Path.Combine(FindRepositoryRoot(), "src");
+        foreach (string file in Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories))
+        {
+            if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            {
+                continue;
+            }
 
-        Assert.DoesNotContain("NODEAEC_ANCHOR_OVERRIDE", content);
+            Assert.DoesNotContain("MCowBQYDK2VwAyEA", File.ReadAllText(file));
+        }
     }
 
     /// <summary>
@@ -131,16 +135,6 @@ public class ConnectorConfigTests
 
         Assert.True(match.Success, "NodeAec.Connector.csproj sem <Version>.");
         Assert.Equal(match.Groups[1].Value.Trim(), ConnectorConfig.Version);
-    }
-
-    /// <summary>
-    /// A âncora de produção nunca pode ser a chave pública do vetor RFC 8032 usado nos testes:
-    /// a chave privada correspondente é pública, e qualquer um assinaria leases com ela.
-    /// </summary>
-    [Fact]
-    public void DefaultAnchor_IsNotTheRfc8032TestKey()
-    {
-        Assert.NotEqual(TestHelpers.TestLicensePinSpkiBase64, ConnectorConfig.DefaultLicensePublicKeySpkiBase64);
     }
 
     /// <summary>Sobe a partir da pasta de saída dos testes até a raiz que contém a solution.</summary>

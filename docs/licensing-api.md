@@ -9,7 +9,8 @@ payloads, lease claims, the Browser SSO return, and error mapping.
 >
 > **Source of truth** (changed this document, change the code with it):
 > `Client/ConnectorApiClient.cs`, `Storage/SigningKeyStore.cs`,
-> `Auth/DesktopAuthService.cs`, `Gate/NodeAecGate.cs`, `Models/MasterLeasePayload.cs`.
+> `Auth/DesktopAuthService.cs`, `Cryptography/LeaseTrust.cs`, `Models/MasterLeasePayload.cs`, and the
+> plugin gate in `NodeAec.Licensing.Lite` (`Gate.cs`).
 
 For the end-user view (installation, windows, messages) see the
 [User Manual](USER_MANUAL.md). To protect a partner plugin with the `NodeAec.Licensing.Lite` package, see
@@ -24,7 +25,6 @@ For the end-user view (installation, windows, messages) see the
 | `NODEAEC_API_URL` | `https://api.nodeaec.com.br` | Base for all `/license/*` and `/account/*` endpoints |
 | `NODEAEC_AUTH_URL` | `https://nodeaec.com.br/auth/desktop` | Login page opened in the browser |
 | `NODEAEC_CATALOG_URL` | `https://nodeaec.com.br/products` | Catalog opened by the *Explorar Catálogo* button |
-| `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` | *(unset)* | Override of the anchor compiled into the add-in, **ignored by production builds**: it is honored only when compiled with `NODEAEC_ANCHOR_OVERRIDE` (the test project). An environment variable is user-controlled, so honoring it in production would let anyone pin their own key. When honored, an invalid value fails verification closed |
 
 Fixed production endpoint: **`https://api.nodeaec.com.br`**. There is no private key in this
 repository — the client only holds the public key used to **verify** signatures.
@@ -67,7 +67,8 @@ account, issued for the reported machine.
 `ConnectorConfig.Version`; `machineId` is the SHA-256 hash of the Windows `MachineGuid`
 (64 lowercase hex characters). The machine name is **not** part of the hash — it is
 renamable and would invalidate the license on every rename. With no readable `MachineGuid` the Connector
-fails closed and never calls the API (see [HardwareId.cs](../src/NodeAec.Connector/Hardware/HardwareId.cs)).
+fails closed and never calls the API. The value comes from `NodeAec.Licensing.Lite`
+(`HardwareId`, via `Cryptography/LeaseTrust.cs`), so the Connector and the plugin gates compute the same ID.
 
 - **Response** (fields read by the client):
 
@@ -168,9 +169,9 @@ Supplies the public keys used in Ed25519 verification (RFC 7517 / RFC 8032).
 The client only accepts keys with `kty = OKP`, `crv = Ed25519`, and `x` decoding to 32
 bytes. The result is cached at `%APPDATA%\NodeAec\license-jwks.json` (atomic write)
 for `kid` discovery and diagnostics only: **signature verification uses
-exclusively the anchor compiled into the add-in** (`ConnectorConfig.DefaultLicensePublicKeySpkiBase64`,
-overridable via `NODEAEC_LICENSE_PUBLIC_KEY_SPKI` only in `NODEAEC_ANCHOR_OVERRIDE` test builds). A JWKS key other than the anchor
-is recorded as a rotation signal and **never** verifies a lease. With no usable anchor,
+exclusively the anchors compiled into `NodeAec.Licensing.Lite`**, the package the Connector and
+every plugin share. No environment variable or file can replace them. A JWKS key that Lite does
+not trust is logged as a rotation signal and **never** verifies a lease. With no usable anchor,
 **the gate fails closed**.
 
 ---
@@ -206,10 +207,10 @@ redirect query string, protected by the anti-CSRF `state`.
 | `exp` | End of the offline grace period — the source of the 30-day term | ✔ |
 | `entitlements[]` | `slug`, `name`, `licenseKey`, `type`, `status`, `granted`, `expiresAt`, `maxActivations`, `activeActivations` | ✔ (by `slug`) |
 
-**Verification order in `NodeAecGate.Validate(slug)`** — no step advances if the
-previous one fails:
+**Verification order in `Gate.Validate(slug)`** (`NodeAec.Licensing.Lite`) — no step advances
+if the previous one fails, and each failure has its own `GateReason`:
 
-1. Ed25519 signature (compiled-in anchor / override) → 2. `iss` → 3. `scope` → 4. `aud` → 5. `iat`
+1. Ed25519 signature (Lite's compiled anchors) → 2. `iss` → 3. `scope` → 4. `aud` → 5. `iat`
 (5-min skew) → 6. `mid` (hardware binding) → 7. `exp` (offline grace) →
 8. presence and status of the requested `slug`.
 

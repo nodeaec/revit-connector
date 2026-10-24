@@ -79,31 +79,6 @@ public static class ConnectorConfig
     }
 
     /// <summary>
-    /// Compiled-in SPKI public key (Ed25519, base64) in the add-in: the trust root for
-    /// offline lease verification. The matching private key never leaves the server,
-    /// and no other key is accepted, even if it shows up in the cached JWKS.
-    /// </summary>
-    public const string DefaultLicensePublicKeySpkiBase64 =
-        "MCowBQYDK2VwAyEArMYcaZMAlBeimfR6twrHZndEWOSaIHlSURYFhTjalMg=";
-
-    /// <summary>
-    /// Override of the compiled-in anchor via <c>NODEAEC_LICENSE_PUBLIC_KEY_SPKI</c>
-    /// (base64 SPKI Ed25519), honored <b>only</b> in builds that define
-    /// <c>NODEAEC_ANCHOR_OVERRIDE</c> (the headless test project, or a deliberate
-    /// non-production build). Production builds — the Connector and every partner copy of
-    /// this file — always return <c>null</c>: an environment variable is user-controlled,
-    /// so honoring it would let anyone pin their own key and sign a lease for any product.
-    /// When honored and invalid, verification fails closed — it never silently falls back to
-    /// the compiled-in key. There is never a private key in this repository.
-    /// </summary>
-#if NODEAEC_ANCHOR_OVERRIDE
-    public static string? LicensePublicKeySpkiOverride =>
-        Environment.GetEnvironmentVariable("NODEAEC_LICENSE_PUBLIC_KEY_SPKI");
-#else
-    public static string? LicensePublicKeySpkiOverride => null;
-#endif
-
-    /// <summary>
     /// Reads the environment variable and delegates HTTPS validation to
     /// <see cref="ValidateEndpointUrl(string, string?, bool, string)"/>.
     /// </summary>

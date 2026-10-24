@@ -222,8 +222,9 @@ public static class LeaseStorage
 
     /// <summary>
     /// Decodes a JWT payload <b>without</b> verifying the cryptographic signature.
-    /// Restricted to display use (greeting, dates) — licensing decisions go
-    /// mandatorily through <c>Gate.NodeAecGate</c>, which verifies the Ed25519 signature.
+    /// Restricted to display use (greeting, dates) — licensing decisions go through
+    /// <c>NodeAec.Licensing.Lite</c> (<c>Gate.Validate</c> in plugins, <see cref="Cryptography.LeaseTrust"/>
+    /// before a save here), which verifies the Ed25519 signature first.
     /// </summary>
     public static MasterLeasePayload? ParseJwtPayload(string token)
     {

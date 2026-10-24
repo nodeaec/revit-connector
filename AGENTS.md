@@ -17,7 +17,7 @@ The goal is to accelerate the AEC/BIM developer ecosystem by standardizing integ
 1. **`NodeAec.Connector`**:
    - The **central desktop governance Hub** and unified Ribbon for Node.aec in Autodesk Revit.
    - Manages browser SSO authentication (RFC 8252 loopback), master entitlements lease sync (`entitlements.lease`), and the user interface for manual NAEC key activation.
-   - Contains `NodeAecGate` (`NodeAecGate.Validate(slug)`), the Connector's own copy of the offline gate. It is kept in behavioral parity with `NodeAec.Licensing.Lite` (`tests/NodeAec.Connector.Tests/NodeAecGateVsLiteTests.cs`, `docs/lite-adoption.md`); third-party plugins use the Lite package, never these files.
+   - Verifies leases and computes the Machine ID with the `NodeAec.Licensing.Lite` package, the same code partner plugins run (`src/NodeAec.Connector/Cryptography/LeaseTrust.cs`, `docs/lite-adoption.md`). It keeps no gate, verifier, or trust anchor of its own.
    - Manages the canonical **`Node.aec`** tab and deduplication via `Autodesk.Windows.ComponentManager`.
 
 > [!NOTE]
@@ -76,7 +76,7 @@ This repository ships specialized modular skills for autonomous AI agents. Invok
 
 ### 3. Node.aec Platform Integration
 - **Fixed Production Endpoint**: All calls to the Node.aec API use the official production endpoint: `https://api.nodeaec.com.br`.
-- **Key Security**: NEVER store private keys in client code. The repository only handles the compiled-in SPKI public key (`ConnectorConfig.DefaultLicensePublicKeySpkiBase64`) — the only anchor accepted when verifying Ed25519 signatures.
+- **Key Security**: NEVER store private keys in client code. The trust anchors (Ed25519 SPKI public keys) live only in `NodeAec.Licensing.Lite`; this repository compiles none (`ConnectorConfigTests.AddIn_CompilesNoTrustAnchor`). A key rotation ships a new Lite version and a Connector release that references it.
 - **Non-Blocking (UI Thread Safe)**: No network call or heavy I/O may run synchronously on Revit's main thread (`OnStartup` or command startup). Background initialization must be async and resilient to network failure.
 
 ### 4. Code Structure and Style

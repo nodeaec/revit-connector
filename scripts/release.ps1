@@ -172,6 +172,13 @@ if ($TargetFramework -eq "net48") {
     throw "Missing DPAPI dependency in build output: System.Security.Cryptography.ProtectedData.dll was not copied to $OutDir."
   }
 }
+# Lease verification and the Machine ID come from NodeAec.Licensing.Lite: without it the
+# add-in loads, but every sync fails with a FileNotFoundException.
+foreach ($required in @("NodeAec.Licensing.Lite.dll", "BouncyCastle.Cryptography.dll")) {
+  if (-not (Test-Path (Join-Path $StageDir $required))) {
+    throw "Missing licensing dependency in build output: $required was not copied to $OutDir."
+  }
+}
 if (Test-Path (Join-Path $RepoRoot "README.md")) {
   Copy-Item (Join-Path $RepoRoot "README.md") (Join-Path $StageDir "README.md") -Force
 }

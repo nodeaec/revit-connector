@@ -10,7 +10,7 @@ using Autodesk.Windows;
 using NodeAec.Connector.Auth;
 using NodeAec.Connector.Client;
 using NodeAec.Connector.Config;
-using NodeAec.Connector.Hardware;
+using NodeAec.Connector.Cryptography;
 using NodeAec.Connector.Models;
 using NodeAec.Connector.Storage;
 
@@ -173,7 +173,7 @@ public class ConnectorWindow : Window
         // rejected by the gate at signature validation.
         _txtMachineId = new TextBlock
         {
-            Text = HardwareId.TryGetMachineId(out string machineId, out _)
+            Text = LeaseTrust.TryGetMachineId(out string machineId, out _)
                 ? $"Identificação desta máquina (para o suporte): {machineId}"
                 : "Identificação desta máquina indisponível (MachineGuid do Windows não pôde ser lido).",
             FontSize = 11,
