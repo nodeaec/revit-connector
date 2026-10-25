@@ -17,7 +17,10 @@ Everything appears on a single **Node.aec** tab in the Revit Ribbon.
 | I want to… | Read |
 |---|---|
 | Install and use the Connector | [User Manual](docs/USER_MANUAL.md) |
-| Protect **my plugin** with Node.aec licensing | [Partner Integration Guide](docs/PARTNER_INTEGRATION.md) |
+| Protect **my existing plugin** with Node.aec licensing | [Partner Integration Guide](docs/PARTNER_INTEGRATION.md) |
+| Start a **new plugin** with licensing built in | [Template](https://github.com/nodeaec/templates-revit#readme) (`dotnet new nodeaec-revit-plugin`) |
+| Learn from a **working example** | [Sample Plugin](https://github.com/nodeaec/revit-sample-plugin#readme) |
+| Have a **coding agent** do any of these | The [`licensing-integrate` skill](https://github.com/nodeaec/revit-sample-plugin/tree/main/.agents/skills/licensing-integrate) and the prompts in the guides above |
 | Understand how it works inside (security, flow) | [Architecture](docs/ARCHITECTURE.md) |
 | See the server API contract | [Licensing API](docs/licensing-api.md) |
 | Change this repository | [Building](#building) below and [AGENTS.md](AGENTS.md) |
@@ -35,9 +38,8 @@ using NodeAec.Licensing;
 var gate = Gate.Validate("meu-plugin");
 if (!gate.IsLicensed)
 {
-    // The message already explains why and what to do. gate.Message is Portuguese;
-    // gate.GetMessage(MessageLanguage.English) gives the English text.
-    TaskDialog.Show("Node.aec", gate.Message);
+    // The message already explains why and what to do, in Portuguese or English.
+    TaskDialog.Show("Node.aec", gate.GetMessage(MessageLanguage.English));
     return Result.Cancelled;
 }
 ```

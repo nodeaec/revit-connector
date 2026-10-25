@@ -20,6 +20,10 @@ license keys.
 
 A complete working example is the [Sample Plugin](https://github.com/nodeaec/revit-sample-plugin).
 
+This guide is for a plugin you already have. Starting a new one? Use the
+[template](https://github.com/nodeaec/templates-revit#readme) instead: it generates all of this.
+Using a coding agent? See [section 9](#9-with-a-coding-agent).
+
 ---
 
 ## 1. Before you start
@@ -353,6 +357,34 @@ stop a determined attacker who controls that machine:
 - [ ] `Validate` is not called from any `IExternalCommandAvailability`.
 - [ ] The installer ships the files from step 2, and no `RevitAPI*.dll` / `AdWindows.dll` / `NodeAec.Connector.dll`.
 - [ ] Tested on a clean machine: before signing in (dialog appears), after signing in (command runs), and offline (command still runs).
+
+---
+
+## 9. With a coding agent
+
+The agent version of this guide is the skill
+[`licensing-integrate`](https://github.com/nodeaec/revit-sample-plugin/tree/main/.agents/skills/licensing-integrate)
+in the Sample Plugin (path B, with `references/migration.md`). Copy that folder into your
+repo's `.agents/skills/`, or let the agent read it from GitHub, and paste this prompt:
+
+```text
+Add Node.aec licensing to my existing Autodesk Revit plugin in this repository.
+
+Follow the skill at https://github.com/nodeaec/revit-sample-plugin/tree/main/.agents/skills/licensing-integrate
+(SKILL.md, path B, and references/migration.md). The Sample Plugin in that repo is the
+worked example.
+
+First read my code and report the inventory from references/migration.md section 1
+(projects and frameworks, commands, Ribbon, any existing license check, installer). Then
+ask me the questions in SKILL.md section 2 and wait for my answers.
+
+Then: add the NodeAec.Licensing.Lite package, gate every paid command with Gate.Validate
+as its first statement, move my panels into the shared Node.aec tab, and keep my installer
+working (or switch to the bundle installer if I choose that). Change nothing else.
+
+Finish with: the files you changed, the commands you gated (and any you left ungated, with
+the reason), and the manual Revit checks I still have to run.
+```
 
 Questions: open an issue at [github.com/nodeaec/revit-connector/issues](https://github.com/nodeaec/revit-connector/issues)
 or contact the Node.aec team.

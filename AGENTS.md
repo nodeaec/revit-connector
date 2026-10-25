@@ -21,7 +21,7 @@ The goal is to accelerate the AEC/BIM developer ecosystem by standardizing integ
    - Manages the canonical **`Node.aec`** tab and deduplication via `Autodesk.Windows.ComponentManager`.
 
 > [!NOTE]
-> If your goal is to explain how to integrate Node.aec licensing into an **external user plugin**, see the [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) skill and the [Partner Integration Guide](docs/PARTNER_INTEGRATION.md). This file governs **internal development of this repository**.
+> If your goal is to explain how to integrate Node.aec licensing into an **external user plugin**, use the canonical [`licensing-integrate` skill in the Sample Plugin](https://github.com/nodeaec/revit-sample-plugin/tree/main/.agents/skills/licensing-integrate) (this repo's copy is only a pointer to it) and the [Partner Integration Guide](docs/PARTNER_INTEGRATION.md). This file governs **internal development of this repository**.
 
 ---
 
@@ -32,7 +32,7 @@ This repository ships specialized modular skills for autonomous AI agents. Invok
 ### 1. Revit Domain & Tooling
 | Skill | Scope and Activation Triggers | Canonical Path |
 |---|---|---|
-| **`licensing-integrate`** | Integrate Node.aec licensing into new or existing plugins, run the Grilling phase, protect commercial commands (`IExternalCommand`). | [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) |
+| **`licensing-integrate`** | Pointer to the canonical partner skill in `revit-sample-plugin` (new plugin, existing plugin, learning from the sample). Partner-facing changes go there, not here. | [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) |
 | **`ribbon-guard`** | Create/modify Ribbon panels and buttons, enforce the `Node.aec` tab, non-blocking icons, and deduplication via AdWindows. | [`.agents/skills/ribbon-guard`](.agents/skills/ribbon-guard/SKILL.md) |
 | **`revit-build-validate`** | Build via `dotnet build`, enforce 0 errors, isolate RevitAPI DLLs, and validate runtime dependencies. | [`.agents/skills/revit-build-validate`](.agents/skills/revit-build-validate/SKILL.md) |
 | **`release-pack`** | Package the `.bundle` zip and the single Setup.exe (Revit 2023–2027) via `release.ps1`, verify SHA-256, and install into local Revit (`%ProgramData%\Autodesk\ApplicationPlugins`). | [`.agents/skills/release-pack`](.agents/skills/release-pack/SKILL.md) |
@@ -108,6 +108,26 @@ Acceptance Criteria for Changes:
 - Unit tests: 100% passing.
 - No Revit assemblies (`RevitAPI*.dll`) inside `release/` or `stage/`.
 - `System.Security.Cryptography.ProtectedData.dll` must be present in the final add-in payload **only when targeting `net48`** (Revit 2023/2024). On `net8.0-windows`/`net10.0-windows` it is provided by `Microsoft.WindowsDesktop.App` and must not appear in `release/` or `stage/`.
+
+---
+
+## 🗓️ Facts That Go Stale, and Where to Check Them
+
+Versions are repeated across code and docs. Before trusting one, or after changing one,
+check its source of truth, then find every repeat with `grep -rn "<old value>" .`
+(excluding `bin/`, `obj/`, `release/`).
+
+| Fact | Source of truth | Also written in |
+|---|---|---|
+| Connector version | `<Version>` in `src/NodeAec.Connector/NodeAec.Connector.csproj` | `ConnectorConfig.Version` (a test enforces it), the `release.ps1 -Version` examples here, in `README.md` and in `.agents/skills/release-pack/SKILL.md` |
+| Lite version the Connector ships | `PackageReference` in `src/NodeAec.Connector/NodeAec.Connector.csproj` (and the tests csproj). Partner plugins must build against this version or older, so raise it before partners need a newer Lite | `docs/PARTNER_INTEGRATION.md`, `docs/lite-adoption.md`; the sample and template csproj in their repos |
+| Latest Lite | <https://www.nuget.org/packages/NodeAec.Licensing.Lite> | |
+| Lite API (`Snapshot`, `GateReason`, messages) | [licensing-lite](https://github.com/nodeaec/licensing-lite) `src/NodeAec.Licensing.Lite/` | `docs/PARTNER_INTEGRATION.md` (reason table) |
+| Revit API package pins, year → TFM | `Directory.Build.props` | `docs/ARCHITECTURE.md`, this file's stack section |
+| Bundle identity (`ProductCode`, `UpgradeCode`, `AppId`) | `scripts/release.ps1` and `scripts/installer.iss` (a test enforces they match) | `.agents/skills/release-pack/SKILL.md` |
+
+The partner skill lives in `revit-sample-plugin`; its own `AGENTS.md` §13 lists the
+partner-side facts.
 
 ---
 
