@@ -20,9 +20,8 @@ namespace NodeAec.Connector;
 
 /// <summary>
 /// Plugin entry point for the Node.aec Connector for Autodesk Revit.
-/// Sets up the canonical 'Node.aec' tab, the 'Conector' panel (large "Minha Conta"
-/// button + small stacked "Meus Plugins" and "Explorar Catálogo" buttons), tab
-/// deduplication via AdWindows, and background heartbeat.
+/// Sets up the canonical 'Node.aec' tab, the 'Conector' panel (single "Minha Conta" button),
+/// tab deduplication via AdWindows, and background heartbeat.
 /// </summary>
 public class App : IExternalApplication
 {
@@ -103,45 +102,19 @@ public class App : IExternalApplication
         // 3. Gets or creates the "Conector" governance panel
         Autodesk.Revit.UI.RibbonPanel connectorPanel = GetOrCreatePanel(application, TabName, PanelName);
 
-        // 4. Primary (large) button: "Minha Conta"
+        // 4. Primary button: "Minha Conta"
         var btnManageData = new PushButtonData(
             "NodeAec_ManageConnector",
             "Minha\nConta",
             assemblyPath,
             typeof(ManageConnectorCommand).FullName ?? string.Empty)
         {
-            ToolTip = "Gerencie sua conta Node.aec: entrar, sair e atualizar suas licenças."
+            ToolTip = "Gerencie sua conta Node.aec, plugins, catálogo e atualizações."
         };
         LoadButtonIcons(btnManageData, addInDir);
         AddButtonIfMissing(connectorPanel, btnManageData);
 
-        // 5-6. Secondary buttons (small, stacked): "Meus Plugins" + "Explorar Catálogo".
-        // "Meus Plugins" stays disabled until login (RequiresLoginAvailability).
-        var btnPluginsData = new PushButtonData(
-            "NodeAec_ManagePlugins",
-            "Meus\nPlugins",
-            assemblyPath,
-            typeof(ManagePluginsCommand).FullName ?? string.Empty)
-        {
-            ToolTip = "Veja os plugins vinculados à sua conta, com link para cada produto.",
-            AvailabilityClassName = typeof(RequiresLoginAvailability).FullName ?? string.Empty
-        };
-        btnPluginsData.Image = UiTheme.PluginsIcon(large: false);
-        btnPluginsData.LargeImage = UiTheme.PluginsIcon(large: true);
-
-        var btnCatalogData = new PushButtonData(
-            "NodeAec_ExploreCatalog",
-            "Explorar\nCatálogo",
-            assemblyPath,
-            typeof(ExploreCatalogCommand).FullName ?? string.Empty)
-        {
-            ToolTip = "Explorar plugins, famílias e templates no marketplace Node.aec."
-        };
-        btnCatalogData.Image = UiTheme.CatalogIcon(large: false);
-        btnCatalogData.LargeImage = UiTheme.CatalogIcon(large: true);
-        AddStackedButtonsIfMissing(connectorPanel, btnPluginsData, btnCatalogData);
-
-        // 7. Defensive Revit ribbon lifecycle hooks. Named static handlers with "-="
+        // 5. Defensive Revit ribbon lifecycle hooks. Named static handlers with "-="
         // before "+=": if the add-in reloads in the same process (Add-In Manager),
         // delegates do not accumulate (L10).
         try
@@ -295,34 +268,6 @@ public class App : IExternalApplication
         }
     }
 
-    private static void AddStackedButtonsIfMissing(Autodesk.Revit.UI.RibbonPanel panel, PushButtonData first, PushButtonData second)
-    {
-        try
-        {
-            var existing = panel.GetItems().Select(i => i.Name).ToList();
-
-            // M7: the decision (stack / standalone / nothing) is pure and tested in RibbonDecisions;
-            // only the UI commands remain here.
-            switch (RibbonDecisions.PlanStackedInsertion(existing, first.Name, second.Name))
-            {
-                case StackedInsertion.None:
-                    return;
-                case StackedInsertion.StackBoth:
-                    panel.AddStackedItems(first, second);
-                    return;
-                case StackedInsertion.AddFirstOnly:
-                    AddButtonIfMissing(panel, first);
-                    return;
-                case StackedInsertion.AddSecondOnly:
-                    AddButtonIfMissing(panel, second);
-                    return;
-            }
-        }
-        catch
-        {
-        }
-    }
-
     public static void DeduplicateRibbonTabs(string targetTitle)
     {
         try
@@ -367,8 +312,8 @@ public class App : IExternalApplication
     }
 
     /// <summary>
-    /// Removes legacy ribbon elements: the "License"/"Licensing" tabs and the
-    /// "Conectar Conta" button (retired in favor of "Minha Conta" + "Meus Plugins").
+    /// Removes legacy ribbon elements: the "License"/"Licensing" tabs and retired buttons
+    /// ("Conectar Conta", "Meus Plugins", "Explorar Catálogo").
     /// </summary>
     public static void CleanRogueRibbonElements()
     {
@@ -397,21 +342,20 @@ public class App : IExternalApplication
                 catch { }
             }
 
-            // Removes the legacy "Conectar Conta" button wherever it persists.
+            // Removes legacy buttons wherever they persist.
             foreach (var tab in ribbon.Tabs)
             {
                 foreach (var panel in tab.Panels)
                 {
                     try
                     {
-                        // Captures the source once: `panel.Source` is nullable and dereferencing it
-                        // inside the loop repeated the check (CS8602) and opened room for a race
-                        // if the source were swapped between removals.
                         var items = panel.Source?.Items;
                         if (items == null) continue;
 
                         var legacyItems = items
-                            .Where(item => string.Equals(item.Id, "NodeAec_LoginConnector", StringComparison.OrdinalIgnoreCase))
+                            .Where(item => string.Equals(item.Id, "NodeAec_LoginConnector", StringComparison.OrdinalIgnoreCase)
+                                        || string.Equals(item.Id, "NodeAec_ManagePlugins", StringComparison.OrdinalIgnoreCase)
+                                        || string.Equals(item.Id, "NodeAec_ExploreCatalog", StringComparison.OrdinalIgnoreCase))
                             .ToList();
 
                         foreach (var legacy in legacyItems)

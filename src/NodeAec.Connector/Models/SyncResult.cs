@@ -32,6 +32,27 @@ public class SyncResult
     public bool JwksRefreshed { get; set; } = true;
 
     /// <summary>
+    /// Whether the server rejected the request with <c>CONNECTOR_OUTDATED</c> (426).
+    /// Indicates the installed Connector version is below the platform minimum.
+    /// </summary>
+    public bool IsOutdated { get; set; }
+
+    /// <summary>
+    /// Stable API error code (e.g. <c>CONNECTOR_OUTDATED</c>, <c>ACTIVATION_LIMIT_REACHED</c>).
+    /// </summary>
+    public string? ErrorCode { get; set; }
+
+    /// <summary>
+    /// Minimum version required by the platform, when returned in error data.
+    /// </summary>
+    public string? MinimumVersion { get; set; }
+
+    /// <summary>
+    /// Latest version available on the platform, when returned in error data.
+    /// </summary>
+    public string? LatestVersion { get; set; }
+
+    /// <summary>
     /// Display-ready warning for when the operation degraded on verification keys (lease
     /// saved without a verified signature, or JWKS not refreshed).
     /// <c>null</c> = no degradation; the UI then shows the default success message.
@@ -57,12 +78,26 @@ public class SyncResult
         };
     }
 
-    public static SyncResult Failed(string message)
+    public static SyncResult Failed(string message, string? errorCode = null)
     {
         return new SyncResult
         {
             Success = false,
             Message = message,
+            ErrorCode = errorCode,
+        };
+    }
+
+    public static SyncResult Outdated(string message, string? minimumVersion = null, string? latestVersion = null)
+    {
+        return new SyncResult
+        {
+            Success = false,
+            Message = message,
+            IsOutdated = true,
+            ErrorCode = "CONNECTOR_OUTDATED",
+            MinimumVersion = minimumVersion,
+            LatestVersion = latestVersion,
         };
     }
 }

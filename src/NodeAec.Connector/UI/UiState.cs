@@ -18,7 +18,7 @@ internal enum LicenseStatusTone
     Ok,
 }
 
-/// <summary>Plugin list branch in <c>PluginsWindow.RenderPlugins</c>.</summary>
+/// <summary>Plugin list branch in <c>ConnectorWindow.RenderPlugins</c>.</summary>
 internal enum PluginsView
 {
     /// <summary>No local session — sign-in call to action.</summary>
@@ -33,7 +33,7 @@ internal enum PluginsView
 
 /// <summary>
 /// Pure state → text/order/branch mappings used by
-/// <c>ConnectorWindow.RenderUiFromStorage</c> and <c>PluginsWindow.RenderPlugins</c> (M7).
+/// <c>ConnectorWindow.RenderUiFromStorage</c> and <c>ConnectorWindow.RenderPlugins</c> (M7).
 /// No WPF/Revit dependencies: stays linked into the test project and covers the
 /// "logged-out / unreadable lease / expired / empty / active-first" branches.
 /// </summary>

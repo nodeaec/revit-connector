@@ -8,10 +8,10 @@ using Xunit;
 namespace NodeAec.Connector.Tests;
 
 /// <summary>
-/// Mapeamentos de estado das janelas (M7): ramos de conta, status de licença
+/// Mapeamentos de estado da janela (M7): ramos de conta, status de licença
 /// (legível / sem prazo / expirado / vigente) e lista de plugins
-/// (logged-out / vazio / ativos-primeiro) — a lógica de decisão antes embutida em
-/// <c>ConnectorWindow.RenderUiFromStorage</c> e <c>PluginsWindow.RenderPlugins</c>.
+/// (logged-out / vazio / ativos-primeiro) — a lógica de decisão usada por
+/// <c>ConnectorWindow.RenderUiFromStorage</c> e <c>ConnectorWindow.RenderPlugins</c>.
 /// </summary>
 public class UiStateTests
 {

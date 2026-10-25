@@ -98,6 +98,8 @@ brazilianportuguese.SilentBadYears=Versoes do Revit invalidas em /RevitYears: %1
 english.SilentBadYears=Invalid Revit versions in /RevitYears: %1. Use years from 2023 to 2027, separated by commas.
 brazilianportuguese.RevitMustClose=Feche o Autodesk Revit antes de continuar.%nO instalador precisa substituir os arquivos do add-in, que estao em uso.
 english.RevitMustClose=Close Autodesk Revit before continuing.%nSetup needs to replace the add-in files, which are in use.
+brazilianportuguese.WaitForRevitPrompt=Feche o Revit para continuar a instalacao.
+english.WaitForRevitPrompt=Close Revit to continue installation.
 brazilianportuguese.RevitMustCloseUninstall=Feche o Autodesk Revit antes de desinstalar.%nO desinstalador precisa remover os arquivos do add-in, que estao em uso.
 english.RevitMustCloseUninstall=Close Autodesk Revit before uninstalling.%nThe uninstaller needs to remove the add-in files, which are in use.
 brazilianportuguese.LegacyRemoveFailed=Nao foi possivel remover a instalacao anterior do Node.aec Connector em %1.%nFeche o Autodesk Revit e execute o instalador novamente.
@@ -514,6 +516,88 @@ begin
   end;
 end;
 
+var
+  WaitingForRevit: Boolean;
+  WaitForRevitCancelled: Boolean;
+
+// While Setup waits for Revit, Cancel stops the wait (PrepareToInstall then reports that
+// Revit must close) instead of asking to exit Setup. Elsewhere Cancel behaves as usual.
+procedure CancelButtonClick(CurPageID: Integer; var Cancel, Confirm: Boolean);
+begin
+  if WaitingForRevit then
+  begin
+    WaitForRevitCancelled := True;
+    Cancel := False;
+    Confirm := False;
+  end;
+end;
+
+// True when a switch with Name (e.g. 'WaitForRevit' for /WaitForRevit or -WaitForRevit) is passed.
+function HasParam(const Name: string): Boolean;
+var
+  I: Integer;
+  Param: string;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+  begin
+    Param := ParamStr(I);
+    if (CompareText(Param, '/' + Name) = 0) or
+       (CompareText(Param, '-' + Name) = 0) or
+       (Pos(Uppercase('/' + Name + '='), Uppercase(Param)) = 1) or
+       (Pos(Uppercase('-' + Name + '='), Uppercase(Param)) = 1) then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+// Waits until Revit.exe exits.
+// In /VERYSILENT it waits silently without UI.
+// In /SILENT or normal mode it shows the wait prompt and a progress indicator.
+// Returns True when Revit has exited, or False if cancelled.
+function WaitForRevitToClose(): Boolean;
+var
+  ProgressPage: TOutputMarqueeProgressWizardPage;
+  I: Integer;
+begin
+  Result := True;
+  WaitForRevitCancelled := False;
+
+  if HasParam('VERYSILENT') then
+  begin
+    while IsProcessRunning('Revit.exe') do
+      Sleep(1000);
+    Exit;
+  end;
+
+  ProgressPage := CreateOutputMarqueeProgressPage(SetupMessage(msgSetupAppTitle), CustomMessage('WaitForRevitPrompt'));
+  ProgressPage.SetText(CustomMessage('WaitForRevitPrompt'), '');
+  ProgressPage.Show();
+  WaitingForRevit := True;
+  WizardForm.CancelButton.Enabled := True;
+  try
+    while IsProcessRunning('Revit.exe') do
+    begin
+      ProgressPage.Animate();
+      for I := 1 to 10 do
+      begin
+        if WaitForRevitCancelled then
+        begin
+          Result := False;
+          Exit;
+        end;
+        Sleep(100);
+        ProgressPage.Animate();
+      end;
+    end;
+  finally
+    WaitingForRevit := False;
+    ProgressPage.Hide();
+  end;
+end;
+
 // Runs before any file is copied: Revit must be closed, and the legacy
 // per-group installs are removed so Revit never loads two Connectors.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -526,8 +610,19 @@ begin
     Exit;
   if IsProcessRunning('Revit.exe') then
   begin
-    Result := CustomMessage('RevitMustClose');
-    Exit;
+    if HasParam('WaitForRevit') then
+    begin
+      if not WaitForRevitToClose() then
+      begin
+        Result := CustomMessage('RevitMustClose');
+        Exit;
+      end;
+    end
+    else
+    begin
+      Result := CustomMessage('RevitMustClose');
+      Exit;
+    end;
   end;
   Failed := RemoveLegacyInstalls();
   if Failed <> '' then

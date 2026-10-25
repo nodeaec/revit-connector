@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
@@ -13,35 +16,47 @@ using NodeAec.Connector.Config;
 using NodeAec.Connector.Cryptography;
 using NodeAec.Connector.Models;
 using NodeAec.Connector.Storage;
+using NodeAec.Connector.Updates;
 
 namespace NodeAec.Connector.UI;
 
 /// <summary>
-/// "Minha Conta" window of the Node.aec Connector for Autodesk Revit.
-/// Wording aimed at architects (no technical jargon): sign in, sign out, and refresh
-/// licenses. Manual key activation sits collapsed in a closed expander.
+/// "Minha Conta" central governance window of the Node.aec Connector for Autodesk Revit.
+/// Unifies account management, plugin inventory, computer licensing status, manual key activation,
+/// and update verification in a single window.
 /// Visual identity follows the Node.aec web light mode.
 /// </summary>
 public class ConnectorWindow : Window
 {
+    private readonly ScrollViewer _mainScroll;
+    private readonly TextBlock _txtHeaderBadge;
     private readonly TextBlock _txtAccountTitle;
     private readonly TextBlock _txtAccountHint;
     private readonly Button _btnLogin;
     private readonly Button _btnLogout;
+    private readonly StackPanel _pluginsPanel;
     private readonly TextBlock _txtLicenseStatus;
     private readonly Button _btnSync;
     private readonly TextBox _txtManualKey;
     private readonly Button _btnActivateKey;
     private readonly TextBlock _txtMachineId;
+    private readonly FrameworkElement _updatesCard;
+    private readonly TextBlock _txtInstalledVersion;
+    private readonly TextBlock _txtUpdateStatus;
+    private readonly TextBlock _txtUpdateNotes;
+    private readonly Button _btnCheckUpdates;
+    private readonly Button _btnDownloadInstall;
     private readonly TextBlock _txtFeedback;
+
+    private LatestReleaseInfo? _latestRelease;
 
     public ConnectorWindow()
     {
         Title = "Minha Conta — Node.aec";
-        Width = 560;
-        Height = 700;
-        MinWidth = 520;
-        MinHeight = 600;
+        Width = 580;
+        Height = 740;
+        MinWidth = 540;
+        MinHeight = 520;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = UiTheme.Brush(UiTheme.Background);
         Foreground = UiTheme.Brush(UiTheme.Text);
@@ -61,7 +76,7 @@ public class ConnectorWindow : Window
         {
         }
 
-        var mainScroll = new ScrollViewer
+        _mainScroll = new ScrollViewer
         {
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
@@ -69,13 +84,13 @@ public class ConnectorWindow : Window
         };
 
         var root = new StackPanel();
-        mainScroll.Content = root;
-        Content = mainScroll;
+        _mainScroll.Content = root;
+        Content = _mainScroll;
 
         // 1. Header
-        root.Children.Add(BuildHeader());
+        root.Children.Add(BuildHeader(out _txtHeaderBadge));
 
-        // 2. Account card (sign in / sign out)
+        // 2. Sua conta card
         var accountCard = BuildCard("Sua conta", out var accountContent);
         _txtAccountTitle = new TextBlock
         {
@@ -107,7 +122,13 @@ public class ConnectorWindow : Window
         accountContent.Children.Add(accountButtons);
         root.Children.Add(accountCard);
 
-        // 3. Licenses-on-this-computer card
+        // 3. Meus plugins card
+        var pluginsCard = BuildCard("Meus plugins", out var pluginsContent);
+        _pluginsPanel = new StackPanel();
+        pluginsContent.Children.Add(_pluginsPanel);
+        root.Children.Add(pluginsCard);
+
+        // 4. Neste computador card
         var licenseCard = BuildCard("Neste computador", out var licenseContent);
         _txtLicenseStatus = new TextBlock
         {
@@ -121,9 +142,8 @@ public class ConnectorWindow : Window
         _btnSync = CreatePrimaryButton("Atualizar minhas licenças");
         _btnSync.Click += async (s, e) => await WindowHandlerGuard.RunAsync(HandleSyncAsync, ReportHandlerError);
         licenseContent.Children.Add(_btnSync);
-        root.Children.Add(licenseCard);
 
-        // 4. Collapsed manual activation (keeps the main UI uncluttered)
+        // Collapsed manual activation expander
         var manualExpander = new Expander
         {
             Header = "Tenho uma chave de ativação",
@@ -131,7 +151,7 @@ public class ConnectorWindow : Window
             FontSize = 13,
             FontWeight = FontWeights.SemiBold,
             Foreground = UiTheme.Brush(UiTheme.Primary),
-            Margin = new Thickness(0, 0, 0, 16)
+            Margin = new Thickness(0, 14, 0, 0)
         };
         var manualContent = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
         manualContent.Children.Add(new TextBlock
@@ -168,9 +188,6 @@ public class ConnectorWindow : Window
         keyRow.Children.Add(_btnActivateKey);
         manualContent.Children.Add(keyRow);
 
-        // .lease file import stays out of this iteration: the export/exchange format
-        // is not a stable contract yet, and a file of unknown origin would be
-        // rejected by the gate at signature validation.
         _txtMachineId = new TextBlock
         {
             Text = LeaseTrust.TryGetMachineId(out string machineId, out _)
@@ -179,14 +196,60 @@ public class ConnectorWindow : Window
             FontSize = 11,
             FontFamily = new FontFamily("Consolas, Courier New"),
             Foreground = UiTheme.Brush(UiTheme.TextSecondary),
-            Margin = new Thickness(0, 12, 0, 0),
+            Margin = new Thickness(0, 8, 0, 0),
             TextWrapping = TextWrapping.Wrap
         };
         manualContent.Children.Add(_txtMachineId);
         manualExpander.Content = manualContent;
-        root.Children.Add(manualExpander);
+        licenseContent.Children.Add(manualExpander);
+        root.Children.Add(licenseCard);
 
-        // 5. Feedback message
+        // 5. Atualizações card
+        _updatesCard = BuildCard("Atualizações", out var updatesContent);
+        _txtInstalledVersion = new TextBlock
+        {
+            Text = $"Versão instalada: {ConnectorConfig.Version}",
+            FontSize = 13,
+            Foreground = UiTheme.Brush(UiTheme.Text),
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        updatesContent.Children.Add(_txtInstalledVersion);
+
+        _txtUpdateStatus = new TextBlock
+        {
+            FontSize = 12,
+            FontWeight = FontWeights.Medium,
+            Foreground = UiTheme.Brush(UiTheme.TextSecondary),
+            Margin = new Thickness(0, 0, 0, 8),
+            TextWrapping = TextWrapping.Wrap
+        };
+        updatesContent.Children.Add(_txtUpdateStatus);
+
+        _txtUpdateNotes = new TextBlock
+        {
+            FontSize = 12,
+            Foreground = UiTheme.Brush(UiTheme.Text),
+            Margin = new Thickness(0, 0, 0, 10),
+            TextWrapping = TextWrapping.Wrap,
+            Visibility = Visibility.Collapsed
+        };
+        updatesContent.Children.Add(_txtUpdateNotes);
+
+        var updateButtons = new StackPanel { Orientation = Orientation.Horizontal };
+        _btnCheckUpdates = CreatePrimaryButton("Verificar atualizações");
+        _btnCheckUpdates.Click += async (s, e) => await WindowHandlerGuard.RunAsync(HandleCheckUpdatesAsync, ReportHandlerError);
+        updateButtons.Children.Add(_btnCheckUpdates);
+
+        _btnDownloadInstall = CreatePrimaryButton("Baixar e instalar");
+        _btnDownloadInstall.Margin = new Thickness(8, 0, 0, 0);
+        _btnDownloadInstall.Visibility = Visibility.Collapsed;
+        _btnDownloadInstall.Click += async (s, e) => await WindowHandlerGuard.RunAsync(HandleDownloadAndInstallAsync, ReportHandlerError);
+        updateButtons.Children.Add(_btnDownloadInstall);
+
+        updatesContent.Children.Add(updateButtons);
+        root.Children.Add(_updatesCard);
+
+        // 6. Feedback message
         _txtFeedback = new TextBlock
         {
             FontSize = 12,
@@ -196,13 +259,13 @@ public class ConnectorWindow : Window
         };
         root.Children.Add(_txtFeedback);
 
-        // 6. Footer
+        // 7. Footer
         root.Children.Add(BuildFooter());
 
         RefreshUiFromStorage();
     }
 
-    private FrameworkElement BuildHeader()
+    private FrameworkElement BuildHeader(out TextBlock badgeBlock)
     {
         var header = new Grid { Margin = new Thickness(0, 0, 0, 18) };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -216,13 +279,26 @@ public class ConnectorWindow : Window
             FontWeight = FontWeights.Bold,
             Foreground = UiTheme.Brush(UiTheme.Primary)
         });
+
+        badgeBlock = new TextBlock
+        {
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = UiTheme.Brush(UiTheme.Accent),
+            Margin = new Thickness(0, 2, 0, 2),
+            Visibility = Visibility.Collapsed,
+            TextWrapping = TextWrapping.Wrap
+        };
+        titlePanel.Children.Add(badgeBlock);
+
         titlePanel.Children.Add(new TextBlock
         {
             Text = "Suas licenças da Node.aec em um só lugar.",
             FontSize = 12,
             Foreground = UiTheme.Brush(UiTheme.TextSecondary),
-            Margin = new Thickness(0, 4, 0, 8)
+            Margin = new Thickness(0, 2, 0, 8)
         });
+
         titlePanel.Children.Add(new Border
         {
             Background = UiTheme.Brush(UiTheme.Accent),
@@ -243,7 +319,7 @@ public class ConnectorWindow : Window
         return header;
     }
 
-    private FrameworkElement BuildCard(string title, out StackPanel contentPanel)
+    private static FrameworkElement BuildCard(string title, out StackPanel contentPanel)
     {
         var border = new Border
         {
@@ -342,10 +418,8 @@ public class ConnectorWindow : Window
     }
 
     /// <summary>
-    /// Refreshes the account/license counters from local storage. Called from the
-    /// constructor and from the async handlers' <c>finally</c> blocks, so it is
-    /// <b>noexcept</b> by contract (H1): an exception here would escape through the WPF
-    /// dispatcher as a <c>DispatcherUnhandledException</c> and kill the Revit process.
+    /// Refreshes all window sections from local storage and update cache.
+    /// Guaranteed noexcept: an escaping exception kills the Revit process.
     /// </summary>
     public void RefreshUiFromStorage()
     {
@@ -355,8 +429,6 @@ public class ConnectorWindow : Window
         }
         catch (Exception ex)
         {
-            // State rendering is best-effort: logs the cause and leaves a static
-            // fallback, never propagating into the calling `finally`.
             Diagnostics.ConnectorLog.Write("WARN", $"Falha ao atualizar a UI a partir do armazenamento: {ex.GetType().Name}.");
             try
             {
@@ -365,16 +437,14 @@ public class ConnectorWindow : Window
             }
             catch
             {
-                // Window possibly already disposed: nothing left to report from here.
             }
         }
     }
 
-    /// <summary>Body of <see cref="RefreshUiFromStorage"/> — split out so the shell is the only exception zone.</summary>
+    /// <summary>Body of <see cref="RefreshUiFromStorage"/>.</summary>
     private void RenderUiFromStorage()
     {
-        // M7: the pure mappings (account and status) live in UiState and are tested
-        // headless; only the WPF element assignments stay here.
+        // 1. Account section
         var session = LeaseStorage.LoadSession();
         var account = UiState.Account(session?.Name, session?.Email);
         _txtAccountTitle.Text = account.Title;
@@ -382,6 +452,7 @@ public class ConnectorWindow : Window
         _btnLogin.Visibility = account.ShowLogin ? Visibility.Visible : Visibility.Collapsed;
         _btnLogout.Visibility = account.ShowLogout ? Visibility.Visible : Visibility.Collapsed;
 
+        // 2. Plugins section & computer status
         string? jwtToken = LeaseStorage.LoadMasterLease();
         var payload = string.IsNullOrWhiteSpace(jwtToken) ? null : LeaseStorage.ParseJwtPayload(jwtToken);
         var (statusText, tone) = UiState.LicenseStatus(jwtToken, payload);
@@ -392,9 +463,149 @@ public class ConnectorWindow : Window
             LicenseStatusTone.Warning => UiTheme.Accent,
             _ => UiTheme.Primary,
         });
+
+        RenderPlugins(session.HasValue && !string.IsNullOrWhiteSpace(session.Value.Token), payload?.Entitlements);
+
+        // 3. Update status badge
+        RenderUpdateBadgeFromStorage();
     }
 
-    private async System.Threading.Tasks.Task HandleBrowserLoginAsync()
+    private void RenderPlugins(bool isLoggedIn, IReadOnlyList<EntitlementItem>? entitlements)
+    {
+        _pluginsPanel.Children.Clear();
+        var list = entitlements ?? Array.Empty<EntitlementItem>();
+
+        switch (UiState.PluginsBranch(isLoggedIn, list.Count))
+        {
+            case PluginsView.LoggedOut:
+                _pluginsPanel.Children.Add(new TextBlock
+                {
+                    Text = UiState.LoggedOutPluginsText,
+                    FontSize = 13,
+                    Foreground = UiTheme.Brush(UiTheme.TextSecondary),
+                    Margin = new Thickness(0, 4, 0, 4),
+                    TextWrapping = TextWrapping.Wrap
+                });
+                return;
+
+            case PluginsView.Empty:
+                _pluginsPanel.Children.Add(new TextBlock
+                {
+                    Text = UiState.NoPluginsText,
+                    FontSize = 13,
+                    Foreground = UiTheme.Brush(UiTheme.TextSecondary),
+                    Margin = new Thickness(0, 4, 0, 8),
+                    TextWrapping = TextWrapping.Wrap
+                });
+                var btnCatalogEmpty = CreateLinkButton("Conhecer o catálogo de plugins ↗");
+                btnCatalogEmpty.Click += (s, e) => OpenCatalog();
+                _pluginsPanel.Children.Add(btnCatalogEmpty);
+                return;
+
+            default:
+                foreach (var ent in UiState.PluginsActiveFirst(list))
+                {
+                    _pluginsPanel.Children.Add(BuildPluginCard(ent));
+                }
+                var btnCatalogMore = CreateLinkButton("Explorar catálogo completo no marketplace ↗");
+                btnCatalogMore.Margin = new Thickness(0, 4, 0, 0);
+                btnCatalogMore.HorizontalAlignment = HorizontalAlignment.Left;
+                btnCatalogMore.Click += (s, e) => OpenCatalog();
+                _pluginsPanel.Children.Add(btnCatalogMore);
+                return;
+        }
+    }
+
+    private FrameworkElement BuildPluginCard(EntitlementItem item)
+    {
+        var card = new Border
+        {
+            Background = UiTheme.Brush(UiTheme.Card),
+            BorderBrush = UiTheme.Brush(UiTheme.Border),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(14, 12, 14, 12),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        var stack = new StackPanel();
+
+        var nameBlock = new TextBlock
+        {
+            Text = string.IsNullOrWhiteSpace(item.Name) ? item.Slug : item.Name,
+            FontSize = 14,
+            FontWeight = FontWeights.Bold,
+            Foreground = UiTheme.Brush(UiTheme.Text),
+            TextWrapping = TextWrapping.Wrap
+        };
+        stack.Children.Add(nameBlock);
+
+        bool active = item.IsActive();
+        string statusUpper = string.IsNullOrWhiteSpace(item.Status) ? "INATIVO" : item.Status.ToUpperInvariant();
+        string statusText = item.ExpiresAt.HasValue
+            ? (active ? $"Liberado até {item.ExpiresAt.Value:dd/MM/yyyy}" : $"Expirado em {item.ExpiresAt.Value:dd/MM/yyyy}")
+            : (active ? "Liberado — sem data para expirar" : statusUpper);
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = statusText,
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = UiTheme.Brush(active ? UiTheme.Primary : UiTheme.Accent),
+            Margin = new Thickness(0, 4, 0, 6)
+        });
+
+        string productUrl = ProductLinks.BuildProductUrl(item.Slug);
+        var btnProduct = CreateLinkButton("Abrir página do produto ↗");
+        btnProduct.HorizontalAlignment = HorizontalAlignment.Left;
+        btnProduct.Padding = new Thickness(0);
+        btnProduct.Click += (s, e) => OpenUrl(productUrl);
+        stack.Children.Add(btnProduct);
+
+        card.Child = stack;
+        return card;
+    }
+
+    private void RenderUpdateBadgeFromStorage()
+    {
+        var status = UpdateStorage.LoadUpdateStatus();
+        if (status == null)
+        {
+            _txtHeaderBadge.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var decision = UpdateDecisions.Evaluate(ConnectorConfig.Version, status.LatestVersion, status.MinimumVersion);
+        switch (decision)
+        {
+            case UpdateDecision.Required:
+                _txtHeaderBadge.Text = "Atualização obrigatória";
+                _txtHeaderBadge.Visibility = Visibility.Visible;
+                if (_latestRelease == null)
+                {
+                    string minMsg = $"Esta versão do Node.aec Connector ({ConnectorConfig.Version}) não é mais aceita. Atualize para a versão {status.MinimumVersion ?? status.LatestVersion} ou mais recente.";
+                    _txtUpdateStatus.Text = minMsg;
+                    _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
+                }
+                break;
+
+            case UpdateDecision.Available:
+                _txtHeaderBadge.Text = $"Nova versão disponível: {status.LatestVersion}";
+                _txtHeaderBadge.Visibility = Visibility.Visible;
+                if (_latestRelease == null)
+                {
+                    _txtUpdateStatus.Text = $"Nova versão disponível: {status.LatestVersion}. Clique em verificar atualizações para baixar.";
+                    _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Primary);
+                }
+                break;
+
+            default:
+                _txtHeaderBadge.Visibility = Visibility.Collapsed;
+                break;
+        }
+    }
+
+    private async Task HandleBrowserLoginAsync()
     {
         SetFeedback("Abrindo o navegador para você entrar com segurança...", UiTheme.Primary);
         _btnLogin.IsEnabled = false;
@@ -410,18 +621,13 @@ public class ConnectorWindow : Window
 
             if (syncResult.Success)
             {
-                // Displayed identity comes from the session token claims — the master lease
-                // carries no identity (only the technical `sub`).
                 var userClaims = LeaseStorage.ParseUserSessionClaims(userToken);
-
                 if (!LeaseStorage.SaveSession(userClaims?.Email, userToken, userClaims?.Name))
                 {
                     SetFeedback("Suas licenças chegaram, mas não foi possível salvar a sessão localmente. Verifique as permissões do usuário.", UiTheme.Accent);
                 }
                 else
                 {
-                    // M1: surfaces the key-degradation warning when present, instead of
-                    // reporting pure success for a lease the gate would later reject.
                     string? keysWarning = syncResult.VerificationWarning;
                     SetFeedback(
                         keysWarning ?? $"Tudo pronto! {syncResult.GrantedCount} plugin(s) liberado(s) neste computador.",
@@ -430,7 +636,11 @@ public class ConnectorWindow : Window
             }
             else
             {
-                SetFeedback($"Não foi possível buscar suas licenças: {syncResult.Message}", UiTheme.Accent);
+                SetFeedback(syncResult.Message, UiTheme.Accent);
+                if (syncResult.IsOutdated)
+                {
+                    ScrollToUpdatesAndCheck();
+                }
             }
         }
         catch (Exception ex)
@@ -444,7 +654,7 @@ public class ConnectorWindow : Window
         }
     }
 
-    private async System.Threading.Tasks.Task HandleSyncAsync()
+    private async Task HandleSyncAsync()
     {
         SetFeedback("Atualizando suas licenças...", UiTheme.Primary);
         _btnSync.IsEnabled = false;
@@ -473,7 +683,11 @@ public class ConnectorWindow : Window
             }
             else
             {
-                SetFeedback($"Não foi possível atualizar agora: {result.Message}", UiTheme.Accent);
+                SetFeedback(result.Message, UiTheme.Accent);
+                if (result.IsOutdated)
+                {
+                    ScrollToUpdatesAndCheck();
+                }
             }
         }
         catch (Exception ex)
@@ -487,7 +701,7 @@ public class ConnectorWindow : Window
         }
     }
 
-    private async System.Threading.Tasks.Task HandleActivateKeyAsync()
+    private async Task HandleActivateKeyAsync()
     {
         string key = _txtManualKey.Text?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(key))
@@ -508,9 +722,6 @@ public class ConnectorWindow : Window
             {
                 _txtManualKey.Clear();
 
-                // Activation itself does not write the master lease (single-product token).
-                // Now we resync with the account so the master lease picks up the
-                // newly activated key — with no session there is no master lease to refresh.
                 var session = LeaseStorage.LoadSession();
                 if (session.HasValue && !string.IsNullOrWhiteSpace(session.Value.Token))
                 {
@@ -523,6 +734,11 @@ public class ConnectorWindow : Window
                             ? keysWarning ?? $"Chave ativada! {sync.GrantedCount} plugin(s) liberado(s) neste computador."
                             : $"Chave ativada, mas não foi possível atualizar as licenças agora: {sync.Message}",
                         sync.Success && keysWarning == null ? UiTheme.Primary : UiTheme.Accent);
+
+                    if (sync.IsOutdated)
+                    {
+                        ScrollToUpdatesAndCheck();
+                    }
                 }
                 else
                 {
@@ -532,6 +748,10 @@ public class ConnectorWindow : Window
             else
             {
                 SetFeedback(result.Message, UiTheme.Accent);
+                if (result.IsOutdated)
+                {
+                    ScrollToUpdatesAndCheck();
+                }
             }
         }
         catch (Exception ex)
@@ -547,7 +767,6 @@ public class ConnectorWindow : Window
 
     private void HandleLogout()
     {
-        // N2: owner overload — the dialog stays modal to the window and centered over it.
         var confirm = MessageBox.Show(
             this,
             "Deseja sair da sua conta neste computador?\n\nSeus plugins ficarão bloqueados até o próximo login.",
@@ -557,11 +776,205 @@ public class ConnectorWindow : Window
 
         if (confirm == MessageBoxResult.Yes)
         {
-            // M7: a single (tested) primitive wipes lease + session — signing out must never
-            // leave the product lease behind.
             LeaseStorage.ClearAll();
             SetFeedback("Você saiu da conta.", UiTheme.TextSecondary);
             RefreshUiFromStorage();
+        }
+    }
+
+    private async Task HandleCheckUpdatesAsync()
+    {
+        _txtUpdateStatus.Text = "Verificando atualizações no servidor Node.aec...";
+        _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Primary);
+        _btnCheckUpdates.IsEnabled = false;
+        _btnDownloadInstall.Visibility = Visibility.Collapsed;
+        _txtUpdateNotes.Visibility = Visibility.Collapsed;
+
+        try
+        {
+            var client = new ConnectorApiClient();
+            var release = await client.GetLatestReleaseAsync().ConfigureAwait(true);
+
+            if (release == null)
+            {
+                _txtUpdateStatus.Text = "Não foi possível verificar atualizações agora. Tente novamente mais tarde.";
+                _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
+                return;
+            }
+
+            _latestRelease = release;
+            UpdateStorage.SaveUpdateStatus(release.Version, release.MinimumVersion);
+
+            var decision = UpdateDecisions.Evaluate(ConnectorConfig.Version, release.Version, release.MinimumVersion);
+            switch (decision)
+            {
+                case UpdateDecision.UpToDate:
+                    _txtUpdateStatus.Text = "Você está na versão mais recente.";
+                    _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Primary);
+                    _btnDownloadInstall.Visibility = Visibility.Collapsed;
+                    _txtUpdateNotes.Visibility = Visibility.Collapsed;
+                    break;
+
+                case UpdateDecision.Available:
+                    _txtUpdateStatus.Text = $"Node.aec Connector {release.Version} disponível.";
+                    _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Primary);
+                    ShowReleaseNotes(release.Notes);
+                    _btnDownloadInstall.Visibility = Visibility.Visible;
+                    break;
+
+                case UpdateDecision.Required:
+                    _txtUpdateStatus.Text = $"Esta versão do Node.aec Connector ({ConnectorConfig.Version}) não é mais aceita pela plataforma. Atualize para a versão {release.MinimumVersion ?? release.Version} ou mais recente.";
+                    _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
+                    ShowReleaseNotes(release.Notes);
+                    _btnDownloadInstall.Visibility = Visibility.Visible;
+                    break;
+
+                default:
+                    _txtUpdateStatus.Text = "Não foi possível comparar a versão com a do servidor.";
+                    _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.ConnectorLog.Write("WARN", $"Erro na verificação de atualização: {ex.GetType().Name}.");
+            _txtUpdateStatus.Text = "Não foi possível verificar atualizações agora. Tente novamente mais tarde.";
+            _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
+        }
+        finally
+        {
+            _btnCheckUpdates.IsEnabled = true;
+            RenderUpdateBadgeFromStorage();
+        }
+    }
+
+    private void ShowReleaseNotes(string? notes)
+    {
+        if (!string.IsNullOrWhiteSpace(notes))
+        {
+            _txtUpdateNotes.Text = notes;
+            _txtUpdateNotes.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            _txtUpdateNotes.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private async Task HandleDownloadAndInstallAsync()
+    {
+        if (_latestRelease == null)
+        {
+            await HandleCheckUpdatesAsync();
+            return;
+        }
+
+        var session = LeaseStorage.LoadSession();
+        if (!session.HasValue || string.IsNullOrWhiteSpace(session.Value.Token))
+        {
+            _txtUpdateStatus.Text = "Entre com sua conta para baixar a atualização.";
+            _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
+            return;
+        }
+
+        _btnDownloadInstall.IsEnabled = false;
+        _btnCheckUpdates.IsEnabled = false;
+        _txtUpdateStatus.Text = "Solicitando link seguro de download...";
+        _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Primary);
+
+        try
+        {
+            var client = new ConnectorApiClient();
+            string? downloadUrl = await client.GetDownloadUrlAsync(
+                _latestRelease.Slug,
+                _latestRelease.File.VersionPublicId,
+                _latestRelease.File.FilePublicId,
+                session.Value.Token).ConfigureAwait(true);
+
+            if (string.IsNullOrWhiteSpace(downloadUrl))
+            {
+                _txtUpdateStatus.Text = "Não foi possível obter o link de download. Tente novamente mais tarde.";
+                _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
+                return;
+            }
+
+            string targetPath = UpdatePackageVerifier.GetTargetFilePath(_latestRelease.Version);
+            _txtUpdateStatus.Text = "Baixando atualização... 0%";
+
+            var progress = new Progress<double>(pct =>
+            {
+                int percentage = (int)Math.Round(pct * 100);
+                _txtUpdateStatus.Text = $"Baixando atualização... {percentage}%";
+            });
+
+            bool downloaded = await client.DownloadFileAsync(downloadUrl!, targetPath, _latestRelease.File.SizeBytes, progress).ConfigureAwait(true);
+            if (!downloaded)
+            {
+                _txtUpdateStatus.Text = "Não foi possível concluir o download. Verifique sua conexão e tente novamente.";
+                _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
+                return;
+            }
+
+            _txtUpdateStatus.Text = "Verificando integridade do arquivo...";
+            bool valid = UpdatePackageVerifier.VerifyFile(targetPath, _latestRelease.File.SizeBytes, _latestRelease.File.Sha256);
+            if (!valid)
+            {
+                try
+                {
+                    if (File.Exists(targetPath)) File.Delete(targetPath);
+                }
+                catch { }
+
+                _txtUpdateStatus.Text = "O arquivo baixado não confere. Nada foi instalado. Tente novamente.";
+                _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
+                return;
+            }
+
+            _txtUpdateStatus.Text = "Iniciando instalador...";
+
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = targetPath,
+                    Arguments = "/SILENT /WaitForRevit",
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+
+                _txtUpdateStatus.Text = "Salve seu trabalho e feche o Revit. A instalação continua sozinha e mantém as versões do Revit que você escolheu.";
+                _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Primary);
+                _btnDownloadInstall.Visibility = Visibility.Collapsed;
+            }
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+            {
+                _txtUpdateStatus.Text = "A instalação foi cancelada. Clique em Baixar e instalar para tentar de novo.";
+                _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.ConnectorLog.Write("WARN", $"Falha ao baixar/instalar atualização: {ex.GetType().Name}.");
+            _txtUpdateStatus.Text = $"Não foi possível instalar a atualização ({ex.GetType().Name}). Tente novamente.";
+            _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
+        }
+        finally
+        {
+            _btnDownloadInstall.IsEnabled = true;
+            _btnCheckUpdates.IsEnabled = true;
+        }
+    }
+
+    private void ScrollToUpdatesAndCheck()
+    {
+        try
+        {
+            _updatesCard.BringIntoView();
+            _ = WindowHandlerGuard.RunAsync(HandleCheckUpdatesAsync, ReportHandlerError);
+        }
+        catch
+        {
         }
     }
 
@@ -571,11 +984,6 @@ public class ConnectorWindow : Window
         _txtFeedback.Foreground = UiTheme.Brush(color);
     }
 
-    /// <summary>
-    /// Reports to the user a handler failure that would have taken the dispatcher down — fixed,
-    /// sanitized text (type name, never message content: the detail goes to the log).
-    /// Never throws; used as the <see cref="WindowHandlerGuard"/> callback.
-    /// </summary>
     private void ReportHandlerError(Exception ex)
     {
         SetFeedback(
@@ -585,22 +993,26 @@ public class ConnectorWindow : Window
 
     private void OpenCatalog()
     {
+        OpenUrl(ConnectorConfig.CatalogUrl);
+    }
+
+    private void OpenUrl(string url)
+    {
         try
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = ConnectorConfig.CatalogUrl,
+                FileName = url,
                 UseShellExecute = true
             });
         }
         catch (Exception ex)
         {
-            // N3: browser failure never passes silently — feedback in the window itself.
-            SetFeedback($"Não foi possível abrir o catálogo ({ex.GetType().Name}).", UiTheme.Accent);
+            SetFeedback($"Não foi possível abrir o link ({ex.GetType().Name}).", UiTheme.Accent);
         }
     }
 
-    private static System.Windows.Media.ImageSource? LoadAppIcon()
+    private static ImageSource? LoadAppIcon()
     {
         try
         {
@@ -629,6 +1041,7 @@ public class ConnectorWindow : Window
     /// <summary>
     /// Opens (or reactivates) the single Connector window. Repeated ribbon clicks do not
     /// stack windows — each one syncs and writes storage in parallel (L11).
+    /// Kept public static with exact signature for Lite reflection invocation.
     /// </summary>
     public static void Open()
     {
