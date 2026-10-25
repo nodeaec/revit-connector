@@ -1,38 +1,40 @@
 ﻿<#
 .SYNOPSIS
-  Builds, stages, zips, optionally compiles the Inno Setup installer (.exe) for
-  ONE Revit compatibility group, and optionally installs the Node.aec Connector
-  Revit add-in.
+  Builds every Revit compatibility group, stages ONE Autodesk bundle
+  (NodeAec.Connector.bundle), zips it, optionally compiles the single Inno Setup
+  installer (.exe), and optionally installs the bundle on this machine.
 
 .DESCRIPTION
-  One compatibility group per invocation (-RevitYear, default "2025-2026";
-  groups 2023-2024 / 2025-2026 / 2027, and a single year 2023..2027 is accepted
-  as an alias for its group). The Setup is named
-  NodeAec.Connector-<version>-R<group>-Setup.exe and installs into
-  %ProgramData%\Autodesk\Revit\Addins\<year>\ for EVERY year of the group that
-  is installed on the machine, so one Setup covers the whole group and coexists
-  with the other groups.
+  The bundle holds one payload per compatibility group, each compiled with the
+  group's floor year (the oldest API of the group, so one DLL loads on every
+  year of it):
 
-  The payload is always compiled with the group's floor year (2023, 2025 or
-  2027): compiling against the oldest API of the group is what makes a single
-  DLL load on every year of the group. Passing a non-floor year of a group
-  resolves to that group and logs a notice.
+    NodeAec.Connector.bundle\
+      PackageContents.xml              one component per Revit year (2023..2027)
+      Contents\2023-2024\              net48            (Revit 2023, 2024)
+      Contents\2025-2026\              net8.0-windows   (Revit 2025, 2026)
+      Contents\2027\                   net10.0-windows  (Revit 2027)
 
-.NOTES
-  Setup.exe generation requires Inno Setup 6 (ISCC.exe on PATH-adjacent
-  standard location). Without it, only the .zip is produced - no failure.
+  Each Contents folder has its own NodeAec.Connector.addin with a relative
+  Assembly path. Revit reads PackageContents.xml from
+  %ProgramData%\Autodesk\ApplicationPlugins\ and loads only the component whose
+  SeriesMin/SeriesMax matches its own version.
+
+  Artifacts in release\:
+    NodeAec.Connector-<version>.bundle.zip   the bundle, every year enabled
+    NodeAec.Connector-<version>-Setup.exe    the installer (needs Inno Setup 6);
+                                             the user picks the Revit years
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.3.0 -RevitYear 2025-2026
-  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.3.0 -RevitYear 2025-2026 -Install
+  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.3.0
+  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.3.0 -Install
 
   -Version has no default and must equal <Version> in NodeAec.Connector.csproj:
-  the Setup/zip name, the installer metadata and the DLL/API version all come
-  from the same number.
+  the Setup/zip name, the installer metadata, PackageContents.xml and the
+  DLL/API version all come from the same number.
 #>
 param(
   [string]$Version,
-  [string]$RevitYear = "2025-2026",
   [string]$Configuration = "Release",
   [switch]$Install,
   [switch]$SkipBuild
@@ -40,172 +42,149 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# -File nao vincula "-Param=valor": o token sobra em $args e o script seguiria
-# com os defaults. Falhar alto para qualquer sobra e exigir a sintaxe correta:
-# -RevitYear 2025-2026. (Com aspas o token vira o primeiro posicional e e
-# barrado pela validação de $Version logo abaixo.)
+# -File does not bind "-Param=value": the token would land in $args and the script
+# would continue with defaults. Fail loudly on any leftover.
 if ($args.Count -gt 0) {
-  throw "Argumentos não reconhecidos: $($args -join ' '). Use -RevitYear <grupo> (ex.: -RevitYear 2023-2024)."
+  throw "Unrecognized arguments: $($args -join ' '). Usage: -Version <x.y.z> [-Install] [-SkipBuild]."
 }
 
-# Um token posicional inesperado — ex.: "-RevitYear=2026" passado entre aspas em
-# vez de -RevitYear 2025-2026 — cai no primeiro parâmetro ($Version) e seguiria
-# para o build sem aviso. Validar o formato falha alto antes de qualquer trabalho.
-# Sem default: um Setup com versão esquecida sairia com um número antigo no nome
-# e nos metadados do instalador, sem aviso.
+# No default: a Setup with a forgotten version would ship an old number in its
+# name and metadata without any warning.
 if ([string]::IsNullOrWhiteSpace($Version)) {
-  throw "-Version é obrigatório (ex.: -Version 0.3.0). Use o mesmo valor de <Version> em src\NodeAec.Connector\NodeAec.Connector.csproj."
+  throw "-Version is required (e.g. -Version 0.3.0). Use the same value as <Version> in src\NodeAec.Connector\NodeAec.Connector.csproj."
 }
-
 if ($Version -notmatch '^\d+\.\d+(\.\d+){0,2}([.-][0-9A-Za-z]+)*$') {
-  throw "Versão inválida: '$Version'. Use o formato SemVer (ex.: 0.3.0 ou 0.3.0-rc1) e passe o grupo com -RevitYear <grupo>."
+  throw "Invalid version: '$Version'. Use SemVer (e.g. 0.3.0 or 0.3.0-rc1)."
 }
 
-# Um instalador por grupo de compatibilidade do Revit. O grupo define os anos
-# que o Setup cobre; o payload é sempre compilado com o ano-base do grupo (o
-# menor ano, de API mais antiga), o que permite uma unica DLL carregar em todos
-# os anos do grupo.
+# Compatibility group -> Revit years. The first year of each group is the build year.
 $RevitYearGroups = [ordered]@{
   "2023-2024" = @("2023","2024")
   "2025-2026" = @("2025","2026")
   "2027"      = @("2027")
 }
-# Anos avulsos continuam aceitos e resolvem para o grupo do ano.
-$RevitYearToGroup = @{
-  "2023" = "2023-2024"; "2024" = "2023-2024"
-  "2025" = "2025-2026"; "2026" = "2025-2026"
-  "2027" = "2027"
-}
-if ($RevitYearGroups.Contains($RevitYear)) {
-  $Group = $RevitYear
-}
-elseif ($RevitYearToGroup.ContainsKey($RevitYear)) {
-  $Group = $RevitYearToGroup[$RevitYear]
-  Write-Warning "RevitYear '$RevitYear' pertence ao grupo '$Group': compilando com o ano-base $($RevitYearGroups[$Group][0]) para que uma unica DLL carregue em todos os anos do grupo."
-}
-else {
-  throw "RevitYear '$RevitYear' não suportado: use um grupo (2023-2024, 2025-2026, 2027) ou um ano (2023, 2024, 2025, 2026 ou 2027)."
-}
-$RevitYears = $RevitYearGroups[$Group]
-$BuildYear = $RevitYears[0]
 
-# Um AppId determinístico por ano do Revit. O Setup do grupo usa o AppId do
-# ano-base como identidade (assim um setup novo faz upgrade por cima das
-# instalações 0.1.1 desse ano) e recebe, via /DPreviousAppIds, os AppIds de
-# TODOS os anos do grupo: o installer.iss detecta e desinstala instalações
-# anteriores feitas por ano (2024-only, 2026-only, ...) e o desinstalador
-# remove o payload de todos os anos do grupo.
-$RevitYearAppIds = @{
-  "2023" = "{B0438DCE-26F6-42C9-BDC2-710A6D0C1F0E}"
-  "2024" = "{4056654E-C440-4A44-9A5D-DEAA238858FA}"
-  "2025" = "{63CC4A1D-1937-4BD0-A8A4-C05D36AA20DB}"
-  "2026" = "{5A4626FE-9563-4ED3-9C66-EA4567152F01}"
-  "2027" = "{C105DE2F-78B0-467C-A1A4-02F9C86BC6BA}"
-}
-$AppId = $RevitYearAppIds[$BuildYear]
-$PreviousAppIds = ($RevitYears | ForEach-Object { $RevitYearAppIds[$_] }) -join ';'
+# Bundle identity. ProductCode/UpgradeCodes identify the package to Autodesk's
+# loader; they never change between versions. Keep them in sync with installer.iss.
+$BundleName = "NodeAec.Connector.bundle"
+$ProductCode = "{2628D0D1-404B-4872-B007-36A971FDD272}"
+$UpgradeCode = "{6BCB270D-0A50-40DC-984F-8A292F151E98}"
 
-# O script vive em <raiz do repositório>\scripts: a raiz do repositório É a raiz
-# do add-in (docs/, src/, tests/ e release/ ficam nela).
-$ConnectorRoot = Split-Path $PSScriptRoot -Parent
-$RepoRoot = $ConnectorRoot
-$Sln = Join-Path $ConnectorRoot "NodeAec.Connector.sln"
-$Project = Join-Path $ConnectorRoot "src\NodeAec.Connector\NodeAec.Connector.csproj"
+# The script lives in <repo>\scripts.
+$RepoRoot = Split-Path $PSScriptRoot -Parent
+$Sln = Join-Path $RepoRoot "NodeAec.Connector.sln"
+$Project = Join-Path $RepoRoot "src\NodeAec.Connector\NodeAec.Connector.csproj"
 $DllName = "NodeAec.Connector.dll"
-$AddinTemplate = Join-Path $ConnectorRoot "src\NodeAec.Connector\NodeAec.Connector.addin"
-$ReleaseDir = Join-Path $ConnectorRoot "release"
-$StageDir = Join-Path $ReleaseDir "stage\NodeAec.Connector"
-$ZipPath = Join-Path $ReleaseDir "NodeAec.Connector-$Version-R$Group.zip"
+$AddinTemplate = Join-Path $RepoRoot "src\NodeAec.Connector\NodeAec.Connector.addin"
+$ReleaseDir = Join-Path $RepoRoot "release"
+$StageRoot = Join-Path $ReleaseDir "stage"
+$BundleStage = Join-Path $StageRoot $BundleName
+$ZipPath = Join-Path $ReleaseDir "NodeAec.Connector-$Version.bundle.zip"
 
-# Resolve o TFM lendo Directory.Build.props via MSBuild, em vez de repetir a matriz de
-# anos aqui — bin\<ano>\<config>\<tfm> é a única fonte de verdade e muda com RevitYear.
-$TargetFramework = (& dotnet msbuild $Project -getProperty:TargetFramework -p:RevitYear=$BuildYear -nologo -v:quiet |
-  Select-Object -Last 1).ToString().Trim()
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($TargetFramework)) {
-  throw "Não foi possível resolver TargetFramework para RevitYear=$BuildYear (exit $LASTEXITCODE)."
-}
-$OutDir = Join-Path $ConnectorRoot "src\NodeAec.Connector\bin\$BuildYear\$Configuration\$TargetFramework"
-
-# O build não recebe -Version: a DLL, o ConnectorConfig.Version enviado à API e o
-# título das janelas vêm do csproj. Divergir aqui geraria um Setup "0.3.0" com
-# binário 0.3.0 dentro, então a versão pedida precisa ser a do projeto.
-$ProjectVersion = (& dotnet msbuild $Project -getProperty:Version -p:RevitYear=$BuildYear -nologo -v:quiet |
+# The build takes no -Version: the DLL, ConnectorConfig.Version sent to the API and
+# the window titles come from the csproj, so the requested version must be the
+# project's.
+$ProjectVersion = (& dotnet msbuild $Project -getProperty:Version -nologo -v:quiet |
   Select-Object -Last 1).ToString().Trim()
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($ProjectVersion)) {
-  throw "Não foi possível ler <Version> de $Project (exit $LASTEXITCODE)."
+  throw "Could not read <Version> from $Project (exit $LASTEXITCODE)."
 }
 if ($Version -ne $ProjectVersion) {
-  throw "-Version $Version difere de <Version>$ProjectVersion</Version> em NodeAec.Connector.csproj. Atualize o csproj (e ConnectorConfig.Version) ou passe -Version $ProjectVersion."
+  throw "-Version $Version differs from <Version>$ProjectVersion</Version> in NodeAec.Connector.csproj. Update the csproj (and ConnectorConfig.Version) or pass -Version $ProjectVersion."
 }
 
-if (-not $SkipBuild) {
-  Write-Host "==> dotnet build $Sln -c $Configuration -p:RevitYear=$BuildYear ($TargetFramework)"
-  & dotnet build $Sln -c $Configuration -p:RevitYear=$BuildYear
-  if ($LASTEXITCODE -ne 0) { throw "dotnet build failed ($LASTEXITCODE)" }
-}
-
-$dll = Join-Path $OutDir $DllName
-if (-not (Test-Path $dll)) { throw "Build output not found: $dll" }
-
-# Stage: clean + copy runtime payload
-if (Test-Path $StageDir) { Remove-Item $StageDir -Recurse -Force }
-New-Item $StageDir -ItemType Directory -Force | Out-Null
-Get-ChildItem $OutDir -Filter *.dll |
-  Where-Object { $_.Name -notlike "RevitAPI*" -and $_.Name -ne "AdWindows.dll" -and $_.Name -notlike "UIFramework*" } |
-  Copy-Item -Destination $StageDir -Force
-
-# Stage resource icons
-if (Test-Path (Join-Path $OutDir "Resources")) {
-  Copy-Item (Join-Path $OutDir "Resources") $StageDir -Recurse -Force
-}
-Get-ChildItem $OutDir -Filter *.png -ErrorAction SilentlyContinue |
-  Copy-Item -Destination $StageDir -Force
-
-# System.Security.Cryptography.ProtectedData tem destino diferente por família de runtime:
-#  * net48 (Revit 2023/2024): vem de pacote NuGet e DEVE ser copiada para o add-in;
-#  * net8.0-windows/net10.0-windows (Revit 2025+): o assembly faz parte do runtime
-#    Microsoft.WindowsDesktop.App do host, é framework-provided e por isso nem aparece
-#    no diretório de saída (copiá-lo seria redundante).
-if ($TargetFramework -eq "net48") {
-  $dpapiDll = Join-Path $StageDir "System.Security.Cryptography.ProtectedData.dll"
-  if (-not (Test-Path $dpapiDll)) {
-    throw "Missing DPAPI dependency in build output: System.Security.Cryptography.ProtectedData.dll was not copied to $OutDir."
+# Writes PackageContents.xml with one component per year in $Years. The installer
+# generates the same document in [Code] for the years the user checks.
+function Write-PackageContents([string]$Path, [string[]]$Years) {
+  $components = foreach ($year in $Years) {
+    $group = ($RevitYearGroups.Keys | Where-Object { $RevitYearGroups[$_] -contains $year })
+@"
+  <Components Description="Revit $year">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R$year" SeriesMax="R$year" />
+    <ComponentEntry AppName="Node.aec Connector" Version="$Version" ModuleName="./Contents/$group/NodeAec.Connector.addin" AppDescription="Node.aec licensing hub and Ribbon tab for Revit $year" />
+  </Components>
+"@
   }
+  $xml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="Revit" ProductType="Application" Name="Node.aec Connector" AppVersion="$Version" Description="Node.aec licensing hub and Ribbon tab for Autodesk Revit" Author="Node.aec" ProductCode="$ProductCode" UpgradeCodes="$UpgradeCode" OnlineDocumentation="https://nodeaec.com.br">
+  <CompanyDetails Name="Node.aec" Url="https://nodeaec.com.br" />
+$($components -join "`r`n")
+</ApplicationPackage>
+"@
+  [IO.File]::WriteAllText($Path, $xml, (New-Object Text.UTF8Encoding($false)))
 }
-# Lease verification and the Machine ID come from NodeAec.Licensing.Lite: without it the
-# add-in loads, but every sync fails with a FileNotFoundException.
-foreach ($required in @("NodeAec.Licensing.Lite.dll", "BouncyCastle.Cryptography.dll")) {
-  if (-not (Test-Path (Join-Path $StageDir $required))) {
-    throw "Missing licensing dependency in build output: $required was not copied to $OutDir."
+
+if (Test-Path $StageRoot) { Remove-Item $StageRoot -Recurse -Force }
+New-Item $BundleStage -ItemType Directory -Force | Out-Null
+
+foreach ($group in $RevitYearGroups.Keys) {
+  $buildYear = $RevitYearGroups[$group][0]
+
+  # Resolve the TFM from Directory.Build.props instead of repeating the matrix here.
+  $tfm = (& dotnet msbuild $Project -getProperty:TargetFramework -p:RevitYear=$buildYear -nologo -v:quiet |
+    Select-Object -Last 1).ToString().Trim()
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($tfm)) {
+    throw "Could not resolve TargetFramework for RevitYear=$buildYear (exit $LASTEXITCODE)."
   }
+  $outDir = Join-Path $RepoRoot "src\NodeAec.Connector\bin\$buildYear\$Configuration\$tfm"
+
+  if (-not $SkipBuild) {
+    Write-Host "==> dotnet build -c $Configuration -p:RevitYear=$buildYear ($tfm, group $group)"
+    & dotnet build $Sln -c $Configuration -p:RevitYear=$buildYear --nologo -v:minimal
+    if ($LASTEXITCODE -ne 0) { throw "dotnet build failed for RevitYear=$buildYear ($LASTEXITCODE)" }
+  }
+  if (-not (Test-Path (Join-Path $outDir $DllName))) { throw "Build output not found: $outDir\$DllName" }
+
+  $contents = Join-Path $BundleStage "Contents\$group"
+  New-Item $contents -ItemType Directory -Force | Out-Null
+  Get-ChildItem $outDir -Filter *.dll |
+    Where-Object { $_.Name -notlike "RevitAPI*" -and $_.Name -ne "AdWindows.dll" -and $_.Name -notlike "UIFramework*" } |
+    Copy-Item -Destination $contents -Force
+  if (Test-Path (Join-Path $outDir "Resources")) {
+    Copy-Item (Join-Path $outDir "Resources") $contents -Recurse -Force
+  }
+
+  # System.Security.Cryptography.ProtectedData ships only with net48 (Revit 2023/2024):
+  # on net8/net10 it is part of the host's Microsoft.WindowsDesktop.App runtime.
+  $dpapi = Test-Path (Join-Path $contents "System.Security.Cryptography.ProtectedData.dll")
+  if ($tfm -eq "net48" -and -not $dpapi) {
+    throw "Missing DPAPI dependency for $group`: System.Security.Cryptography.ProtectedData.dll was not copied to $outDir."
+  }
+  if ($tfm -ne "net48" -and $dpapi) {
+    throw "System.Security.Cryptography.ProtectedData.dll must not ship for $group ($tfm): Revit provides it."
+  }
+  # Lease verification and the Machine ID come from NodeAec.Licensing.Lite: without it
+  # the add-in loads, but every sync fails with a FileNotFoundException.
+  foreach ($required in @("NodeAec.Licensing.Lite.dll", "BouncyCastle.Cryptography.dll")) {
+    if (-not (Test-Path (Join-Path $contents $required))) {
+      throw "Missing licensing dependency for $group`: $required was not copied to $outDir."
+    }
+  }
+
+  # The manifest's Assembly path is relative to the manifest itself, so the same
+  # file works wherever the bundle is installed.
+  Copy-Item $AddinTemplate (Join-Path $contents "NodeAec.Connector.addin") -Force
 }
+
+$allYears = @($RevitYearGroups.Values | ForEach-Object { $_ })
+Write-PackageContents (Join-Path $BundleStage "PackageContents.xml") $allYears
 if (Test-Path (Join-Path $RepoRoot "README.md")) {
-  Copy-Item (Join-Path $RepoRoot "README.md") (Join-Path $StageDir "README.md") -Force
+  Copy-Item (Join-Path $RepoRoot "README.md") (Join-Path $BundleStage "README.md") -Force
 }
 
-# Stage the .addin with the absolute path for the BUILD year. This staged copy
-# only feeds the .zip (the Setup compiles its manifests in [Code], one per
-# installed year of the group); keep it aligned with the build year.
-$installDir = "C:\ProgramData\Autodesk\Revit\Addins\$BuildYear\NodeAec.Connector"
-[xml]$addin = Get-Content $AddinTemplate
-$addin.RevitAddIns.AddIn.Assembly = "$installDir\$DllName"
-$addin.Save((Join-Path $StageDir "NodeAec.Connector.addin"))
-
-# Zip + checksum
-if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
+# Zip + checksum (the zip holds the NodeAec.Connector.bundle folder itself).
 New-Item $ReleaseDir -ItemType Directory -Force | Out-Null
-Compress-Archive -Path "$StageDir\*" -DestinationPath $ZipPath -Force
+if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
+Compress-Archive -Path $BundleStage -DestinationPath $ZipPath -Force
 $hash = (Get-FileHash $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  $(Split-Path $ZipPath -Leaf)" | Out-File "$ZipPath.sha256" -Encoding ascii
 Write-Host "==> release: $ZipPath"
 Write-Host "    sha256: $hash"
 
-# Optional: Inno Setup .exe installer for THIS Revit group (double-click
-# friendly for end users). Requires Inno Setup 6 (https://jrsoftware.org/isdl.php).
-# When ISCC.exe is not found the .zip above remains the only artifact - no
-# failure. The group's AppId keeps different groups side by side and
-# independently uninstallable in Windows Settings > Apps.
-$setupName = "NodeAec.Connector-$Version-R$Group-Setup.exe"
+# Optional: the single Inno Setup installer. Requires Inno Setup 6
+# (https://jrsoftware.org/isdl.php); without ISCC.exe the .zip is the only artifact.
+$setupName = "NodeAec.Connector-$Version-Setup.exe"
 $iscc = @(
   "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
   "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
@@ -213,10 +192,10 @@ $iscc = @(
 ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 
 if ($iscc) {
-  $versionNum = if ($Version -match '^\d+\.\d+$') { "$Version.0" } else { $Version }
+  $versionNum = if ($Version -match '^\d+\.\d+$') { "$Version.0" } else { ($Version -split '[-+]')[0] }
   $iss = Join-Path $PSScriptRoot "installer.iss"
-  Write-Host "==> ISCC $iss (Revit $Group, AppId $AppId)"
-  & $iscc "/DAppVersion=$Version" "/DAppVersionNum=$versionNum" "/DGroupLabel=$Group" "/DRevitYears=$($RevitYears -join ',')" "/DAppId=$AppId" "/DPreviousAppIds=$PreviousAppIds" "/DPayloadStage=$StageDir" "/O$ReleaseDir" $iss
+  Write-Host "==> ISCC $iss"
+  & $iscc "/DAppVersion=$Version" "/DAppVersionNum=$versionNum" "/DPayloadStage=$BundleStage" "/O$ReleaseDir" $iss
   if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
 
   $setupPath = Join-Path $ReleaseDir $setupName
@@ -225,61 +204,31 @@ if ($iscc) {
   "$setupHash  $setupName" | Out-File "$setupPath.sha256" -Encoding ascii
   Write-Host "==> setup: $setupPath"
   Write-Host "    sha256: $setupHash"
-
-  # Bundle the installer with its checksum: one zip per Setup.exe.
-  $setupZip = Join-Path $ReleaseDir ($setupName -replace '\.exe$','.zip')
-  if (Test-Path $setupZip) { Remove-Item $setupZip -Force }
-  Compress-Archive -Path $setupPath, "$setupPath.sha256" -DestinationPath $setupZip -Force
-  $setupZipHash = (Get-FileHash $setupZip -Algorithm SHA256).Hash.ToLowerInvariant()
-  "$setupZipHash  $(Split-Path $setupZip -Leaf)" | Out-File "$setupZip.sha256" -Encoding ascii
-  Write-Host "==> setup zip: $setupZip"
-  Write-Host "    sha256: $setupZipHash"
 }
 else {
   Write-Warning "Inno Setup 6 (ISCC.exe) not found - only the .zip was generated. Install from https://jrsoftware.org/isdl.php to also build $setupName."
 }
 
-# True when Revit Year is installed locally (same detection as installer.iss).
-function Test-RevitYearInstalled([string]$Year) {
-  foreach ($dir in @("C:\Program Files\Autodesk\Revit $Year", "C:\Program Files\Autodesk\Revit\$Year")) {
-    if (Test-Path $dir) { return $true }
-  }
-  foreach ($hive in @('HKLM:\SOFTWARE\Autodesk\Revit', 'HKLM:\SOFTWARE\WOW6432Node\Autodesk\Revit')) {
-    if (Test-Path "$hive\$Year") { return $true }
-  }
-  $loc = (Get-ItemProperty "HKLM:\SOFTWARE\Autodesk\Revit\Autodesk Revit $Year" -Name InstallLocation -ErrorAction SilentlyContinue).InstallLocation
-  return [bool]$loc
-}
-
 if ($Install) {
-  # Deploy to EVERY year of the group present on this machine, each with its own
-  # absolute Assembly path in the .addin manifest (the staged .addin points at
-  # the build year and is only used by the .zip).
-  $installed = @()
-  foreach ($year in $RevitYears) {
-    if (-not (Test-RevitYearInstalled $year)) {
-      Write-Host "==> Revit $year nao encontrado - pulando"
-      continue
+  # Developer install: the whole bundle, every year enabled. Removes the legacy
+  # per-year .addin installs first, or Revit would load two Connectors.
+  if (Get-Process Revit -ErrorAction SilentlyContinue) { throw "Close Autodesk Revit before installing." }
+  foreach ($year in $allYears) {
+    $legacy = "$env:ProgramData\Autodesk\Revit\Addins\$year"
+    if (Test-Path "$legacy\NodeAec.Connector.addin") {
+      Write-Host "==> removing legacy install from $legacy"
+      Remove-Item "$legacy\NodeAec.Connector.addin" -Force
+      Remove-Item "$legacy\NodeAec.Connector" -Recurse -Force -ErrorAction SilentlyContinue
     }
-    $addinsDir = "$env:ProgramData\Autodesk\Revit\Addins\$year"
-    $targetDir = Join-Path $addinsDir "NodeAec.Connector"
-    Write-Host "==> install to $targetDir"
-    New-Item $targetDir -ItemType Directory -Force | Out-Null
-    Copy-Item "$StageDir\*.dll" $targetDir -Force
-    if (Test-Path (Join-Path $StageDir "Resources")) {
-      Copy-Item (Join-Path $StageDir "Resources") $targetDir -Recurse -Force
-    }
-    Get-ChildItem $StageDir -Filter *.png -ErrorAction SilentlyContinue |
-      Copy-Item -Destination $targetDir -Force
-    [xml]$addin = Get-Content $AddinTemplate
-    $addin.RevitAddIns.AddIn.Assembly = "C:\ProgramData\Autodesk\Revit\Addins\$year\NodeAec.Connector\$DllName"
-    $addin.Save((Join-Path $addinsDir "NodeAec.Connector.addin"))
-    $installed += $year
   }
-  if ($installed.Count -eq 0) {
-    Write-Warning "Nenhum Autodesk Revit do grupo $Group encontrado localmente (anos: $($RevitYears -join ', ')) - nada foi copiado."
-  }
-  else {
-    Write-Host "==> installed Node.aec Connector for Revit $($installed -join ', '). Restart Revit."
+  $target = "$env:ProgramData\Autodesk\ApplicationPlugins\$BundleName"
+  if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+  New-Item (Split-Path $target -Parent) -ItemType Directory -Force | Out-Null
+  Copy-Item $BundleStage $target -Recurse -Force
+  Write-Host "==> installed $target (Revit $($allYears -join ', ')). Restart Revit."
+  $entries = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*_is1" -ErrorAction SilentlyContinue |
+    Where-Object { $_.DisplayName -like "Node.aec Connector - Revit*" }
+  if ($entries) {
+    Write-Warning "Old installer entries remain in Windows Settings > Apps ($(@($entries).Count)). Uninstall them or run the new Setup, which removes them."
   }
 }

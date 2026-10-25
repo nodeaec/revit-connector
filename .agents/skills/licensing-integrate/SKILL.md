@@ -190,8 +190,8 @@ Gate call rules:
 The gate is location-independent: it reads `%APPDATA%\NodeAec\` and finds the
 Connector by assembly name in the Revit process. The partner keeps whatever format it
 already uses: a `.addin` manifest under `Addins\<year>\` or a `.bundle` under
-`ApplicationPlugins\`. The `Addins\<year>\NodeAec.Connector\` path in this repository
-applies only to the Connector itself.
+`ApplicationPlugins\`. The Connector itself installs as
+`ApplicationPlugins\NodeAec.Connector.bundle\`; that has no bearing on the partner's format.
 
 ### Recipe 5: Updates and key rotation
 

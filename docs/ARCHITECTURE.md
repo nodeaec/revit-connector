@@ -126,14 +126,25 @@ revit-connector/
 ## Build matrix and packaging
 
 Each Revit year is built against its own runtime: `net48` (2023/2024), `net8.0-windows`
-(2025/2026), `net10.0-windows` (2027). `release.ps1 -RevitYear <group>` produces, per
-compatibility group (`2023-2024`, `2025-2026`, `2027`):
+(2025/2026), `net10.0-windows` (2027). One `release.ps1 -Version <x.y.z>` run builds the
+three compatibility groups, each with its floor year (2023, 2025, 2027), and packs them into
+one Autodesk bundle:
 
-- `release/NodeAec.Connector-<version>-R<group>.zip`
-- `release/NodeAec.Connector-<version>-R<group>-Setup.exe` (needs [Inno Setup 6](https://jrsoftware.org/isdl.php))
+```
+NodeAec.Connector.bundle\
+  PackageContents.xml        one component per Revit year (SeriesMin = SeriesMax = R<year>)
+  Contents\2023-2024\        net48 build + NodeAec.Connector.addin (relative Assembly)
+  Contents\2025-2026\        net8.0-windows build
+  Contents\2027\             net10.0-windows build
+```
 
-The installer lists the group's Revit years installed on the machine (or *all installed
-versions*). The payload is compiled for the group's base year, and each year gets its own `.addin`
-under `%ProgramData%\Autodesk\Revit\Addins\<year>\`. Silent installs target every installed
-year (`/RevitYear=<year>` picks one). Uninstall asks which year to remove when more than one is
-present.
+Artifacts: `release/NodeAec.Connector-<version>.bundle.zip` and
+`release/NodeAec.Connector-<version>-Setup.exe` (needs [Inno Setup 6](https://jrsoftware.org/isdl.php)).
+
+The installer copies the bundle to `%ProgramData%\Autodesk\ApplicationPlugins\`. Its year
+page has one checkbox per Revit year (installed years start checked; a re-run starts from the
+previous choice); it copies only the builds the checked years need and writes
+`PackageContents.xml` with one component per checked year. Revit loads only the component
+matching its version. Silent installs take `/RevitYears=2025,2026`. Setup also removes
+installs made by the older per-group installers (`Addins\<year>\NodeAec.Connector*`), so
+Revit never loads two Connectors. Uninstall removes the whole bundle.

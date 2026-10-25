@@ -58,11 +58,11 @@ PowerShell, and the Revit year(s) you build for.
 dotnet build NodeAec.Connector.sln -c Release   # default: Revit 2026
 dotnet test  NodeAec.Connector.sln -c Release   # headless, no Revit needed
 
-# Package (.zip + Setup.exe) for one Revit group and install it locally
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0 -RevitYear 2025-2026 -Install
+# Package the bundle (.zip + Setup.exe for Revit 2023-2027) and install it locally
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0 -Install
 ```
 
-Groups are `2023-2024`, `2025-2026` and `2027`. Run the script once per group. Details are
+One run builds all three Revit groups (`2023-2024`, `2025-2026`, `2027`) into one bundle. Details are
 in [Architecture → Build matrix](docs/ARCHITECTURE.md#build-matrix-and-packaging).
 
 ---

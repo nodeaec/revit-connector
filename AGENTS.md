@@ -35,7 +35,7 @@ This repository ships specialized modular skills for autonomous AI agents. Invok
 | **`licensing-integrate`** | Integrate Node.aec licensing into new or existing plugins, run the Grilling phase, protect commercial commands (`IExternalCommand`). | [`.agents/skills/licensing-integrate`](.agents/skills/licensing-integrate/SKILL.md) |
 | **`ribbon-guard`** | Create/modify Ribbon panels and buttons, enforce the `Node.aec` tab, non-blocking icons, and deduplication via AdWindows. | [`.agents/skills/ribbon-guard`](.agents/skills/ribbon-guard/SKILL.md) |
 | **`revit-build-validate`** | Build via `dotnet build`, enforce 0 errors, isolate RevitAPI DLLs, and validate runtime dependencies. | [`.agents/skills/revit-build-validate`](.agents/skills/revit-build-validate/SKILL.md) |
-| **`release-pack`** | Package `.zip` releases and the single-Revit-year-group installer via `release.ps1`, verify SHA-256, and install into local Revit (`%ProgramData%`). | [`.agents/skills/release-pack`](.agents/skills/release-pack/SKILL.md) |
+| **`release-pack`** | Package the `.bundle` zip and the single Setup.exe (Revit 2023–2027) via `release.ps1`, verify SHA-256, and install into local Revit (`%ProgramData%\Autodesk\ApplicationPlugins`). | [`.agents/skills/release-pack`](.agents/skills/release-pack/SKILL.md) |
 
 ### 2. Software Engineering, Quality & Workflow
 | Skill | Scope and Activation Triggers | Canonical Path |
@@ -54,7 +54,7 @@ This repository ships specialized modular skills for autonomous AI agents. Invok
 
 - **Language**: C# 12
 - **Target Framework**: per-Revit-year matrix — `net48` (2023/2024), `net8.0-windows` (2025/2026), and `net10.0-windows` (2027)
-- **Host Application**: Autodesk Revit 2023–2027 (per-year build; per-compatibility-group installer)
+- **Host Application**: Autodesk Revit 2023–2027 (one build per compatibility group, shipped together as one `.bundle` with one installer)
 - **Graphical Interface**: WPF (`UseWPF = true`), clean C# code with native layouts
 - **Data Protection**: Windows DPAPI (`System.Security.Cryptography.ProtectedData`)
 - **Asymmetric Cryptography**: Ed25519 (EdDSA / RFC 8032) for offline validation of signed leases
@@ -96,8 +96,8 @@ All changes must be validated by building the relevant solution and confirming z
 dotnet build NodeAec.Connector.sln -c Release
 dotnet test NodeAec.Connector.sln -c Release
 
-# Package and install into local Revit 2026 via the 2025-2026 group (repeat with -RevitYear 2023-2024 and -RevitYear 2027 for the other groups)
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0 -RevitYear 2025-2026 -Install
+# Build every Revit group, package the bundle + Setup.exe, and install the bundle locally
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0 -Install
 ```
 
 > [!WARNING]

@@ -134,7 +134,7 @@ public class ConnectorConfigTests
         var match = System.Text.RegularExpressions.Regex.Match(csproj, "<Version>([^<]+)</Version>");
 
         Assert.True(match.Success, "NodeAec.Connector.csproj sem <Version>.");
-        Assert.Equal(match.Groups[1].Value.Trim(), ConnectorConfig.Version);
+        Assert.Equal(ConnectorConfig.Version, match.Groups[1].Value.Trim());
     }
 
     /// <summary>Sobe a partir da pasta de saída dos testes até a raiz que contém a solution.</summary>

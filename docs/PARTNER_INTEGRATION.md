@@ -27,7 +27,7 @@ A complete working example is the [Sample Plugin](https://github.com/nodeaec/rev
 | You need | Where to get it |
 |---|---|
 | Your **product slug** (e.g. `meu-plugin`) | Registered on the Node.aec platform: `https://nodeaec.com.br/products/<slug>` |
-| The **Node.aec Connector** installed on your dev machine | Installer from the Node.aec team (one per Revit group: 2023-2024, 2025-2026, 2027) |
+| The **Node.aec Connector** installed on your dev machine | Installer from the Node.aec team (one installer for Revit 2023–2027) |
 | A Node.aec account with a license for your slug | Node.aec team |
 
 ---
@@ -254,8 +254,8 @@ whichever deployment format you already use:
 | Multiple Revit years | One `.addin` per year folder | One bundle; `PackageContents.xml` points each Revit year (`SeriesMin`/`SeriesMax`) to its own DLL folder |
 | Works with Node.aec | ✅ | ✅ |
 
-The **Connector itself** installs under `Addins\<year>\NodeAec.Connector\`. That path is
-only for the Connector, and your plugin doesn't need to be next to it.
+The **Connector itself** installs as `ApplicationPlugins\NodeAec.Connector.bundle\`. That
+folder is only for the Connector: your plugin doesn't need to be next to it or use the same format.
 
 The end user needs **both** installed: the Connector (for sign-in) and your plugin. Your
 installer doesn't have to bundle the Connector. If it's missing, your commands show the
