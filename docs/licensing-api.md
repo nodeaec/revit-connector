@@ -24,7 +24,7 @@ For the end-user view (installation, windows, messages) see the
 |---|---|---|
 | `NODEAEC_API_URL` | `https://api.nodeaec.com.br` | Base for all `/license/*` and `/account/*` endpoints |
 | `NODEAEC_AUTH_URL` | `https://nodeaec.com.br/auth/desktop` | Login page opened in the browser |
-| `NODEAEC_CATALOG_URL` | `https://nodeaec.com.br/products` | Catalog opened by the *Explorar Catálogo* button |
+| `NODEAEC_CATALOG_URL` | `https://nodeaec.com.br/products` | Catalog opened by the *Ver catálogo* links in the Connector window |
 
 Fixed production endpoint: **`https://api.nodeaec.com.br`**. There is no private key in this
 repository — the client only holds the public key used to **verify** signatures.
@@ -40,6 +40,8 @@ repository — the client only holds the public key used to **verify** signature
 | `POST` | `/license/activate` | *(public)* — identifies by `licenseKey` + `machineId` | Manual `NAEC-XXXX-...` key activation |
 | `POST` | `/license/deactivate` | *(public)* — identifies by `licenseKey` + `machineId` | Seat release |
 | `GET` | `/license/jwks` | *(public)* | Informative JWKS (`kid` discovery and rotation signal; not a trust source) |
+| `GET` | `/products/nodeaec-connector/latest` | *(public)* | **Verificar atualizações** (`GetLatestReleaseAsync`) — §12 |
+| `POST` | `/products/:slug/versions/:versionPublicId/files/:filePublicId/download` | `Bearer <user token>` | **Baixar e instalar** (`GetDownloadUrlAsync`) — §12 |
 
 Portal endpoints (`/workspace#licenses`) and the web-session-for-desktop-token exchange run
 **on the server**, not in the Connector — they are outside this contract.
@@ -224,6 +226,7 @@ The Connector **decides on the `code` field**, with this precedence: mapped code
 
 | `code` | Message shown by the Connector |
 |---|---|
+| `CONNECTOR_OUTDATED` (426) | Esta versão do Node.aec Connector (<atual>) não é mais aceita pela plataforma. Atualize para a versão <mínima> ou mais recente em Atualizações. — §12 |
 | `BAD_REQUEST` | Os dados enviados foram recusados. Revise e tente novamente. |
 | `UNAUTHORIZED` | Sua sessão expirou. Entre com sua conta novamente. |
 | `FORBIDDEN` | Você não tem permissão para esta ação. |
@@ -260,3 +263,57 @@ The Connector **decides on the `code` field**, with this precedence: mapped code
   export/exchange format is not a stable platform contract yet, and a file of unknown
   origin would be refused at signature verification. See the
   [manual alternatives](USER_MANUAL.md#9-importing-a-license-lease-file).
+
+---
+
+## 12. Connector updates
+
+Status: **contract agreed, not live yet** on the platform. Platform side:
+`node-aec/docs/handoffs/connector-updates.md`. Design: [plans/connector-updates.md](plans/connector-updates.md).
+
+**`GET /products/:slug/latest`** (public). The Connector calls it with
+`nodeaec-connector` only when the user clicks **Verificar atualizações**:
+
+```json
+{
+  "slug": "nodeaec-connector",
+  "version": "0.4.0",
+  "releasedAt": "2026-11-02T12:00:00.000Z",
+  "notes": "Texto curto da versão (pt-BR).",
+  "minimumVersion": "0.3.0",
+  "file": {
+    "versionPublicId": "AbCdEfGhIjKlMn",
+    "filePublicId": "OpQrStUvWxYz12",
+    "name": "NodeAecConnector-0.4.0-Setup.exe",
+    "sizeBytes": 12345678,
+    "sha256": "64 hex chars"
+  }
+}
+```
+
+`version` must be `major.minor.patch[-prerelease]` (pre-release identifiers limited to
+`[0-9A-Za-z-]`), `sizeBytes` > 0 and `sha256` 64 hex characters; anything else, a non-2xx
+answer or no network shows *"Não foi possível verificar atualizações agora…"*.
+
+**Download** (`Bearer <user token>`, so the user must be signed in): the existing
+`POST /products/:slug/versions/:versionPublicId/files/:filePublicId/download` answers
+`{ "downloadUrl": "https://..." }`. The Connector accepts only `https://` URLs, streams to
+`%TEMP%\NodeAec\updates\NodeAecConnector-<version>-Setup.exe` (its own name, never the
+server's), aborts past `sizeBytes` or after 10 minutes, and runs the file only when the size
+and SHA-256 match. It starts Setup with `/SILENT /WaitForRevit`.
+
+**Minimum version.** For requests whose `User-Agent` is `NodeAec.Connector/<version>` below
+the product's minimum, `/account/entitlements/lease`, `/license/activate` and
+`/license/validate` answer:
+
+```json
+{ "error": true, "status": 426, "code": "CONNECTOR_OUTDATED",
+  "message": "<pt-BR text, shown as is by Connectors 0.3.0 and older>",
+  "data": { "currentVersion": "0.3.0", "minimumVersion": "0.4.0", "latestVersion": "0.4.0" } }
+```
+
+**Update notice.** Their success bodies may carry
+`"connectorUpdate": { "latestVersion": "0.4.0", "minimumVersion": "0.3.0" }`. The Connector
+saves it (and the `data` of a `CONNECTOR_OUTDATED` refusal) to
+`%APPDATA%\NodeAec\update-status.json`, plain JSON, and the window shows
+*"Nova versão disponível: …"* or *"Atualização obrigatória"*.

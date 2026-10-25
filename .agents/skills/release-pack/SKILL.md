@@ -81,8 +81,25 @@ The script fails when a payload misses `NodeAec.Licensing.Lite.dll` or
   named `Node.aec Connector - Revit …` (the per-group installers, any AppId) and deletes
   any leftover `%ProgramData%\Autodesk\Revit\Addins\<year>\NodeAec.Connector*`, so Revit
   never loads two Connectors.
-- Setup and uninstall refuse to run while `Revit.exe` is running.
+- Setup and uninstall refuse to run while `Revit.exe` is running. With `/WaitForRevit`
+  (what the Connector's **Baixar e instalar** passes, with `/SILENT`) Setup instead shows
+  *Feche o Revit para continuar a instalacao.* and waits for Revit to exit; Cancel stops the
+  wait and Setup ends without touching files.
 - `/DAppVersion` and `/DAppVersionNum` are required; `release.ps1` passes them.
+
+---
+
+## 📤 Publish the release on the platform
+
+The Connector's **Verificar atualizações** reads the platform, not GitHub. After building:
+
+1. On nodeaec.com.br, add a version `<x.y.z>` to the product `nodeaec-connector`, with a
+   short pt-BR description (shown as the update notes), and upload
+   `NodeAec.Connector-<x.y.z>-Setup.exe` as its **default** file. Check that the stored
+   SHA-256 equals the one `release.ps1` printed.
+2. Publish the version with download allowed.
+3. Only when old Connectors must stop working (a key rotation, a breaking API change), raise
+   the product's minimum version. Those users then get `CONNECTOR_OUTDATED`.
 
 ---
 
@@ -95,3 +112,5 @@ The script fails when a payload misses `NodeAec.Licensing.Lite.dll` or
 - [ ] Setup on a machine with an old per-group install: the old Apps entries and `Addins\<year>\NodeAec.Connector*` are gone afterwards; only *Node.aec Connector* remains.
 - [ ] Unchecking a year and re-running Setup removes that year's component; Revit of that year no longer shows the Node.aec tab.
 - [ ] Revit of each checked year shows the **Node.aec** tab without load errors.
+- [ ] With Revit open, `Setup.exe /SILENT /WaitForRevit` shows the wait message, and installs as soon as Revit closes; Cancel leaves the install untouched.
+- [ ] After publishing, an older Connector's **Verificar atualizações** offers the new version, and **Baixar e instalar** completes.
