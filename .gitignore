@@ -20,3 +20,7 @@ build-*.log
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Tool skills (Orca and similar) are global, never project skills
+skills-lock.json
+.claude/
