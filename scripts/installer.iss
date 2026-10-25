@@ -58,8 +58,9 @@ DefaultDirName={commonappdata}\Autodesk\ApplicationPlugins\NodeAec.Connector.bun
 DisableDirPage=yes
 UsePreviousAppDir=no
 DisableProgramGroupPage=yes
-; Keep the uninstaller out of the bundle folder Revit scans.
-UninstallFilesDir={commonpf}\Node.aec Connector
+; Keep the uninstaller out of the bundle folder Revit scans, and out of the root of
+; "Node.aec Connector", where older installers left their own unins*.exe files.
+UninstallFilesDir={commonpf}\Node.aec Connector\Uninstall
 UninstallDisplayName=Node.aec Connector
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
@@ -349,8 +350,16 @@ begin
   for I := 0 to GetArrayLength(Keys) - 1 do
     if RegQueryStringValue(RootKey, Keys[I], 'UninstallString', Command) then
     begin
+      Command := RemoveQuotes(Trim(Command));
+      // An entry whose uninstaller is gone can only fail when clicked in Apps.
+      if not FileExists(Command) then
+      begin
+        Log('Deleting orphan legacy entry (uninstaller missing): ' + Keys[I]);
+        RegDeleteKeyIncludingSubkeys(RootKey, Keys[I]);
+        Continue;
+      end;
       Log('Removing legacy install: ' + Keys[I]);
-      if Exec(RemoveQuotes(Trim(Command)), '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, ExecCode) then
+      if Exec(Command, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, ExecCode) then
       begin
         Waited := 0;
         while RegKeyExists(RootKey, Keys[I]) and (Waited < 60000) do

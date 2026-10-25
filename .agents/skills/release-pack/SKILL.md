@@ -69,7 +69,7 @@ The script fails when a payload misses `NodeAec.Licensing.Lite.dll` or
 - **One AppId** (`{1A92A811-32B9-4BBE-8643-7A1EEEDE13BB}`), one entry in Windows
   Settings > Apps: *Node.aec Connector*. Installs into
   `%ProgramData%\Autodesk\ApplicationPlugins\NodeAec.Connector.bundle\`; the uninstaller
-  lives in `%ProgramFiles%\Node.aec Connector\`, outside the folder Revit scans.
+  lives in `%ProgramFiles%\Node.aec Connector\Uninstall\`, outside the folder Revit scans.
 - **Year page:** one checkbox per Revit year 2023–2027, each marked *installed* / *not
   installed*. Defaults: the previous choice on a re-run, otherwise every installed year.
   At least one year must be checked. Re-running Setup is how years are added or removed.
