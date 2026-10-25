@@ -257,6 +257,12 @@ whichever deployment format you already use:
 The **Connector itself** installs as `ApplicationPlugins\NodeAec.Connector.bundle\`. That
 folder is only for the Connector: your plugin doesn't need to be next to it or use the same format.
 
+If you have no installer yet, the [Sample Plugin](https://github.com/nodeaec/revit-sample-plugin)
+and the `dotnet new nodeaec-revit-plugin` template (0.3.0+) ship one: `scripts/release.ps1`
+builds your plugin's own `.bundle` for Revit 2023–2027, and `scripts/installer.iss` makes one
+Setup.exe in which the user checks the Revit versions. Give it your own plugin name,
+`AppId`, `ProductCode` and `UpgradeCode` (the template generates fresh GUIDs).
+
 The end user needs **both** installed: the Connector (for sign-in) and your plugin. Your
 installer doesn't have to bundle the Connector. If it's missing, your commands show the
 *"Nenhuma credencial…"* message, and the user gets the Connector from Node.aec.

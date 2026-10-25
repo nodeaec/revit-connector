@@ -192,6 +192,9 @@ Connector by assembly name in the Revit process. The partner keeps whatever form
 already uses: a `.addin` manifest under `Addins\<year>\` or a `.bundle` under
 `ApplicationPlugins\`. The Connector itself installs as
 `ApplicationPlugins\NodeAec.Connector.bundle\`; that has no bearing on the partner's format.
+A partner with no installer can copy `scripts/release.ps1` + `installer.iss` from the Sample
+Plugin or template 0.3.0+: one `.bundle` and one Setup.exe with a checkbox per Revit year,
+renamed to the partner's plugin with its own `AppId`, `ProductCode` and `UpgradeCode`.
 
 ### Recipe 5: Updates and key rotation
 
