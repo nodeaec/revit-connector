@@ -1,7 +1,7 @@
-# User Manual — Node.aec Connector **v0.1**
+# User Manual — Node.aec Connector
 
 > **Product:** Node.aec Connector — Governance and licensing add-in for Autodesk Revit
-> **Add-in version:** 0.3.0 · **This manual's version:** 0.1 · **Date:** September 2026
+> **Applies to:** Connector 0.3.0 (the version is shown in the footer of every Connector window) · **Updated:** October 2026
 > **Platform:** Windows 10/11 (64-bit) · Autodesk Revit 2023–2027 (one installer for every version)
 > **UI language:** Portuguese (Brazil)
 
@@ -25,7 +25,7 @@
 14. [Signing out and uninstalling](#14-signing-out-and-uninstalling)
 15. [Troubleshooting](#15-troubleshooting)
 16. [Frequently asked questions (FAQ)](#16-frequently-asked-questions-faq)
-17. [Version 0.1 release notes and known limitations](#17-version-01-release-notes-and-known-limitations)
+17. [Release notes and known limitations](#17-release-notes-and-known-limitations)
 18. [Support](#18-support)
 
 ---
@@ -59,7 +59,7 @@ It follows the **Hub & Micro-Gate** model:
 - **Autodesk Revit:** 2023 through 2027. One installer covers every version.
 - **Internet connection:** needed **only** for the first sign-in, license refreshes, and key activations. Day-to-day plugin use needs no internet.
 - **Default browser:** any browser (Chrome, Edge, Firefox…) to complete sign-in.
-- **Permissions:** no administrator access is needed to use the Connector.
+- **Permissions:** installing needs administrator rights (the installer writes to `C:\ProgramData`); using the Connector does not.
 
 > 📦 The install package already includes all dependencies (including the Windows data-protection library). Nothing needs to be installed separately.
 
@@ -69,7 +69,7 @@ It follows the **Hub & Micro-Gate** model:
 
 Installation is normally done by your company's IT/manager team, but the procedure is simple:
 
-1. **Close Autodesk Revit** (if open).
+1. **Close Autodesk Revit** (if open). The installer refuses to continue while Revit is running, because it has to replace files Revit keeps in use.
 2. Run `NodeAec.Connector-0.3.0-Setup.exe` (double-click → Next).
 3. On the **Versoes do Autodesk Revit** page, check the Revit versions that should load the Connector. Versions installed on the computer are already checked and marked *instalado*. You can also check a version you haven't installed yet. At least one version must be checked.
 4. Finish the wizard. The Connector is installed in `C:\ProgramData\Autodesk\ApplicationPlugins\NodeAec.Connector.bundle\`.
@@ -163,7 +163,7 @@ Collapsed by default to keep the screen uncluttered. Click the **"Tenho uma chav
 ### 5.5 Feedback area and footer
 
 - Right below the cards appear the **feedback messages** (success or error) for the actions you run.
-- Footer: **"Node.aec Connector 0.1"** and the **Fechar** button.
+- Footer: **"Node.aec Connector <version>"** (for example *0.3.0*) and the **Fechar** button.
 
 ---
 
@@ -185,7 +185,7 @@ Sign-in uses **Browser SSO**: you never type a password inside Revit.
 - ⏱️ You have **120 seconds (2 minutes)** to complete the browser sign-in. On expiry, just click **Entrar com minha conta** again.
 - The browser-to-Revit connection happens only **on your own computer** (local address `127.0.0.1`), with anti-forgery (CSRF) protection.
 - After sign-in your session stays saved: you do **not** need to sign in every time you open Revit.
-- If *"Algo não saiu como esperado: …"* appears, repeat sign-in; if it persists, see [Troubleshooting](#15-troubleshooting).
+- If *"Ocorreu um erro inesperado (…). Tente novamente; se persistir, reinicie o Revit."* appears, repeat sign-in; if it persists, see [Troubleshooting](#15-troubleshooting).
 
 ---
 
@@ -202,6 +202,7 @@ Click **Atualizar minhas licenças** when:
 - **While signed in:** the Connector re-downloads all licenses on your account → *"Licenças atualizadas com sucesso."*
 - **Not signed in (active license only):** it only **renews** the local license → *"Licenças atualizadas com sucesso."*
 - **No internet:** *"Sem conexão no momento: …"* or *"Não foi possível atualizar agora: …"* appears. Your licenses stay valid until the date shown on the card.
+- **Licenses saved, verification keys not refreshed:** after a sync the window may show *"Suas licenças foram atualizadas, mas a renovação das chaves de verificação falhou agora; as chaves já salvas continuam valendo."* Nothing to do; the next refresh retries. If it says *"Suas licenças foram salvas, mas as chaves de verificação não puderam ser obtidas — os plugins podem continuar bloqueados até a próxima sincronização bem-sucedida."*, connect to the internet and click **Atualizar minhas licenças** again.
 
 > 💡 **Automatic renewal:** every time Revit opens, the Connector renews your licenses in the background, silently and without freezing the UI. When offline that attempt fails silently — no errors getting in the way of your work.
 
@@ -217,7 +218,9 @@ Handy when your company provides a license key and you do not sign in with an ac
    `NAEC-XXXX-XXXX-XXXX-XXXX`
 4. Click **Ativar**.
 5. Possible messages:
-   - ✅ *"Chave ativada! Seus plugins foram liberados."*
+   - ✅ *"Chave ativada! N plugin(s) liberado(s) neste computador."* — the key is active and your licenses were downloaded.
+   - ✅ *"Chave ativada! Entre com sua conta para trazer suas licenças para este computador."* — the key is active; sign in to download the licenses.
+   - ⚠️ *"Chave ativada, mas não foi possível atualizar as licenças agora: …"* — click **Atualizar minhas licenças** when you are back online.
    - ⚠️ *"Digite a chave enviada para você (começa com NAEC-...)."* — the key field is empty.
    - ⚠️ Specific error message (see [Troubleshooting](#15-troubleshooting)).
 
@@ -227,7 +230,7 @@ Handy when your company provides a license key and you do not sign in with an ac
 
 ## 9. Importing a License (.lease) File
 
-**This feature is unavailable in version 0.1.**
+**This feature is not available yet.**
 
 The **Minha Conta** window has no **"ou importar um arquivo de licença (.lease)"** link: the `.lease` file export/exchange format is not a stable platform contract yet. A file of unknown origin would be refused at (Ed25519) signature validation and would unlock no plugin.
 
@@ -264,7 +267,7 @@ Opened via the Ribbon's **Meus Plugins** button (after sign-in). Lists **everyth
 | **Atualizar lista** | Syncs again → *"Lista atualizada."* |
 | Empty list | *"Nenhum plugin vinculado à sua conta ainda."* + **"Conhecer o catálogo de plugins ↗"** link. |
 | Not signed in | *"Entre com sua conta para ver seus plugins aqui."* |
-| Footer | "Node.aec Connector 0.1" + **Fechar** button. |
+| Footer | "Node.aec Connector <version>" + **Fechar** button. |
 
 ---
 
@@ -305,7 +308,7 @@ The Connector is designed to **work without internet** day to day:
 | **Passwords** | Are **never** typed in Revit. Sign-in happens in your browser, with all of its security features (2FA, two-step verification). |
 | **Local connection** | The browser hands sign-in back to Revit only via `127.0.0.1` (local loopback), with an anti-forgery (CSRF) token. No external server intercepts that return. |
 | **Local storage** | Licenses (`entitlements.lease`) and session (`session.json`) live under `%APPDATA%\NodeAec\`, **encrypted with Windows DPAPI**, locked to your Windows user. Other users on the machine cannot read them. |
-| **Machine ID** | Irreversible code (hash) derived from the Windows registry + computer name. It carries no personal data and is never sent outside a licensing context. |
+| **Machine ID** | Irreversible code: a SHA-256 hash of the Windows `MachineGuid` (a random identifier Windows creates at install). It carries no personal data and is never sent outside a licensing context. |
 | **License integrity** | Each license is issued digitally signed (Ed25519) and bound to this computer and its validity term. |
 | **Communication** | Only with the official servers `https://api.nodeaec.com.br` and `https://nodeaec.com.br`. |
 
@@ -348,9 +351,14 @@ The Connector is designed to **work without internet** day to day:
 | Displayed message | Likely cause | What to do |
 |---|---|---|
 | *"Abrindo o navegador…"* and nothing happens | Default browser unset / blocked | Set a default browser in Windows and repeat sign-in. |
-| *"Falha na validação CSRF do login."* / expired login | Sign-in not completed within 120 s, or invalid return | Click **Entrar com minha conta** again and finish within 2 minutes. |
+| *"Tempo esgotado aguardando a confirmação do login no navegador…"* | Sign-in not completed within 120 s | Click **Entrar com minha conta** again and finish within 2 minutes. |
+| The browser tab shows *"Falha na autenticação: Estado inválido ou token ausente."* | The sign-in return was invalid (an old or copied link) | Close the tab and click **Entrar com minha conta** again. |
+| *"Não foi possível abrir o navegador padrão: …"* | No default browser | Set a default browser in Windows and repeat sign-in. |
 | *"Não foi possível buscar suas licenças: …"* | Server unavailable or session expired | Check the internet and sign in again. |
-| *"Algo não saiu como esperado: …"* | Unexpected error in the sign-in flow | Repeat sign-in; if it persists, restart Revit. |
+| *"Ocorreu um erro inesperado (…). Tente novamente; se persistir, reinicie o Revit."* | Unexpected error in the sign-in or refresh flow | Repeat the action; if it persists, restart Revit. |
+| *"Não foi possível abrir a porta local de login…"* | Another sign-in window holds the local port, or local network access is restricted | Close other sign-in windows and try again; on a managed computer, ask IT to allow local (`127.0.0.1`) connections. |
+| *"Sua sessão expirou. Entre com sua conta novamente."* | The sign-in session ended | Click **Entrar com minha conta**. |
+| *"Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente."* | Too many requests in a short time | Wait a few minutes. |
 | *"Sem conexão no momento: …"* | No internet | Connect and click **Atualizar minhas licenças**. Your current licenses stay valid until the shown date. |
 | *"Não foi possível atualizar agora: …"* | Server failure or expired session | Sign in again and refresh. |
 | *"Digite a chave enviada para você (começa com NAEC-…"* | Empty key field | Type the key in `NAEC-XXXX-XXXX-XXXX-XXXX` format. |
@@ -358,9 +366,12 @@ The Connector is designed to **work without internet** day to day:
 | *"Chave de licença não encontrada. Verifique a digitação."* | Nonexistent key | Confirm the key with whoever sent it. |
 | *"Limite de assentos simultâneos atingido para esta licença. Desative o assento em outro computador ou pelo portal web."* | All seats in use | Free a seat via the **Node.aec web portal** or on another computer. |
 | *"Esta licença ou período de avaliação expirou."* | License lapsed | Renew or activate a new key. |
-| *"Esta licença foi suspensa administrativamente."* | Platform suspension | Talk to your account administrator/support. |
-| *"O prazo de tolerância offline (30 dias) expirou. Conecte-se à internet para sincronizar."* | 30 days without syncing | Connect to the internet and click **Atualizar minhas licenças**. |
-| *"O identificador da máquina não corresponde ao registro da concessão."* | Another machine's license | Generate/activate the license **for this computer** (use the machine ID code). |
+| *"Esta licença foi suspensa administrativamente. Fale com o suporte do Node.aec."* | Platform suspension | Talk to your account administrator/support. |
+| *"Esta licença foi cancelada ou reembolsada. Libere outra chave."* | License revoked or refunded | Ask for a new key. |
+| *"O período de avaliação já foi usado neste computador. Contrate uma assinatura comercial."* | The trial was already used here | Buy a commercial license. |
+| *"Este computador ainda não está registrado nesta licença. Ative a chave primeiro."* | The key was never activated on this computer | Activate the key in **Tenho uma chave de ativação**. |
+| *"O prazo de tolerância offline expirou. Conecte-se à internet para sincronizar."* | 30 days without syncing | Connect to the internet and click **Atualizar minhas licenças**. |
+| *"A licença local pertence a outro computador. Entre com sua conta para ativar este equipamento."* | The local license was issued for another machine | Sign in (or activate the key) on this computer. |
 | *"Não foi possível abrir o navegador: …"* | No default browser | Set a default browser in Windows. |
 
 ### Common issues
@@ -374,7 +385,7 @@ The Connector is designed to **work without internet** day to day:
 → Expected behavior: it only enables **after sign-in**. Click **Minha Conta** and sign in.
 
 **A partner plugin says "Licença necessária"**
-→ That product's license is not unlocked on this machine. The dialog shows exactly one of these reasons:
+→ That product's license is not unlocked on this machine. The dialog shows exactly one reason, in Portuguese or in English (it follows Revit's language). The most common ones:
 - *"Nenhuma credencial do Node.aec encontrada nesta estação…"* → open **Minha Conta** and sign in (or activate a key).
 - *"A concessão de licenças foi emitida para outra estação de trabalho…"* → the license belongs to another computer; activate it on this machine.
 - *"O produto '…' não consta nas licenças ativas desta conta…"* → purchase/activate the product in the catalog.
@@ -417,11 +428,21 @@ No. It does not touch Revit models — only the Ribbon, licenses, and its own wi
 
 ---
 
-## 17. Version 0.1 Release Notes and Known Limitations
+## 17. Release Notes and Known Limitations
 
-**Version 0.1 — first public release**
+### 0.3.0 (October 2026)
 
-### What's included
+- **One installer for every Revit version (2023–2027)**, with a checkbox per version. Run it again to add or remove versions. It replaces the per-version installers of 0.2.0 and removes them automatically.
+- The Connector now installs as an Autodesk bundle in `C:\ProgramData\Autodesk\ApplicationPlugins\NodeAec.Connector.bundle\`.
+- License checks use the same verification package (`NodeAec.Licensing.Lite`) as partner plugins, so a license the Connector accepts is one every plugin accepts.
+
+### 0.2.0 (October 2026)
+
+- One installer per group of Revit versions (2023–2024, 2025–2026, 2027).
+- Licenses are verified with digital signatures before they are saved.
+- `.lease` file import removed; licenses are refreshed automatically after a key activation.
+
+### 0.1 (September 2026) — first public release
 
 - Canonical **Node.aec** tab with the **Conector** panel and automatic tab deduplication.
 - **Minha Conta** window: sign-in, sign-out, license status, refresh, and manual activation.
@@ -431,7 +452,7 @@ No. It does not touch Revit models — only the Ribbon, licenses, and its own wi
 - **30-day** offline grace + silent renewal when Revit opens.
 - Encrypted local storage (DPAPI) and machine binding.
 
-### Known limitations in this version
+### Known limitations
 
 - **"Meus Plugins" stays disabled before sign-in** (by design).
 - **No in-Revit seat-release (deactivation) button** — to free a seat, use the **Node.aec web portal**.
@@ -447,11 +468,11 @@ No. It does not touch Revit models — only the Ribbon, licenses, and its own wi
 
 | Channel | How to use |
 |---|---|
-| **Technical support** | Have at hand: the **machine ID** (Minha Conta → key expander → "Identificação desta máquina"), the version (**Node.aec Connector 0.1**), and the exact error message. |
+| **Technical support** | Have at hand: the **machine ID** (Minha Conta → key expander → "Identificação desta máquina"), the version (shown in the window footer, e.g. **Node.aec Connector 0.3.0**), and the exact error message. |
 | **Portal / catalog** | [https://nodeaec.com.br/products](https://nodeaec.com.br/products) |
 | **Account area** | [https://nodeaec.com.br](https://nodeaec.com.br) |
 | **Repository and issue tracker** | [github.com/nodeaec/revit-connector](https://github.com/nodeaec/revit-connector) — open an *issue* describing the step-by-step problem. |
 
 ---
 
-*User Manual — Node.aec Connector v0.1 · Node.aec (https://nodeaec.com.br) · September 2026*
+*User Manual — Node.aec Connector · Node.aec (https://nodeaec.com.br) · October 2026*

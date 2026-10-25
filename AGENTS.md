@@ -119,10 +119,11 @@ check its source of truth, then find every repeat with `grep -rn "<old value>" .
 
 | Fact | Source of truth | Also written in |
 |---|---|---|
-| Connector version | `<Version>` in `src/NodeAec.Connector/NodeAec.Connector.csproj` | `ConnectorConfig.Version` (a test enforces it), the `release.ps1 -Version` examples here, in `README.md` and in `.agents/skills/release-pack/SKILL.md` |
+| Connector version | `<Version>` in `src/NodeAec.Connector/NodeAec.Connector.csproj` | `ConnectorConfig.Version` (a test enforces it), the `release.ps1 -Version` examples here, in `README.md` and in `.agents/skills/release-pack/SKILL.md`; `docs/USER_MANUAL.md` ("Applies to" header, installer file names, release notes §17 — add the new version's notes there) |
 | Lite version the Connector ships | `PackageReference` in `src/NodeAec.Connector/NodeAec.Connector.csproj` (and the tests csproj). Partner plugins must build against this version or older, so raise it before partners need a newer Lite | `docs/PARTNER_INTEGRATION.md`, `docs/lite-adoption.md`; the sample and template csproj in their repos |
 | Latest Lite | <https://www.nuget.org/packages/NodeAec.Licensing.Lite> | |
-| Lite API (`Snapshot`, `GateReason`, messages) | [licensing-lite](https://github.com/nodeaec/licensing-lite) `src/NodeAec.Licensing.Lite/` | `docs/PARTNER_INTEGRATION.md` (reason table) |
+| Lite API (`Snapshot`, `GateReason`, messages) | [licensing-lite](https://github.com/nodeaec/licensing-lite) `src/NodeAec.Licensing.Lite/` | `docs/PARTNER_INTEGRATION.md` (reason table), `docs/USER_MANUAL.md` §15 (partner plugin messages) |
+| Connector UI messages | `src/NodeAec.Connector/UI/*.cs`, `UiState.cs`, `ConnectorApiClient.cs` (server error map), `Auth/DesktopAuthService.cs` | `docs/USER_MANUAL.md` §5–§10 and §15 quote them word for word |
 | Revit API package pins, year → TFM | `Directory.Build.props` | `docs/ARCHITECTURE.md`, this file's stack section |
 | Bundle identity (`ProductCode`, `UpgradeCode`, `AppId`) | `scripts/release.ps1` and `scripts/installer.iss` (a test enforces they match) | `.agents/skills/release-pack/SKILL.md` |
 
