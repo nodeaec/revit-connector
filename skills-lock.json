@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "skills": {
+    "computer-use": {
+      "source": "stablyai/orca",
+      "ref": "b2879bd5aaac5d27c101ccf4171faa25d9f0bb1e",
+      "sourceType": "github",
+      "skillPath": "skills/computer-use/SKILL.md",
+      "computedHash": "1130dcb48ca8c1cf00e1c15242e95f0141cad5299b9fc2ebbcd2779c8c2f3194"
+    },
+    "jira-tickets": {
+      "source": "stablyai/orca",
+      "ref": "b2879bd5aaac5d27c101ccf4171faa25d9f0bb1e",
+      "sourceType": "github",
+      "skillPath": "skills/jira-tickets/SKILL.md",
+      "computedHash": "0005dd35cd66d657503278405ea792ff95403e5f30b2cae1e341560a533b5cd6"
+    },
+    "linear-tickets": {
+      "source": "stablyai/orca",
+      "ref": "b2879bd5aaac5d27c101ccf4171faa25d9f0bb1e",
+      "sourceType": "github",
+      "skillPath": "skills/linear-tickets/SKILL.md",
+      "computedHash": "6866be73aa10d43ed5fda53acdb7a56e510501aac95b067e70e0f0991c9f57bb"
+    },
+    "orca-cli": {
+      "source": "stablyai/orca",
+      "ref": "b2879bd5aaac5d27c101ccf4171faa25d9f0bb1e",
+      "sourceType": "github",
+      "skillPath": "skills/orca-cli/SKILL.md",
+      "computedHash": "ccd717aed7b9866a059b0b31d9a009641a28f6db3201749943fbbb797af4a317"
+    },
+    "orca-emulator": {
+      "source": "stablyai/orca",
+      "ref": "b2879bd5aaac5d27c101ccf4171faa25d9f0bb1e",
+      "sourceType": "github",
+      "skillPath": "skills/orca-emulator/SKILL.md",
+      "computedHash": "8a8ccb7cce461396fcba1099614d156bfe1eb8548861e8bd077d31d64682851b"
+    },
+    "orca-emulator-android": {
+      "source": "stablyai/orca",
+      "ref": "b2879bd5aaac5d27c101ccf4171faa25d9f0bb1e",
+      "sourceType": "github",
+      "skillPath": "skills/orca-emulator-android/SKILL.md",
+      "computedHash": "6f6956f1509a3d45c0691219730f3386cdd43e113fd552230ab8e29ef9259ab4"
+    },
+    "orca-jira": {
+      "source": "stablyai/orca",
+      "ref": "b2879bd5aaac5d27c101ccf4171faa25d9f0bb1e",
+      "sourceType": "github",
+      "skillPath": "skills/orca-jira/SKILL.md",
+      "computedHash": "ad9a7732f14c3ba451a738b51adec7897efb6afea9ac7076c92b7d581380cc8d"
+    },
+    "orca-linear": {
+      "source": "stablyai/orca",
+      "ref": "b2879bd5aaac5d27c101ccf4171faa25d9f0bb1e",
+      "sourceType": "github",
+      "skillPath": "skills/orca-linear/SKILL.md",
+      "computedHash": "644c276ccf2526b5cc7317bdc990242bbfac72b740db54be6da87ecdb76765e7"
+    },
+    "orca-per-workspace-env": {
+      "source": "stablyai/orca",
+      "ref": "b2879bd5aaac5d27c101ccf4171faa25d9f0bb1e",
+      "sourceType": "github",
+      "skillPath": "skills/orca-per-workspace-env/SKILL.md",
+      "computedHash": "8dfa2ba97e64005771d9fe7af93e420e60a7e78e65ebb65a2f4681b09a716341"
+    },
+    "orchestration": {
+      "source": "stablyai/orca",
+      "ref": "b2879bd5aaac5d27c101ccf4171faa25d9f0bb1e",
+      "sourceType": "github",
+      "skillPath": "skills/orchestration/SKILL.md",
+      "computedHash": "0dc04a0a354974eed5c15115fc6cb7461d7423e95a5b19ee995796cf1383e7ed"
+    }
+  }
+}

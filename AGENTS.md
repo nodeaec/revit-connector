@@ -48,6 +48,9 @@ This repository ships specialized modular skills for autonomous AI agents. Invok
 | **`git-change-workflow`** | Branch strategy (Fast Track vs Planned Track), atomic commits, and inspection before staging. | [`.agents/skills/git-change-workflow`](.agents/skills/git-change-workflow/SKILL.md) |
 | **`semantic-commit`** | Format and execute standardized semantic commits with Revit-plugin scopes (`<type>(<scope>): <summary>`). | [`.agents/skills/semantic-commit`](.agents/skills/semantic-commit/SKILL.md) |
 
+### 3. Orca Workspace Tools
+Installed from [`stablyai/orca`](https://github.com/stablyai/orca) and pinned in `skills-lock.json`. Each is a short stub that loads its version-matched guide from the Orca executable, so update them with Orca, not by hand: `orca-cli`, `orchestration`, `computer-use`, `orca-jira`, `orca-linear` (and its legacy name `linear-tickets`), `jira-tickets`, `orca-emulator`, `orca-emulator-android`, `orca-per-workspace-env`.
+
 ---
 
 ## 🏗️ Technology Stack and Runtimes
