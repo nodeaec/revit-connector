@@ -16,7 +16,7 @@ public static class ConnectorConfig
     /// User-Agent) and shown in the window titles. Must equal <c>&lt;Version&gt;</c> in
     /// <c>NodeAec.Connector.csproj</c>; a unit test fails when they drift.
     /// </summary>
-    public const string Version = "0.2.0";
+    public const string Version = "0.3.0";
 
     /// <summary>
     /// Host platform sent to the API (<c>platform</c>). Reflects the Revit year this

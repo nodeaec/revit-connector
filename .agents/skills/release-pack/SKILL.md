@@ -42,19 +42,19 @@ for the remaining ones.
 
 ```powershell
 # Run from the repository root
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.2.0 -RevitYear 2025-2026
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0 -RevitYear 2025-2026
 ```
 
 Output:
 - Staged folder: `release\stage\NodeAec.Connector\`
-- Archive: `release\NodeAec.Connector-0.2.0-R2025-2026.zip`
-- Installer: `release\NodeAec.Connector-0.2.0-R2025-2026-Setup.exe` (when Inno Setup 6 is installed)
+- Archive: `release\NodeAec.Connector-0.3.0-R2025-2026.zip`
+- Installer: `release\NodeAec.Connector-0.3.0-R2025-2026-Setup.exe` (when Inno Setup 6 is installed)
 - Console output: Displays the computed SHA-256 hashes.
 
 ### 2. Packaging + Automatic Local Installation
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.2.0 -RevitYear 2025-2026 -Install
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0 -RevitYear 2025-2026 -Install
 ```
 
 This builds, packages, and deploys the add-in to Revit's discovery directories for

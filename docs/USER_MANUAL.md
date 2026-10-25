@@ -1,7 +1,7 @@
 # User Manual — Node.aec Connector **v0.1**
 
 > **Product:** Node.aec Connector — Governance and licensing add-in for Autodesk Revit
-> **Add-in version:** 0.2.0 · **This manual's version:** 0.1 · **Date:** September 2026
+> **Add-in version:** 0.3.0 · **This manual's version:** 0.1 · **Date:** September 2026
 > **Platform:** Windows 10/11 (64-bit) · Autodesk Revit 2023–2027 (per-year-group installer)
 > **UI language:** Portuguese (Brazil)
 
@@ -70,7 +70,7 @@ It follows the **Hub & Micro-Gate** model:
 Installation is normally done by your company's IT/manager team, but the procedure is simple:
 
 1. **Close Autodesk Revit** (if open).
-2. Run the installer for **your Revit year group** — e.g. `NodeAec.Connector-0.2.0-R2025-2026-Setup.exe` (double-click → Next). On the **Versao do Autodesk Revit** page, pick which version to install to or keep **Todas as versoes instaladas**. The installer lists only the group years present on the computer and, if none is installed, warns and exits without changing any file. Alternative for IT teams: manually extract the `.zip` into the add-ins folder.
+2. Run the installer for **your Revit year group** — e.g. `NodeAec.Connector-0.3.0-R2025-2026-Setup.exe` (double-click → Next). On the **Versao do Autodesk Revit** page, pick which version to install to or keep **Todas as versoes instaladas**. The installer lists only the group years present on the computer and, if none is installed, warns and exits without changing any file. Alternative for IT teams: manually extract the `.zip` into the add-ins folder.
 3. Confirm the files are in the add-ins folder:
    - Add-in folder: `C:\ProgramData\Autodesk\Revit\Addins\<year>\NodeAec.Connector\`
    - Manifest (`.addin`): `C:\ProgramData\Autodesk\Revit\Addins\<year>\NodeAec.Connector.addin`
