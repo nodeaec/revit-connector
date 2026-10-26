@@ -71,6 +71,14 @@ public static class UiTheme
     public static readonly Color InfoBorder = Color.FromRgb(0x9D, 0xB9, 0xD5);
 
     /// <summary>
+    /// Subtle tint of <see cref="Primary"/> for the Node.aec ribbon panel title bar background.
+    /// Borrowed from the Node.aec design system palette (<see cref="Primary"/> #1E4E79), using a soft
+    /// alpha wash so it harmonizes elegantly across both Revit light and dark themes while preserving
+    /// title text contrast.
+    /// </summary>
+    public static readonly Color RibbonPanelTitleBackground = Color.FromArgb(0x28, 0x1E, 0x4E, 0x79);
+
+    /// <summary>
     /// Creates a frozen brush (thread-safe, no resource leaks).
     /// </summary>
     public static SolidColorBrush Brush(Color color)

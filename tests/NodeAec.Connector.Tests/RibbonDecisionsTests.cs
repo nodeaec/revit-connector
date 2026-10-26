@@ -22,4 +22,21 @@ public class RibbonDecisionsTests
     {
         Assert.False(RibbonDecisions.ContainsName(System.Array.Empty<string>(), ButtonName));
     }
+
+    [Theory]
+    [InlineData("Node.aec", "Node.aec", true)]
+    [InlineData("node.aec", "Node.aec", true)]
+    [InlineData("NODE.AEC", "node.aec", true)]
+    [InlineData(" Node.aec ", "Node.aec", true)]
+    [InlineData("Node.aec", " Node.aec ", true)]
+    [InlineData("OtherPlugin", "Node.aec", false)]
+    [InlineData("Licenciamento", "Node.aec", false)]
+    [InlineData("", "Node.aec", false)]
+    [InlineData(null, "Node.aec", false)]
+    [InlineData("Node.aec", "", false)]
+    [InlineData("Node.aec", null, false)]
+    public void IsNodeAecPanel_ValidatesCorrectly(string? title, string? pinned, bool expected)
+    {
+        Assert.Equal(expected, RibbonDecisions.IsNodeAecPanel(title, pinned));
+    }
 }

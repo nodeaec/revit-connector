@@ -46,8 +46,14 @@ internal static class RibbonPanelOrdering
             var tab = ComponentManager.Ribbon?.Tabs.FirstOrDefault(t =>
                 string.Equals(t.Title, tabTitle, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(t.Id, tabTitle, StringComparison.OrdinalIgnoreCase));
-            if (tab == null || ReferenceEquals(tab, _tab))
+            if (tab == null)
             {
+                return;
+            }
+
+            if (ReferenceEquals(tab, _tab))
+            {
+                ApplyPinnedStyles();
                 return;
             }
 
@@ -159,8 +165,12 @@ internal static class RibbonPanelOrdering
 
             foreach (var panel in _tab.Panels)
             {
-                bool isPinned = string.Equals(Title(panel), _pinned, StringComparison.OrdinalIgnoreCase);
+                bool isPinned = RibbonDecisions.IsNodeAecPanel(Title(panel), _pinned);
                 ArrangeItems(panel, isPinned ? _pinnedItemKey : null);
+                if (isPinned)
+                {
+                    ApplyPinnedPanelTitleBackground(panel);
+                }
             }
         }
         finally
@@ -170,6 +180,41 @@ internal static class RibbonPanelOrdering
 
         _lastOrder = Titles(_tab);
         Known.UnionWith(_lastOrder);
+    }
+
+    /// <summary>
+    /// Applies the Node.aec branded tint background (<see cref="UiTheme.RibbonPanelTitleBackground"/>)
+    /// to the pinned panel's title bar using <see cref="RibbonPanel.CustomPanelTitleBarBackground"/>.
+    /// </summary>
+    private static void ApplyPinnedPanelTitleBackground(RibbonPanel panel)
+    {
+        try
+        {
+            panel.CustomPanelTitleBarBackground = UiTheme.Brush(UiTheme.RibbonPanelTitleBackground);
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.ConnectorLog.Write("WARN", $"Não foi possível aplicar o estilo do painel Node.aec: {ex.GetType().Name}.");
+        }
+    }
+
+    /// <summary>
+    /// Refreshes the branded title background on any pinned Node.aec panels currently present on the tab.
+    /// </summary>
+    private static void ApplyPinnedStyles()
+    {
+        if (_tab == null)
+        {
+            return;
+        }
+
+        foreach (var panel in _tab.Panels)
+        {
+            if (RibbonDecisions.IsNodeAecPanel(Title(panel), _pinned))
+            {
+                ApplyPinnedPanelTitleBackground(panel);
+            }
+        }
     }
 
     /// <summary>

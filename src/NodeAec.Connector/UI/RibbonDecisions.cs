@@ -22,4 +22,21 @@ internal static class RibbonDecisions
     {
         return existingNames.Any(name => string.Equals(name, candidate, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>
+    /// Determines whether a ribbon panel title matches the pinned Node.aec panel name
+    /// and should receive the branded title background tint.
+    /// </summary>
+    /// <param name="panelTitle">The title or ID of the panel.</param>
+    /// <param name="pinnedPanelName">The canonical pinned panel name (typically <c>"Node.aec"</c>).</param>
+    /// <returns><c>true</c> if the panel is the canonical Node.aec panel.</returns>
+    internal static bool IsNodeAecPanel(string? panelTitle, string? pinnedPanelName)
+    {
+        if (string.IsNullOrWhiteSpace(panelTitle) || string.IsNullOrWhiteSpace(pinnedPanelName))
+        {
+            return false;
+        }
+
+        return string.Equals(panelTitle.Trim(), pinnedPanelName.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
 }

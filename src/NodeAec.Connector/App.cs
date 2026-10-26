@@ -127,6 +127,8 @@ public class App : IExternalApplication
 
             ComponentManager.UIElementActivated -= OnUiElementActivated;
             ComponentManager.UIElementActivated += OnUiElementActivated;
+
+            RibbonPanelOrdering.Attach(TabName, PanelName, ButtonId);
         }
         catch
         {
