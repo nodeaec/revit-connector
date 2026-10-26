@@ -71,8 +71,10 @@ in [Architecture → Build matrix](docs/ARCHITECTURE.md#build-matrix-and-packagi
 
 ## Contributing
 
-1. Branch from `main`.
-2. Follow [AGENTS.md](AGENTS.md).
+See our [Contributing Guide](CONTRIBUTING.md) for full details on branch strategy, semantic commits, and engineering standards.
+
+1. Branch from `main` (`feat/<slug>` or `fix/<slug>`).
+2. Follow [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 3. Build with 0 errors and keep all tests green.
 4. Open a Pull Request explaining what changed and why.
 
