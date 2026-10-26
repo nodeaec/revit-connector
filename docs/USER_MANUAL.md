@@ -322,7 +322,9 @@ the update right away. Your plugins keep working offline until the local license
 (see [offline mode](#13-offline-mode-and-the-30-day-grace-period)), so update soon.
 
 > ℹ️ Connector 0.3.0 and older have no **Atualizações** section: they show the platform's
-> message and you install the new version from the [product page](https://nodeaec.com.br/products/nodeaec-connector).
+> message, *"Esta versão do Node.aec Connector não é mais aceita. Baixe a versão mais recente
+> em nodeaec.com.br/products/nodeaec-connector."*, and you install the new version from the
+> [product page](https://nodeaec.com.br/products/nodeaec-connector).
 
 ---
 
