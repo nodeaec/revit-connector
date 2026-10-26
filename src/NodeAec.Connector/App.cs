@@ -28,6 +28,9 @@ public class App : IExternalApplication
     public const string TabName = "Node.aec";
     public const string PanelName = "Node.aec";
 
+    /// <summary>Internal name of the Connector button; its prefix keeps the Connector first in the Node.aec group.</summary>
+    public const string ButtonId = "NodeAec_ManageConnector";
+
     static App()
     {
 #if NET8_0_OR_GREATER
@@ -104,7 +107,7 @@ public class App : IExternalApplication
 
         // 4. Primary button: "Connector"
         var btnManageData = new PushButtonData(
-            "NodeAec_ManageConnector",
+            ButtonId,
             "Connector",
             assemblyPath,
             typeof(ManageConnectorCommand).FullName ?? string.Empty)
@@ -187,14 +190,14 @@ public class App : IExternalApplication
     {
         DeduplicateRibbonTabs(TabName);
         CleanRogueRibbonElements();
-        RibbonPanelOrdering.Attach(TabName, PanelName);
+        RibbonPanelOrdering.Attach(TabName, PanelName, ButtonId);
     }
 
     /// <summary>Reaction to any ribbon element activation: keeps the tab unique and ordered.</summary>
     private static void OnUiElementActivated(object? sender, EventArgs e)
     {
         DeduplicateRibbonTabs(TabName);
-        RibbonPanelOrdering.Attach(TabName, PanelName);
+        RibbonPanelOrdering.Attach(TabName, PanelName, ButtonId);
     }
 
     public Result OnShutdown(UIControlledApplication application)
@@ -296,8 +299,10 @@ public class App : IExternalApplication
                     foreach (var panel in duplicateTab.Panels.ToList())
                     {
                         duplicateTab.Panels.Remove(panel);
+                        // Only the same panel id is a leftover copy. A panel that merely shares the
+                        // title is another plugin of the same company: keep it, and
+                        // RibbonPanelOrdering merges the two into one group.
                         bool alreadyInPrimary = primaryTab.Panels.Any(p =>
-                            string.Equals(p.Source?.Title, panel.Source?.Title, StringComparison.OrdinalIgnoreCase) ||
                             string.Equals(p.Source?.Id, panel.Source?.Id, StringComparison.OrdinalIgnoreCase));
 
                         if (!alreadyInPrimary)

@@ -90,6 +90,48 @@ public class RibbonOrderTests : IDisposable
         Assert.False(RibbonOrder.AllKnown(new[] { "c" }, new[] { "A", "b" }));
     }
 
+    [Theory]
+    [InlineData("Quant2_Exportar", "Quant2")]
+    [InlineData("CustomCtrl_%CustomCtrl_%Node.aec%Itercode%Quant2_Exportar", "Quant2")]
+    [InlineData("Medir", "Medir")]
+    [InlineData("_Oculto", "_Oculto")]
+    [InlineData("", "")]
+    [InlineData(null, "")]
+    public void ItemGroupKey_TakesThePrefixOfTheLastSegment(string? id, string expected)
+    {
+        Assert.Equal(expected, RibbonOrder.ItemGroupKey(id));
+    }
+
+    [Fact]
+    public void ArrangeItems_KeepsEachPluginTogether_PinnedFirst_ThenByFirstButtonText()
+    {
+        var keys = new[] { "Zeta", "Alfa", "NodeAec", "Zeta", "Alfa" };
+        var texts = new[] { "Zeta Medir", "Alfa Exportar", "Connector", "Zeta Cotar", "Alfa Importar" };
+
+        var order = RibbonOrder.ArrangeItems(keys, texts, "NodeAec");
+
+        Assert.Equal(new[] { "Connector", "Alfa Exportar", "Alfa Importar", "Zeta Medir", "Zeta Cotar" }, order.Select(i => texts[i]).ToArray());
+    }
+
+    [Fact]
+    public void ArrangeItems_SeparatorStaysWithTheButtonBeforeIt()
+    {
+        var keys = new[] { "Zeta", "", "Zeta", "Alfa" };
+        var texts = new[] { "Zeta A", "", "Zeta B", "Alfa" };
+
+        var order = RibbonOrder.ArrangeItems(keys, texts, null);
+
+        Assert.Equal(new[] { 3, 0, 1, 2 }, order.ToArray());
+    }
+
+    [Fact]
+    public void ArrangeItems_SortsByVisibleTextNotByInternalName()
+    {
+        var order = RibbonOrder.ArrangeItems(new[] { "AAA", "ZZZ" }, new[] { "Zebra", "Ábaco" }, null);
+
+        Assert.Equal(new[] { 1, 0 }, order.ToArray());
+    }
+
     [Fact]
     public void SaveThenLoad_RoundTrips()
     {

@@ -191,8 +191,22 @@ It creates a WPF window, so it must run on Revit's UI thread: inside `Execute`, 
 
 ## 4. Put your buttons on the `Node.aec` tab
 
-All Node.aec products share a single Ribbon tab called **`Node.aec`**. Create your own panel
-inside it, never a separate tab:
+All Node.aec products share a single Ribbon tab called **`Node.aec`**. On it, each company has
+**one group** titled with the company name, and each of its plugins adds its buttons inside that
+group, named after the plugin:
+
+```
+Node.aec tab
+┌───────────┬──────────────────────────────┬─────────────┐
+│ Connector │ Quant2   Medições   Exportar  │  Outro App  │
+├───────────┼──────────────────────────────┼─────────────┤
+│ Node.aec  │          Itercode            │ Outra Firma │
+└───────────┴──────────────────────────────┴─────────────┘
+```
+
+Each plugin creates its own panel, with an internal name unique to the plugin, and sets the
+panel's **title** to the company name. The Connector (0.4.0 or later) merges panels with the same
+title into one group:
 
 ```csharp
 using System.Linq;
@@ -203,7 +217,8 @@ namespace MeuPlugin;
 public class App : IExternalApplication
 {
     private const string TabName = "Node.aec";
-    private const string PanelName = "Minhas Ferramentas"; // unique to your product
+    private const string CompanyName = "Minha Empresa"; // group title: the same in all your plugins
+    private const string PanelName = "MeuPlugin";        // internal name, unique to this plugin
 
     public Result OnStartup(UIControlledApplication application)
     {
@@ -218,10 +233,11 @@ public class App : IExternalApplication
 
         var panel = application.GetRibbonPanels(TabName).FirstOrDefault(p => p.Name == PanelName)
                     ?? application.CreateRibbonPanel(TabName, PanelName);
+        panel.Title = CompanyName;
 
         panel.AddItem(new PushButtonData(
-            "MeuPlugin_Comando",                 // unique internal name
-            "Executar\nComando",                 // button text
+            "MeuPlugin_Comando",                 // internal name: plugin name + "_" + command
+            "Meu\nPlugin",                       // button text: the plugin's name
             typeof(App).Assembly.Location,       // this DLL, wherever it is installed
             "MeuPlugin.Commands.MeuComando")     // full name of the IExternalCommand
         {
@@ -236,12 +252,22 @@ public class App : IExternalApplication
 ```
 
 Rules:
-- Use a panel name that is **unique to your product**. `Node.aec` is used by the Connector.
-  If another add-in already uses your panel name, the code above puts your buttons in
-  their panel.
-- You don't choose where your panel goes on the tab. The Connector (0.4.0 or later) keeps its own
-  panel first and the others in alphabetical order by panel name, or in the order the user drags
-  them into. Your panel name is what users see in that order.
+- **Group title:** your company name, spelled exactly the same in every plugin you publish. A
+  different spelling makes a second group. Node.aec's own products use `Node.aec`, which is the
+  Connector's group.
+- **Panel name:** unique to the plugin (the project name works). Don't use the company name as the
+  panel name: Revit refuses a panel name another add-in already created, and your plugin would fail
+  to load.
+- **Button internal names:** start each one with the plugin's name and `_`, such as
+  `Quant2_Exportar`. The Connector uses that prefix to keep each plugin's buttons together.
+- **Button text:** the plugin's name. A plugin with several commands should use one drop-down
+  button named after the plugin (`PulldownButtonData`), so the group stays compact.
+- **Order:** you don't choose where your group or buttons go. The Connector keeps its own group
+  first and the others in alphabetical order by title, or in the order the user drags them into.
+  Inside a group, it orders plugins alphabetically by the text of their first button and keeps
+  each plugin's buttons in the order you added them.
+- **Without the Connector,** panels with the same title appear side by side instead of merged.
+  Nothing breaks; the user sees one group per plugin.
 - Don't call tabs or panels `License` or `Licensing`. The Connector removes those because older
   versions used them.
 - Don't do anything slow in `OnStartup`, such as network calls or heavy file reads. Revit waits for
@@ -371,7 +397,7 @@ stop a determined attacker who controls that machine:
 ## 8. Checklist before you ship
 
 - [ ] Builds with 0 errors for every Revit year you support.
-- [ ] All your panels are on the `Node.aec` tab, with a panel name unique to your product.
+- [ ] Your panel is on the `Node.aec` tab, titled with your company name (the same in all your plugins), with an internal name unique to the plugin and buttons named `<Plugin>_...`.
 - [ ] Each paid command calls `Gate.Validate("<your-slug>")` first and branches only on `IsLicensed`.
 - [ ] The "license required" dialog shows the gate's message as-is (in the user's language), with no list of causes around it.
 - [ ] `gate.LicenseKey` is never logged or displayed.

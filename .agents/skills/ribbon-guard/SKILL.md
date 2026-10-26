@@ -35,9 +35,9 @@ This skill enforces strict Autodesk Revit Ribbon standards for all Node.aec plug
 
 ---
 
-## ↕️ Panel Order
+## ↕️ Company Groups and Order
 
-The Connector orders the panels on the `Node.aec` tab (`UI/RibbonOrder.cs` for the rules, `UI/RibbonPanelOrdering.cs` for the AdWindows side): its own `Node.aec` panel first, then the user's saved drag order (`%AppData%\NodeAec\ribbon-order.json`), then any other panel alphabetically by title. It watches `RibbonTab.Panels.CollectionChanged`; when moving panels itself, set the `_applying` guard so its own moves are not saved as the user's order. Never sort panels anywhere else.
+Each company has one group (panel title = company name) on the `Node.aec` tab; each plugin creates its own panel with a unique internal name, sets `panel.Title` to the company name, and names its buttons `<Plugin>_<Command>` (`docs/PARTNER_INTEGRATION.md` §4). The Connector (`UI/RibbonOrder.cs` for the rules, `UI/RibbonPanelOrdering.cs` for the AdWindows side) merges same-title panels into one group, puts its own `Node.aec` group first, then the user's saved drag order (`%AppData%\NodeAec\ribbon-order.json`), then other groups alphabetically; inside a group it keeps each plugin's buttons together (prefix before `_`), the Connector first, then plugins alphabetically by their first button's text. It watches `RibbonTab.Panels.CollectionChanged`; when moving panels or buttons itself, set the `_applying` guard so its own moves are not saved as the user's order. Tab deduplication drops a panel only when its **id** is already present — never by title, or a company's second plugin would vanish. Never sort panels anywhere else.
 
 ## 🧹 AdWindows Deduplication Pattern
 
@@ -100,7 +100,7 @@ public static class RibbonHelper
                     foreach (var panel in duplicate.Panels.ToList())
                     {
                         duplicate.Panels.Remove(panel);
-                        if (!primary.Panels.Any(p => p.Source?.Title == panel.Source?.Title))
+                        if (!primary.Panels.Any(p => p.Source?.Id == panel.Source?.Id)) // same id = leftover copy; same title = same company, keep it
                         {
                             primary.Panels.Add(panel);
                         }
