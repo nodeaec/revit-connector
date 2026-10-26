@@ -129,8 +129,8 @@ header, **Sua conta**, **Meus plugins**, **Neste computador** (with the key expa
 
 - **"Minha Conta"** with the tagline *"Suas licenças da Node.aec em um só lugar."*
 - **"Ver catálogo ↗"** link — opens the product catalog in the browser.
-- An update notice, when the Connector knows of one: *"Nova versão disponível: X.Y.Z"* or
-  *"Atualização obrigatória"*. See [Updating the Connector](#11-updating-the-connector).
+- *"Nova versão disponível: X.Y.Z. Clique para atualizar."*, when a newer Connector is
+  published. Clicking it scrolls to **Atualizações**. See [Updating the Connector](#11-updating-the-connector).
 
 ### 5.2 "Sua conta" Card
 
@@ -167,8 +167,8 @@ Collapsed by default to keep the screen uncluttered. Click the **"Tenho uma chav
 
 ### 5.6 "Atualizações" Card
 
-Shows *"Versão instalada: X.Y.Z"* and the **Verificar atualizações** button. Details in
-[section 11](#11-updating-the-connector).
+Shows *"Versão instalada: X.Y.Z"*, the result of the check made when the window opened,
+and the **Verificar atualizações** button. Details in [section 11](#11-updating-the-connector).
 
 ### 5.7 Feedback area and footer
 
@@ -282,14 +282,16 @@ The list follows the last sync: click **Atualizar minhas licenças** to refresh 
 
 ## 11. Updating the Connector
 
-The Connector checks for a new version only when you ask; nothing runs in the background
-for this. You need internet to check, and you need to be signed in to download.
+Every time you open **Minha Conta**, the Connector checks whether a newer version is
+published. Nothing runs in the background or at Revit startup for this, and nothing is
+downloaded until you click **Baixar e instalar**. You need internet to check, and you need
+to be signed in to download. Updating is always your choice: an older Connector keeps working.
 
-1. Open **Minha Conta** and scroll to **Atualizações**.
-2. Click **Verificar atualizações**. Possible answers:
+1. Open **Minha Conta**. When a newer version exists, the header shows
+   *"Nova versão disponível: X.Y.Z. Clique para atualizar."*; click it, or scroll to **Atualizações**.
+2. **Atualizações** shows the result of the check (click **Verificar atualizações** to check again):
    - *"Você está na versão mais recente."* — nothing to do.
    - *"Node.aec Connector X.Y.Z disponível."* with the version notes and a **Baixar e instalar** button.
-   - *"Esta versão do Node.aec Connector (…) não é mais aceita pela plataforma. Atualize para a versão … ou mais recente."* — the update is required; see below.
    - *"Não foi possível verificar atualizações agora. Tente novamente mais tarde."* — no internet or the platform did not answer.
 3. Click **Baixar e instalar**. The Connector downloads the installer (*"Baixando atualização... N%"*) and
    checks that the file is exactly the one Node.aec published (*"Verificando integridade do arquivo..."*).
@@ -309,22 +311,8 @@ for this. You need internet to check, and you need to be signed in to download.
 | *"A instalação foi cancelada. Clique em Baixar e instalar para tentar de novo."* | You declined the Windows administrator prompt. |
 | Clicking **Cancel** in the waiting installer | The installer stops without changing anything. Run the update again later. |
 
-**Update notice.** When the Connector renews your licenses (at Revit startup, every 6 hours,
-or when you click **Atualizar minhas licenças**), the platform also tells it the newest
-version. The window then shows *"Nova versão disponível: X.Y.Z"* in the header and in
-**Atualizações**, without you clicking anything.
-
-**Required updates.** Node.aec may stop accepting very old Connectors. Then signing in,
-refreshing licenses or activating a key fails with *"Esta versão do Node.aec Connector (…)
-não é mais aceita pela plataforma. Atualize para a versão … ou mais recente em
-Atualizações."*, the header shows *"Atualização obrigatória"*, and the window checks for
-the update right away. Your plugins keep working offline until the local license expires
-(see [offline mode](#13-offline-mode-and-the-30-day-grace-period)), so update soon.
-
-> ℹ️ Connector 0.3.0 and older have no **Atualizações** section: they show the platform's
-> message, *"Esta versão do Node.aec Connector não é mais aceita. Baixe a versão mais recente
-> em nodeaec.com.br/products/nodeaec-connector."*, and you install the new version from the
-> [product page](https://nodeaec.com.br/products/nodeaec-connector).
+> ℹ️ Connector 0.3.0 and older have no **Atualizações** section: install the new version
+> from the [product page](https://nodeaec.com.br/products/nodeaec-connector).
 
 ---
 
@@ -375,8 +363,7 @@ The Connector is designed to **work without internet** day to day:
 ```
 %APPDATA%\NodeAec\
 ├── entitlements.lease   ← your licenses (encrypted)
-├── session.json         ← your sign-in session (encrypted)
-└── update-status.json   ← newest and minimum Connector versions (not secret, not encrypted)
+└── session.json         ← your sign-in session (encrypted)
 ```
 
 ---
@@ -432,7 +419,6 @@ The Connector is designed to **work without internet** day to day:
 | *"O prazo de tolerância offline expirou. Conecte-se à internet para sincronizar."* | 30 days without syncing | Connect to the internet and click **Atualizar minhas licenças**. |
 | *"A licença local pertence a outro computador. Entre com sua conta para ativar este equipamento."* | The local license was issued for another machine | Sign in (or activate the key) on this computer. |
 | *"Não foi possível abrir o link (…)."* | No default browser | Set a default browser in Windows. |
-| *"Esta versão do Node.aec Connector (…) não é mais aceita pela plataforma…"* | The Connector is older than the platform accepts | Update in **Atualizações** ([section 11](#11-updating-the-connector)). |
 
 ### Common issues
 
@@ -484,7 +470,7 @@ In **Minha Conta** → the **"Tenho uma chave de ativação"** expander → the 
 No. The Connector only talks to the official Node.aec servers to validate licenses.
 
 **Does the Connector update itself?**
-Only when you click **Verificar atualizações** and then **Baixar e instalar**. It never downloads or installs anything on its own.
+No. Opening **Minha Conta** checks whether a new version exists, but it only downloads and installs when you click **Baixar e instalar**.
 
 **Does the Connector modify my project files (.RVT)?**
 No. It does not touch Revit models — only the Ribbon, licenses, and its own windows.
@@ -497,7 +483,7 @@ No. It does not touch Revit models — only the Ribbon, licenses, and its own wi
 
 - **One Ribbon button.** **Minha Conta** opens the only Connector window, which now also holds the plugin list (**Meus plugins**) and the catalog links. The **Meus Plugins** and **Explorar Catálogo** buttons are gone.
 - **Atualizações** section: **Verificar atualizações** checks for a new Connector; **Baixar e instalar** downloads it, verifies it, and installs it when you close Revit.
-- Update notice in the window when a newer version exists, and a clear message when the platform requires an update.
+- Opening the window checks for a newer Connector and offers it in the header and in **Atualizações**.
 - **Meus plugins** no longer lists the Connector itself (downloading it from the platform adds it to your account as a free product).
 
 ### 0.3.0 (October 2026)

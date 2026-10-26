@@ -35,7 +35,6 @@ public class LatestReleaseInfoTests
         Assert.Equal("0.4.0", info.Version);
         Assert.NotNull(info.ReleasedAt);
         Assert.Equal("Melhorias na interface e atualizações automáticas.", info.Notes);
-        Assert.Equal("0.3.0", info.MinimumVersion);
 
         Assert.NotNull(info.File);
         Assert.Equal("ver_abc123", info.File.VersionPublicId);
@@ -46,7 +45,7 @@ public class LatestReleaseInfoTests
     }
 
     [Fact]
-    public void TryParse_NullMinimumVersionAndNotes_ReturnsTrue()
+    public void TryParse_IgnoresMinimumVersionAndAllowsNullNotes()
     {
         string json = @"{
           ""slug"": ""nodeaec-connector"",
@@ -64,8 +63,7 @@ public class LatestReleaseInfoTests
 
         Assert.True(success);
         Assert.NotNull(info);
-        Assert.Null(info!.MinimumVersion);
-        Assert.Null(info.Notes);
+        Assert.Null(info!.Notes);
     }
 
     [Theory]

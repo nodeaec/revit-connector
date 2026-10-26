@@ -138,17 +138,11 @@ public class ConnectorApiClient
             if (!response.IsSuccessStatusCode)
             {
                 var err = ExtractApiError(responseBody, (int)response.StatusCode);
-                if (err.Code == "CONNECTOR_OUTDATED" || response.StatusCode == (System.Net.HttpStatusCode)426)
-                {
-                    UpdateStorage.SaveUpdateStatus(err.LatestVersion, err.MinimumVersion);
-                    return SyncResult.Outdated(err.Message, err.MinimumVersion, err.LatestVersion);
-                }
                 return SyncResult.Failed(err.Message, err.Code);
             }
 
             using var doc = JsonDocument.Parse(responseBody);
             var root = doc.RootElement;
-            TrySaveConnectorUpdateBadge(root);
 
             string? leaseToken = root.TryGetProperty("leaseToken", out var lt) ? lt.GetString() : null;
             if (string.IsNullOrWhiteSpace(leaseToken))
@@ -238,17 +232,11 @@ public class ConnectorApiClient
             if (!response.IsSuccessStatusCode)
             {
                 var err = ExtractApiError(responseBody, (int)response.StatusCode);
-                if (err.Code == "CONNECTOR_OUTDATED" || response.StatusCode == (System.Net.HttpStatusCode)426)
-                {
-                    UpdateStorage.SaveUpdateStatus(err.LatestVersion, err.MinimumVersion);
-                    return SyncResult.Outdated(err.Message, err.MinimumVersion, err.LatestVersion);
-                }
                 return SyncResult.Failed(err.Message, err.Code);
             }
 
             using var doc = JsonDocument.Parse(responseBody);
             var root = doc.RootElement;
-            TrySaveConnectorUpdateBadge(root);
 
             string? leaseToken = root.TryGetProperty("leaseToken", out var lt) ? lt.GetString() : null;
             if (string.IsNullOrWhiteSpace(leaseToken))
@@ -323,17 +311,11 @@ public class ConnectorApiClient
             if (!response.IsSuccessStatusCode)
             {
                 var err = ExtractApiError(responseBody, (int)response.StatusCode);
-                if (err.Code == "CONNECTOR_OUTDATED" || response.StatusCode == (System.Net.HttpStatusCode)426)
-                {
-                    UpdateStorage.SaveUpdateStatus(err.LatestVersion, err.MinimumVersion);
-                    return SyncResult.Outdated(err.Message, err.MinimumVersion, err.LatestVersion);
-                }
                 return SyncResult.Failed(err.Message, err.Code);
             }
 
             using var doc = JsonDocument.Parse(responseBody);
             var root = doc.RootElement;
-            TrySaveConnectorUpdateBadge(root);
 
             // The API answers `valid: false` when the grant is no longer valid on this machine.
             if (root.TryGetProperty("valid", out var validElem) &&
@@ -503,36 +485,6 @@ public class ConnectorApiClient
         }
 
         return entitlements;
-    }
-
-    /// <summary>
-    /// Saves the <c>connectorUpdate</c> badge data to <c>update-status.json</c> when present in the response root.
-    /// </summary>
-    private static void TrySaveConnectorUpdateBadge(JsonElement root)
-    {
-        try
-        {
-            if (root.TryGetProperty("connectorUpdate", out var badgeElem) && badgeElem.ValueKind == JsonValueKind.Object)
-            {
-                string? latest = null;
-                if (badgeElem.TryGetProperty("latestVersion", out var latElem) && latElem.ValueKind == JsonValueKind.String)
-                {
-                    latest = latElem.GetString();
-                }
-
-                string? minimum = null;
-                if (badgeElem.TryGetProperty("minimumVersion", out var minElem) && minElem.ValueKind == JsonValueKind.String)
-                {
-                    minimum = minElem.GetString();
-                }
-
-                UpdateStorage.SaveUpdateStatus(latest, minimum);
-            }
-        }
-        catch (Exception ex)
-        {
-            Diagnostics.ConnectorLog.Write("WARN", $"Falha ao interpretar connectorUpdate da resposta: {ex.GetType().Name}.");
-        }
     }
 
     /// <summary>
@@ -718,36 +670,13 @@ public class ConnectorApiClient
         }
     }
 
-    private static string FormatConnectorOutdatedMessage(string? currentVersion, string? minimumVersion, string? serverMessage)
-    {
-        if (!string.IsNullOrWhiteSpace(currentVersion) && !string.IsNullOrWhiteSpace(minimumVersion))
-        {
-            return $"Esta versão do Node.aec Connector ({currentVersion}) não é mais aceita pela plataforma. Atualize para a versão {minimumVersion} ou mais recente em Atualizações.";
-        }
-
-        if (!string.IsNullOrWhiteSpace(minimumVersion))
-        {
-            return $"Esta versão do Node.aec Connector ({ConnectorConfig.Version}) não é mais aceita pela plataforma. Atualize para a versão {minimumVersion} ou mais recente em Atualizações.";
-        }
-
-        if (!string.IsNullOrWhiteSpace(serverMessage))
-        {
-            return serverMessage!;
-        }
-
-        return $"Esta versão do Node.aec Connector ({ConnectorConfig.Version}) não é mais aceita pela plataforma. Atualize para a versão mais recente em Atualizações.";
-    }
-
     /// <summary>
-    /// Parses structured error responses: status, code, message, and data (currentVersion, minimumVersion, latestVersion).
+    /// Parses structured error responses: status, code and message.
     /// </summary>
     internal static ApiErrorInfo ExtractApiError(string responseBody, int statusCode)
     {
         string? code = null;
         string? serverMessage = null;
-        string? currentVersion = null;
-        string? minimumVersion = null;
-        string? latestVersion = null;
 
         try
         {
@@ -766,25 +695,6 @@ public class ConnectorApiClient
                 {
                     serverMessage = msgElem.GetString();
                 }
-
-                if (doc.RootElement.TryGetProperty("data", out var dataElem) &&
-                    dataElem.ValueKind == JsonValueKind.Object)
-                {
-                    if (dataElem.TryGetProperty("currentVersion", out var curElem) && curElem.ValueKind == JsonValueKind.String)
-                    {
-                        currentVersion = curElem.GetString();
-                    }
-
-                    if (dataElem.TryGetProperty("minimumVersion", out var minElem) && minElem.ValueKind == JsonValueKind.String)
-                    {
-                        minimumVersion = minElem.GetString();
-                    }
-
-                    if (dataElem.TryGetProperty("latestVersion", out var latElem) && latElem.ValueKind == JsonValueKind.String)
-                    {
-                        latestVersion = latElem.GetString();
-                    }
-                }
             }
         }
         catch (JsonException)
@@ -794,7 +704,6 @@ public class ConnectorApiClient
 
         string? mapped = code switch
         {
-            "CONNECTOR_OUTDATED" => FormatConnectorOutdatedMessage(currentVersion, minimumVersion, serverMessage),
             "BAD_REQUEST" => "Os dados enviados foram recusados. Revise e tente novamente.",
             "UNAUTHORIZED" => "Sua sessão expirou. Entre com sua conta novamente.",
             "FORBIDDEN" => "Você não tem permissão para esta ação.",
@@ -828,7 +737,7 @@ public class ConnectorApiClient
                     ? $"O servidor recusou a solicitação ({code})."
                     : $"Servidor retornou código {statusCode}.";
 
-        return new ApiErrorInfo(code, message, currentVersion, minimumVersion, latestVersion);
+        return new ApiErrorInfo(code, message);
     }
 
     /// <summary>
@@ -853,30 +762,15 @@ public class ConnectorApiClient
         /// <summary>Gets the user-facing localized error message.</summary>
         public string Message { get; }
 
-        /// <summary>Gets the client version reported in the error details, if present.</summary>
-        public string? CurrentVersion { get; }
-
-        /// <summary>Gets the minimum required version reported in the error details, if present.</summary>
-        public string? MinimumVersion { get; }
-
-        /// <summary>Gets the latest available version reported in the error details, if present.</summary>
-        public string? LatestVersion { get; }
-
         /// <summary>
         /// Initializes a new instance of the <see cref="ApiErrorInfo"/> class.
         /// </summary>
         /// <param name="code">Server error code.</param>
         /// <param name="message">User-facing error message.</param>
-        /// <param name="currentVersion">Current version from response.</param>
-        /// <param name="minimumVersion">Minimum version from response.</param>
-        /// <param name="latestVersion">Latest version from response.</param>
-        public ApiErrorInfo(string? code, string message, string? currentVersion = null, string? minimumVersion = null, string? latestVersion = null)
+        public ApiErrorInfo(string? code, string message)
         {
             Code = code;
             Message = message;
-            CurrentVersion = currentVersion;
-            MinimumVersion = minimumVersion;
-            LatestVersion = latestVersion;
         }
     }
 }

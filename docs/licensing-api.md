@@ -226,7 +226,6 @@ The Connector **decides on the `code` field**, with this precedence: mapped code
 
 | `code` | Message shown by the Connector |
 |---|---|
-| `CONNECTOR_OUTDATED` (426) | Esta versão do Node.aec Connector (<atual>) não é mais aceita pela plataforma. Atualize para a versão <mínima> ou mais recente em Atualizações. — §12 |
 | `BAD_REQUEST` | Os dados enviados foram recusados. Revise e tente novamente. |
 | `UNAUTHORIZED` | Sua sessão expirou. Entre com sua conta novamente. |
 | `FORBIDDEN` | Você não tem permissão para esta ação. |
@@ -268,11 +267,12 @@ The Connector **decides on the `code` field**, with this precedence: mapped code
 
 ## 12. Connector updates
 
-Status: **contract agreed, not live yet** on the platform. Platform side:
+Live on the platform since 2026-10-25. Platform side:
 `node-aec/docs/handoffs/connector-updates.md`. Design: [plans/connector-updates.md](plans/connector-updates.md).
 
 **`GET /products/:slug/latest`** (public). The Connector calls it with
-`nodeaec-connector` only when the user clicks **Verificar atualizações**:
+`nodeaec-connector` each time the **Minha Conta** window opens, and when the user clicks
+**Verificar atualizações**:
 
 ```json
 {
@@ -280,7 +280,6 @@ Status: **contract agreed, not live yet** on the platform. Platform side:
   "version": "0.4.0",
   "releasedAt": "2026-11-02T12:00:00.000Z",
   "notes": "Texto curto da versão (pt-BR).",
-  "minimumVersion": "0.3.0",
   "file": {
     "versionPublicId": "AbCdEfGhIjKlMn",
     "filePublicId": "OpQrStUvWxYz12",
@@ -292,8 +291,9 @@ Status: **contract agreed, not live yet** on the platform. Platform side:
 ```
 
 `version` must be `major.minor.patch[-prerelease]` (pre-release identifiers limited to
-`[0-9A-Za-z-]`), `sizeBytes` > 0 and `sha256` 64 hex characters; anything else, a non-2xx
-answer or no network shows *"Não foi possível verificar atualizações agora…"*.
+`[0-9A-Za-z-]`; no `+build` suffix), `sizeBytes` > 0 and `sha256` 64 hex characters; anything
+else, a non-2xx answer or no network shows *"Não foi possível verificar atualizações agora…"*.
+Other fields (such as a `minimumVersion`) are ignored.
 
 **Download** (`Bearer <user token>`, so the user must be signed in): the existing
 `POST /products/:slug/versions/:versionPublicId/files/:filePublicId/download` answers
@@ -302,18 +302,6 @@ answer or no network shows *"Não foi possível verificar atualizações agora�
 server's), aborts past `sizeBytes` or after 10 minutes, and runs the file only when the size
 and SHA-256 match. It starts Setup with `/SILENT /WaitForRevit`.
 
-**Minimum version.** For requests whose `User-Agent` is `NodeAec.Connector/<version>` below
-the product's minimum, `/account/entitlements/lease`, `/license/activate` and
-`/license/validate` answer:
-
-```json
-{ "error": true, "status": 426, "code": "CONNECTOR_OUTDATED",
-  "message": "<pt-BR text, shown as is by Connectors 0.3.0 and older>",
-  "data": { "currentVersion": "0.3.0", "minimumVersion": "0.4.0", "latestVersion": "0.4.0" } }
-```
-
-**Update notice.** Their success bodies may carry
-`"connectorUpdate": { "latestVersion": "0.4.0", "minimumVersion": "0.3.0" }`. The Connector
-saves it (and the `data` of a `CONNECTOR_OUTDATED` refusal) to
-`%APPDATA%\NodeAec\update-status.json`, plain JSON, and the window shows
-*"Nova versão disponível: …"* or *"Atualização obrigatória"*.
+**No minimum version.** Updating is the user's choice: the Connector never treats an old
+version as refused, and it does not read `connectorUpdate` or `CONNECTOR_OUTDATED`. A refusal
+it does not map shows the server's `message`.

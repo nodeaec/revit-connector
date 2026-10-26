@@ -1,10 +1,22 @@
 # Plan — Connector updates and a single window
 
-Status: approved by the maintainer on 2026-10-25. C1–C6 implemented on 2026-10-25 (Connector
-side only; 224 headless tests). Still open: the platform side, then the manual checks in C5
-(real endpoint, `/SILENT /WaitForRevit` with Revit open), then the 0.4.0 release. Server side: see
-[`node-aec/docs/handoffs/connector-updates.md`](../../../node-aec/docs/handoffs/connector-updates.md)
+Status: approved by the maintainer on 2026-10-25. Implemented as 0.4.0 on 2026-10-25 (built,
+not yet published on the platform); the platform side is live. Revised the same day (see
+Revision): no minimum version.
+Server side: see
+[`node-aec/docs/handoffs/connector-updates.md`](../../../../node-aec/docs/handoffs/connector-updates.md)
 (the "server contract" below is the same text).
+
+## Revision (2026-10-25, after the platform shipped)
+
+The maintainer dropped the minimum version: **no forced updates.** Instead, every opening of
+the **Minha Conta** window checks `GET /products/nodeaec-connector/latest` and, when a newer
+version exists, offers it (header notice *"Nova versão disponível: X.Y.Z. Clique para
+atualizar."* plus **Baixar e instalar** in Atualizações). Removed from the Connector:
+`UpdateDecision.Required`, the `CONNECTOR_OUTDATED` mapping and `SyncResult.IsOutdated`,
+`connectorUpdate` parsing, `update-status.json` (`UpdateStorage`). Server contract items 3 and
+4 below are no longer used; the platform handoff asks to remove them. The sections below
+are the original plan, kept for history.
 
 ## Decisions
 

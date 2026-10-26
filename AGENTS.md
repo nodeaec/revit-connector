@@ -124,7 +124,7 @@ check its source of truth, then find every repeat with `grep -rn "<old value>" .
 | Latest Lite | <https://www.nuget.org/packages/NodeAec.Licensing.Lite> | |
 | Lite API (`Snapshot`, `GateReason`, messages) | [licensing-lite](https://github.com/nodeaec/licensing-lite) `src/NodeAec.Licensing.Lite/` | `docs/PARTNER_INTEGRATION.md` (reason table), `docs/USER_MANUAL.md` §15 (partner plugin messages) |
 | Connector UI messages | `src/NodeAec.Connector/UI/*.cs`, `UiState.cs`, `ConnectorApiClient.cs` (server error map), `Auth/DesktopAuthService.cs` | `docs/USER_MANUAL.md` §5–§11 and §16 quote them word for word; `docs/licensing-api.md` §10 |
-| Update contract (`/products/:slug/latest`, download, `CONNECTOR_OUTDATED`, `connectorUpdate`) | `node-aec` API (`api/route/products.js`, the license routes); its handoff `node-aec/docs/handoffs/connector-updates.md` | `src/NodeAec.Connector/Updates/`, `ConnectorApiClient.cs`, `docs/licensing-api.md` §12, `docs/USER_MANUAL.md` §11 |
+| Update contract (`/products/:slug/latest`, download) | `node-aec` API (`api/route/products.js`, the license routes); its handoff `node-aec/docs/handoffs/connector-updates.md` | `src/NodeAec.Connector/Updates/`, `ConnectorApiClient.cs`, `docs/licensing-api.md` §12, `docs/USER_MANUAL.md` §11 |
 | Installer wait text (`WaitForRevitPrompt`) | `scripts/installer.iss` `[CustomMessages]` | `docs/USER_MANUAL.md` §11, `.agents/skills/release-pack/SKILL.md` |
 | Revit API package pins, year → TFM | `Directory.Build.props` | `docs/ARCHITECTURE.md`, this file's stack section |
 | Bundle identity (`ProductCode`, `UpgradeCode`, `AppId`) | `scripts/release.ps1` and `scripts/installer.iss` (a test enforces they match) | `.agents/skills/release-pack/SKILL.md` |

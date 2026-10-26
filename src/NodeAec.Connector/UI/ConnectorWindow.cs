@@ -262,7 +262,15 @@ public class ConnectorWindow : Window
         // 7. Footer
         root.Children.Add(BuildFooter());
 
+        // The header notice leads to the update offer.
+        _txtHeaderBadge.Cursor = System.Windows.Input.Cursors.Hand;
+        _txtHeaderBadge.MouseLeftButtonUp += (s, e) => _updatesCard.BringIntoView();
+
         RefreshUiFromStorage();
+
+        // Every opening checks for a newer Connector, so users are offered the update when
+        // they use it. One GET off the UI thread; nothing runs at Revit startup or on a timer.
+        Loaded += async (s, e) => await WindowHandlerGuard.RunAsync(HandleCheckUpdatesAsync, ReportHandlerError);
     }
 
     private FrameworkElement BuildHeader(out TextBlock badgeBlock)
@@ -465,9 +473,6 @@ public class ConnectorWindow : Window
         });
 
         RenderPlugins(session.HasValue && !string.IsNullOrWhiteSpace(session.Value.Token), payload?.Entitlements);
-
-        // 3. Update status badge
-        RenderUpdateBadgeFromStorage();
     }
 
     private void RenderPlugins(bool isLoggedIn, IReadOnlyList<EntitlementItem>? entitlements)
@@ -566,45 +571,6 @@ public class ConnectorWindow : Window
         return card;
     }
 
-    private void RenderUpdateBadgeFromStorage()
-    {
-        var status = UpdateStorage.LoadUpdateStatus();
-        if (status == null)
-        {
-            _txtHeaderBadge.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        var decision = UpdateDecisions.Evaluate(ConnectorConfig.Version, status.LatestVersion, status.MinimumVersion);
-        switch (decision)
-        {
-            case UpdateDecision.Required:
-                _txtHeaderBadge.Text = "Atualização obrigatória";
-                _txtHeaderBadge.Visibility = Visibility.Visible;
-                if (_latestRelease == null)
-                {
-                    string minMsg = $"Esta versão do Node.aec Connector ({ConnectorConfig.Version}) não é mais aceita. Atualize para a versão {status.MinimumVersion ?? status.LatestVersion} ou mais recente.";
-                    _txtUpdateStatus.Text = minMsg;
-                    _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
-                }
-                break;
-
-            case UpdateDecision.Available:
-                _txtHeaderBadge.Text = $"Nova versão disponível: {status.LatestVersion}";
-                _txtHeaderBadge.Visibility = Visibility.Visible;
-                if (_latestRelease == null)
-                {
-                    _txtUpdateStatus.Text = $"Nova versão disponível: {status.LatestVersion}. Clique em verificar atualizações para baixar.";
-                    _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Primary);
-                }
-                break;
-
-            default:
-                _txtHeaderBadge.Visibility = Visibility.Collapsed;
-                break;
-        }
-    }
-
     private async Task HandleBrowserLoginAsync()
     {
         SetFeedback("Abrindo o navegador para você entrar com segurança...", UiTheme.Primary);
@@ -637,10 +603,6 @@ public class ConnectorWindow : Window
             else
             {
                 SetFeedback(syncResult.Message, UiTheme.Accent);
-                if (syncResult.IsOutdated)
-                {
-                    ScrollToUpdatesAndCheck();
-                }
             }
         }
         catch (Exception ex)
@@ -684,10 +646,6 @@ public class ConnectorWindow : Window
             else
             {
                 SetFeedback(result.Message, UiTheme.Accent);
-                if (result.IsOutdated)
-                {
-                    ScrollToUpdatesAndCheck();
-                }
             }
         }
         catch (Exception ex)
@@ -735,10 +693,6 @@ public class ConnectorWindow : Window
                             : $"Chave ativada, mas não foi possível atualizar as licenças agora: {sync.Message}",
                         sync.Success && keysWarning == null ? UiTheme.Primary : UiTheme.Accent);
 
-                    if (sync.IsOutdated)
-                    {
-                        ScrollToUpdatesAndCheck();
-                    }
                 }
                 else
                 {
@@ -748,10 +702,6 @@ public class ConnectorWindow : Window
             else
             {
                 SetFeedback(result.Message, UiTheme.Accent);
-                if (result.IsOutdated)
-                {
-                    ScrollToUpdatesAndCheck();
-                }
             }
         }
         catch (Exception ex)
@@ -803,9 +753,8 @@ public class ConnectorWindow : Window
             }
 
             _latestRelease = release;
-            UpdateStorage.SaveUpdateStatus(release.Version, release.MinimumVersion);
 
-            var decision = UpdateDecisions.Evaluate(ConnectorConfig.Version, release.Version, release.MinimumVersion);
+            var decision = UpdateDecisions.Evaluate(ConnectorConfig.Version, release.Version);
             switch (decision)
             {
                 case UpdateDecision.UpToDate:
@@ -813,6 +762,7 @@ public class ConnectorWindow : Window
                     _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Primary);
                     _btnDownloadInstall.Visibility = Visibility.Collapsed;
                     _txtUpdateNotes.Visibility = Visibility.Collapsed;
+                    _txtHeaderBadge.Visibility = Visibility.Collapsed;
                     break;
 
                 case UpdateDecision.Available:
@@ -820,13 +770,8 @@ public class ConnectorWindow : Window
                     _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Primary);
                     ShowReleaseNotes(release.Notes);
                     _btnDownloadInstall.Visibility = Visibility.Visible;
-                    break;
-
-                case UpdateDecision.Required:
-                    _txtUpdateStatus.Text = $"Esta versão do Node.aec Connector ({ConnectorConfig.Version}) não é mais aceita pela plataforma. Atualize para a versão {release.MinimumVersion ?? release.Version} ou mais recente.";
-                    _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
-                    ShowReleaseNotes(release.Notes);
-                    _btnDownloadInstall.Visibility = Visibility.Visible;
+                    _txtHeaderBadge.Text = $"Nova versão disponível: {release.Version}. Clique para atualizar.";
+                    _txtHeaderBadge.Visibility = Visibility.Visible;
                     break;
 
                 default:
@@ -844,7 +789,6 @@ public class ConnectorWindow : Window
         finally
         {
             _btnCheckUpdates.IsEnabled = true;
-            RenderUpdateBadgeFromStorage();
         }
     }
 
@@ -963,18 +907,6 @@ public class ConnectorWindow : Window
         {
             _btnDownloadInstall.IsEnabled = true;
             _btnCheckUpdates.IsEnabled = true;
-        }
-    }
-
-    private void ScrollToUpdatesAndCheck()
-    {
-        try
-        {
-            _updatesCard.BringIntoView();
-            _ = WindowHandlerGuard.RunAsync(HandleCheckUpdatesAsync, ReportHandlerError);
-        }
-        catch
-        {
         }
     }
 

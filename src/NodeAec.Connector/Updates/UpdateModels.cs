@@ -4,18 +4,15 @@ using System.Text.Json;
 namespace NodeAec.Connector.Updates;
 
 /// <summary>
-/// Status of the installed version against platform availability and requirements.
+/// Status of the installed version against the latest published release.
 /// </summary>
 internal enum UpdateDecision
 {
     /// <summary>The installed version is equal to or newer than the latest available release.</summary>
     UpToDate,
 
-    /// <summary>A newer version is published and available for download, and the current version is above the minimum.</summary>
+    /// <summary>A newer version is published and available for download.</summary>
     Available,
-
-    /// <summary>The installed version is below the platform's minimum required version; updating is mandatory.</summary>
-    Required,
 
     /// <summary>Version information is missing or could not be compared.</summary>
     Unknown,
@@ -27,47 +24,20 @@ internal enum UpdateDecision
 internal static class UpdateDecisions
 {
     /// <summary>
-    /// Evaluates the update state given current, latest, and minimum version strings.
-    /// Never throws.
+    /// Compares the installed version with the latest published one. Never throws.
     /// </summary>
-    /// <param name="currentVersion">Current installed version string.</param>
-    /// <param name="latestVersion">Latest available version string.</param>
-    /// <param name="minimumVersion">Minimum required version string.</param>
-    /// <returns>Evaluated update decision.</returns>
-    public static UpdateDecision Evaluate(string? currentVersion, string? latestVersion, string? minimumVersion)
+    /// <param name="currentVersion">Installed version string.</param>
+    /// <param name="latestVersion">Latest published version string.</param>
+    /// <returns><see cref="UpdateDecision.Unknown"/> when either version does not parse.</returns>
+    public static UpdateDecision Evaluate(string? currentVersion, string? latestVersion)
     {
-        SemanticVersion.TryParse(currentVersion, out var cur);
-        SemanticVersion.TryParse(latestVersion, out var lat);
-        SemanticVersion.TryParse(minimumVersion, out var min);
-
-        return Evaluate(cur, lat, min);
-    }
-
-    /// <summary>
-    /// Evaluates the update state given parsed semantic versions.
-    /// </summary>
-    /// <param name="current">Parsed current version.</param>
-    /// <param name="latest">Parsed latest version.</param>
-    /// <param name="minimum">Parsed minimum required version.</param>
-    /// <returns>Evaluated update decision.</returns>
-    public static UpdateDecision Evaluate(SemanticVersion? current, SemanticVersion? latest, SemanticVersion? minimum)
-    {
-        if (current is null)
+        if (!SemanticVersion.TryParse(currentVersion, out var current) || current is null ||
+            !SemanticVersion.TryParse(latestVersion, out var latest) || latest is null)
         {
             return UpdateDecision.Unknown;
         }
 
-        if (minimum is not null && current < minimum)
-        {
-            return UpdateDecision.Required;
-        }
-
-        if (latest is not null)
-        {
-            return latest > current ? UpdateDecision.Available : UpdateDecision.UpToDate;
-        }
-
-        return UpdateDecision.Unknown;
+        return latest > current ? UpdateDecision.Available : UpdateDecision.UpToDate;
     }
 }
 
@@ -126,9 +96,6 @@ internal sealed class LatestReleaseInfo
     /// <summary>Gets the optional release notes in markdown or plain text.</summary>
     public string? Notes { get; }
 
-    /// <summary>Gets the optional minimum required version string.</summary>
-    public string? MinimumVersion { get; }
-
     /// <summary>Gets the primary installer file descriptor.</summary>
     public ReleaseFileInfo File { get; }
 
@@ -139,21 +106,18 @@ internal sealed class LatestReleaseInfo
     /// <param name="version">Release version.</param>
     /// <param name="releasedAt">Release timestamp.</param>
     /// <param name="notes">Release notes.</param>
-    /// <param name="minimumVersion">Minimum required version.</param>
     /// <param name="file">File descriptor.</param>
     public LatestReleaseInfo(
         string slug,
         string version,
         DateTimeOffset? releasedAt,
         string? notes,
-        string? minimumVersion,
         ReleaseFileInfo file)
     {
         Slug = slug;
         Version = version;
         ReleasedAt = releasedAt;
         Notes = notes;
-        MinimumVersion = minimumVersion;
         File = file;
     }
 
@@ -215,19 +179,6 @@ internal sealed class LatestReleaseInfo
                 notes = notesProp.GetString();
             }
 
-            string? minimumVersion = null;
-            if (root.TryGetProperty("minimumVersion", out var minProp))
-            {
-                if (minProp.ValueKind == JsonValueKind.String)
-                {
-                    minimumVersion = minProp.GetString();
-                }
-                else if (minProp.ValueKind != JsonValueKind.Null)
-                {
-                    return false;
-                }
-            }
-
             if (!filePropExists(root, out var fileProp))
             {
                 return false;
@@ -269,7 +220,7 @@ internal sealed class LatestReleaseInfo
             }
 
             var fileInfo = new ReleaseFileInfo(versionPublicId, filePublicId, fileName, sizeBytes, sha256);
-            info = new LatestReleaseInfo(slug, version, releasedAt, notes, minimumVersion, fileInfo);
+            info = new LatestReleaseInfo(slug, version, releasedAt, notes, fileInfo);
             return true;
         }
         catch (JsonException)
@@ -305,36 +256,5 @@ internal sealed class LatestReleaseInfo
         }
 
         return true;
-    }
-}
-
-/// <summary>
-/// Status badge payload persisted to <c>update-status.json</c>.
-/// </summary>
-internal sealed class UpdateStatusData
-{
-    /// <summary>Gets or sets the latest published version on the platform.</summary>
-    public string? LatestVersion { get; set; }
-
-    /// <summary>Gets or sets the minimum required version on the platform.</summary>
-    public string? MinimumVersion { get; set; }
-
-    /// <summary>Gets or sets the timestamp when the status was last refreshed.</summary>
-    public DateTimeOffset? UpdatedAt { get; set; }
-
-    /// <summary>Initializes a new empty instance of <see cref="UpdateStatusData"/>.</summary>
-    public UpdateStatusData() { }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="UpdateStatusData"/> class.
-    /// </summary>
-    /// <param name="latestVersion">Latest version string.</param>
-    /// <param name="minimumVersion">Minimum required version string.</param>
-    /// <param name="updatedAt">Timestamp of update.</param>
-    public UpdateStatusData(string? latestVersion, string? minimumVersion, DateTimeOffset? updatedAt = null)
-    {
-        LatestVersion = latestVersion;
-        MinimumVersion = minimumVersion;
-        UpdatedAt = updatedAt ?? DateTimeOffset.UtcNow;
     }
 }

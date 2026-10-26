@@ -39,7 +39,6 @@
     <Compile Include="..\..\src\NodeAec.Connector\UI\UiState.cs" Link="LinkedSources\UI\UiState.cs" />
     <Compile Include="..\..\src\NodeAec.Connector\Updates\SemanticVersion.cs" Link="LinkedSources\Updates\SemanticVersion.cs" />
     <Compile Include="..\..\src\NodeAec.Connector\Updates\UpdateModels.cs" Link="LinkedSources\Updates\UpdateModels.cs" />
-    <Compile Include="..\..\src\NodeAec.Connector\Updates\UpdateStorage.cs" Link="LinkedSources\Updates\UpdateStorage.cs" />
     <Compile Include="..\..\src\NodeAec.Connector\Updates\UpdatePackageVerifier.cs" Link="LinkedSources\Updates\UpdatePackageVerifier.cs" />
   </ItemGroup>
 
