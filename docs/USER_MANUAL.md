@@ -116,6 +116,8 @@ always available.
 
 > 🧹 The Connector keeps the Ribbon tidy by itself: it removes duplicate **Node.aec** tabs and any stray tabs or buttons it finds (such as "License", "Licensing", "Conectar Conta", or the "Meus Plugins" and "Explorar Catálogo" buttons of older versions). You need to do nothing for this.
 
+**Panel order.** Each Node.aec plugin you install adds its own panel to the **Node.aec** tab. The **Node.aec** panel always comes first; the others are in alphabetical order. To change the order, drag a panel by its title to where you want it: the Connector remembers your order on this computer, and a plugin installed later goes after the panels you placed. The **Node.aec** panel goes back to first if you move it. To return to alphabetical order, close Revit and delete `%AppData%\NodeAec\ribbon-order.json`.
+
 ---
 
 ## 5. The Connector Window
@@ -497,6 +499,7 @@ No. It does not touch Revit models — only the Ribbon, licenses, and its own wi
 - **Redesigned window:** a license status strip (green or amber), a compact plugin list that puts problems first and copes with many plugins (summary, its own scroll, a filter from 12 plugins), the key activation collapsed, and a fixed footer.
 - **Updates:** opening the window checks for a new Connector; a banner offers **Baixar e instalar**, which downloads it, verifies it, and installs it when you close Revit.
 - **Plugins:** each row shows whether the plugin is installed here and offers **Atualizar** or **Instalar** for plugins built with template 0.4.0 or later; plugins installed here without a license on your account are listed too.
+- **Panel order on the Node.aec tab:** the **Node.aec** panel first, the other plugins alphabetically, or in the order you drag them into (remembered on this computer).
 - **Meus plugins** no longer lists the Connector itself (downloading it from the platform adds it to your account as a free product).
 
 ### 0.3.0 (October 2026)

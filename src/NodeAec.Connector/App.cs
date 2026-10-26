@@ -21,7 +21,7 @@ namespace NodeAec.Connector;
 /// <summary>
 /// Plugin entry point for the Node.aec Connector for Autodesk Revit.
 /// Sets up the canonical 'Node.aec' tab, the 'Node.aec' panel (single "Connector" button),
-/// tab deduplication via AdWindows, and background heartbeat.
+/// tab deduplication and panel order via AdWindows, and background heartbeat.
 /// </summary>
 public class App : IExternalApplication
 {
@@ -179,17 +179,22 @@ public class App : IExternalApplication
         });
     }
 
-    /// <summary>Reaction to the <c>ApplicationInitialized</c> event: deduplicates the tab and removes ghost panels.</summary>
+    /// <summary>
+    /// Reaction to the <c>ApplicationInitialized</c> event (every add-in has loaded):
+    /// deduplicates the tab, removes ghost panels, and puts the panels in order.
+    /// </summary>
     private static void OnApplicationInitialized(object? sender, EventArgs e)
     {
         DeduplicateRibbonTabs(TabName);
         CleanRogueRibbonElements();
+        RibbonPanelOrdering.Attach(TabName, PanelName);
     }
 
-    /// <summary>Reaction to any ribbon element activation: keeps the tab unique.</summary>
+    /// <summary>Reaction to any ribbon element activation: keeps the tab unique and ordered.</summary>
     private static void OnUiElementActivated(object? sender, EventArgs e)
     {
         DeduplicateRibbonTabs(TabName);
+        RibbonPanelOrdering.Attach(TabName, PanelName);
     }
 
     public Result OnShutdown(UIControlledApplication application)

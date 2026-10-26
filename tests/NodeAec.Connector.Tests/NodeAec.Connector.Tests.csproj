@@ -36,6 +36,7 @@
     <Compile Include="..\..\src\NodeAec.Connector\Client\ProductLinks.cs" Link="LinkedSources\Client\ProductLinks.cs" />
     <Compile Include="..\..\src\NodeAec.Connector\Diagnostics\HeartbeatLog.cs" Link="LinkedSources\Diagnostics\HeartbeatLog.cs" />
     <Compile Include="..\..\src\NodeAec.Connector\UI\RibbonDecisions.cs" Link="LinkedSources\UI\RibbonDecisions.cs" />
+    <Compile Include="..\..\src\NodeAec.Connector\UI\RibbonOrder.cs" Link="LinkedSources\UI\RibbonOrder.cs" />
     <Compile Include="..\..\src\NodeAec.Connector\UI\UiState.cs" Link="LinkedSources\UI\UiState.cs" />
     <Compile Include="..\..\src\NodeAec.Connector\Updates\SemanticVersion.cs" Link="LinkedSources\Updates\SemanticVersion.cs" />
     <Compile Include="..\..\src\NodeAec.Connector\Updates\UpdateModels.cs" Link="LinkedSources\Updates\UpdateModels.cs" />

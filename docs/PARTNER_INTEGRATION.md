@@ -236,9 +236,12 @@ public class App : IExternalApplication
 ```
 
 Rules:
-- Use a panel name that is **unique to your product**. `Conector` is used by Node.aec.
+- Use a panel name that is **unique to your product**. `Node.aec` is used by the Connector.
   If another add-in already uses your panel name, the code above puts your buttons in
   their panel.
+- You don't choose where your panel goes on the tab. The Connector (0.4.0 or later) keeps its own
+  panel first and the others in alphabetical order by panel name, or in the order the user drags
+  them into. Your panel name is what users see in that order.
 - Don't call tabs or panels `License` or `Licensing`. The Connector removes those because older
   versions used them.
 - Don't do anything slow in `OnStartup`, such as network calls or heavy file reads. Revit waits for

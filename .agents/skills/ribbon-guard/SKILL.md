@@ -35,6 +35,10 @@ This skill enforces strict Autodesk Revit Ribbon standards for all Node.aec plug
 
 ---
 
+## ↕️ Panel Order
+
+The Connector orders the panels on the `Node.aec` tab (`UI/RibbonOrder.cs` for the rules, `UI/RibbonPanelOrdering.cs` for the AdWindows side): its own `Node.aec` panel first, then the user's saved drag order (`%AppData%\NodeAec\ribbon-order.json`), then any other panel alphabetically by title. It watches `RibbonTab.Panels.CollectionChanged`; when moving panels itself, set the `_applying` guard so its own moves are not saved as the user's order. Never sort panels anywhere else.
+
 ## 🧹 AdWindows Deduplication Pattern
 
 Revit's native ribbon system has a well-known bug where reloads, add-in restarts, or multiple add-ins declaring the same tab name create duplicate tabs or ghost panels.
