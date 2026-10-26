@@ -15,7 +15,8 @@ version exists, offers it (header notice *"Nova versão disponível: X.Y.Z. Cliq
 atualizar."* plus **Baixar e instalar** in Atualizações). Removed from the Connector:
 `UpdateDecision.Required`, the `CONNECTOR_OUTDATED` mapping and `SyncResult.IsOutdated`,
 `connectorUpdate` parsing, `update-status.json` (`UpdateStorage`). Server contract items 3 and
-4 below are no longer used; the platform handoff asks to remove them. The sections below
+4 below were removed from the platform too (`node-aec` `5ce08a4`, migration 044 drops
+`products.minimum_version`). The sections below
 are the original plan, kept for history.
 
 ## Decisions
