@@ -20,13 +20,13 @@ namespace NodeAec.Connector;
 
 /// <summary>
 /// Plugin entry point for the Node.aec Connector for Autodesk Revit.
-/// Sets up the canonical 'Node.aec' tab, the 'Conector' panel (single "Minha Conta" button),
+/// Sets up the canonical 'Node.aec' tab, the 'Node.aec' panel (single "Connector" button),
 /// tab deduplication via AdWindows, and background heartbeat.
 /// </summary>
 public class App : IExternalApplication
 {
     public const string TabName = "Node.aec";
-    public const string PanelName = "Conector";
+    public const string PanelName = "Node.aec";
 
     static App()
     {
@@ -71,7 +71,7 @@ public class App : IExternalApplication
     }
 
     /// <summary>
-    /// Body of <see cref="OnStartup"/>: canonical tab, deduplication, "Conector" panel,
+    /// Body of <see cref="OnStartup"/>: canonical tab, deduplication, "Node.aec" panel,
     /// buttons, AdWindows hooks, and heartbeat. Any unhandled exception propagates to the
     /// <c>OnStartup</c> top-level guard, which converts it into <c>Result.Failed</c>.
     /// </summary>
@@ -99,13 +99,13 @@ public class App : IExternalApplication
         string assemblyPath = typeof(App).Assembly.Location;
         string addInDir = Path.GetDirectoryName(assemblyPath) ?? AppDomain.CurrentDomain.BaseDirectory;
 
-        // 3. Gets or creates the "Conector" governance panel
+        // 3. Gets or creates the "Node.aec" governance panel
         Autodesk.Revit.UI.RibbonPanel connectorPanel = GetOrCreatePanel(application, TabName, PanelName);
 
-        // 4. Primary button: "Minha Conta"
+        // 4. Primary button: "Connector"
         var btnManageData = new PushButtonData(
             "NodeAec_ManageConnector",
-            "Minha\nConta",
+            "Connector",
             assemblyPath,
             typeof(ManageConnectorCommand).FullName ?? string.Empty)
         {

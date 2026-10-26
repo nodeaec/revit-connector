@@ -66,7 +66,7 @@ This repository ships specialized modular skills for autonomous AI agents. Invok
 
 ### 1. Revit Ribbon: Mandatory Canonical `Node.aec` Tab
 - **Single Tab**: Every tool, add-in, and component created in this repository **MUST** be added exclusively on the **`Node.aec`** tab (`TabName = "Node.aec"`).
-- **No Fragmented Tabs**: Never create separate tabs for individual plugins. Organize features into themed panels inside `Node.aec` (e.g. `"Conector"`, `"Licenciamento"`, etc.).
+- **No Fragmented Tabs**: Never create separate tabs for individual plugins. Organize features into themed panels inside `Node.aec` (e.g. the Connector's `"Node.aec"` panel, or one panel per plugin).
 - **Tab Deduplication**: Use the `Autodesk.Windows.ComponentManager` (AdWindows) hooks to avoid duplicate tabs or ghost panels when reloading add-ins.
 
 ### 2. Revit Dependencies and Binaries

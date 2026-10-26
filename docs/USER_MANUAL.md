@@ -90,28 +90,27 @@ Alternative for IT teams: extract `NodeAec.Connector-<version>.bundle.zip` into 
 
 ## 4. First Steps: The Node.aec Tab
 
-When Revit opens, click the **Node.aec** tab. You will see the **Conector** panel with one button:
+When Revit opens, click the **Node.aec** tab. You will see the **Node.aec** panel with one button:
 
 ```
 ┌──────────────────────────────┐
 │  Node.aec                    │
 │  ┌──────────────┐            │
 │  │              │            │
-│  │   Minha      │            │
-│  │   Conta      │            │
+│  │  Connector   │            │
 │  │              │            │
 │  └──────────────┘            │
-│      painel "Conector"       │
+│      painel "Node.aec"       │
 └──────────────────────────────┘
 ```
 
-**Minha Conta** opens the Connector window, where everything happens: your account, your
+**Connector** opens the **Minha Conta** window, where everything happens: your account, your
 plugins, the licenses on this computer, key activation, the catalog, and updates. It is
 always available.
 
 **Recommended first-time flow:**
 
-1. Click **Minha Conta**.
+1. Click **Connector**.
 2. Click **Entrar com minha conta** and complete sign-in in the browser.
 3. Back in Revit — your licenses are already unlocked, and the **Meus plugins** section lists them.
 
@@ -481,7 +480,7 @@ No. It does not touch Revit models — only the Ribbon, licenses, and its own wi
 
 ### 0.4.0 (October 2026)
 
-- **One Ribbon button.** **Minha Conta** opens the only Connector window, which now also holds the plugin list (**Meus plugins**) and the catalog links. The **Meus Plugins** and **Explorar Catálogo** buttons are gone.
+- **One Ribbon button,** **Connector**, in the panel now called **Node.aec**. It opens the only Connector window (**Minha Conta**), which now also holds the plugin list (**Meus plugins**) and the catalog links. The **Meus Plugins** and **Explorar Catálogo** buttons are gone.
 - **Atualizações** section: **Verificar atualizações** checks for a new Connector; **Baixar e instalar** downloads it, verifies it, and installs it when you close Revit.
 - Opening the window checks for a newer Connector and offers it in the header and in **Atualizações**.
 - **Meus plugins** no longer lists the Connector itself (downloading it from the platform adds it to your account as a free product).
