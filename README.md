@@ -61,7 +61,7 @@ dotnet build NodeAec.Connector.sln -c Release   # default: Revit 2026
 dotnet test  NodeAec.Connector.sln -c Release   # headless, no Revit needed
 
 # Package the bundle (.zip + Setup.exe for Revit 2023-2027) and install it locally
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0 -Install
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.4.0 -Install
 ```
 
 One run builds all three Revit groups (`2023-2024`, `2025-2026`, `2027`) into one bundle. Details are

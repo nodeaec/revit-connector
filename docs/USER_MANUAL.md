@@ -1,7 +1,7 @@
 # User Manual — Node.aec Connector
 
 > **Product:** Node.aec Connector — Governance and licensing add-in for Autodesk Revit
-> **Applies to:** Connector 0.4.0, not released yet (the version is shown in the footer of the Connector window; 0.3.0 has three Ribbon buttons and no Atualizações section) · **Updated:** October 2026
+> **Applies to:** Connector 0.4.0 (the version is shown in the footer of the Connector window; 0.3.0 has three Ribbon buttons and no Atualizações section) · **Updated:** October 2026
 > **Platform:** Windows 10/11 (64-bit) · Autodesk Revit 2023–2027 (one installer for every version)
 > **UI language:** Portuguese (Brazil)
 
@@ -71,12 +71,12 @@ It follows the **Hub & Micro-Gate** model:
 Installation is normally done by your company's IT/manager team, but the procedure is simple:
 
 1. **Close Autodesk Revit** (if open). The installer refuses to continue while Revit is running, because it has to replace files Revit keeps in use.
-2. Run `NodeAec.Connector-0.3.0-Setup.exe` (double-click → Next).
+2. Run `NodeAec.Connector-0.4.0-Setup.exe` (double-click → Next).
 3. On the **Versoes do Autodesk Revit** page, check the Revit versions that should load the Connector. Versions installed on the computer are already checked and marked *instalado*. You can also check a version you haven't installed yet. At least one version must be checked.
 4. Finish the wizard. The Connector is installed in `C:\ProgramData\Autodesk\ApplicationPlugins\NodeAec.Connector.bundle\`.
 5. **Open Autodesk Revit.** The **Node.aec** tab appears automatically on the Ribbon.
 
-Alternative for IT teams: extract `NodeAec.Connector-<version>.bundle.zip` into `C:\ProgramData\Autodesk\ApplicationPlugins\` (it enables every version), or run the installer silently: `NodeAec.Connector-0.3.0-Setup.exe /VERYSILENT /RevitYears=2025,2026`.
+Alternative for IT teams: extract `NodeAec.Connector-<version>.bundle.zip` into `C:\ProgramData\Autodesk\ApplicationPlugins\` (it enables every version), or run the installer silently: `NodeAec.Connector-0.4.0-Setup.exe /VERYSILENT /RevitYears=2025,2026`.
 
 > ✅ **Check:** when Revit opens, look for the **Node.aec** tab at the top of the Ribbon. If it does not show up, close Revit completely (including background processes) and open it again. If it persists, see [Troubleshooting](#16-troubleshooting).
 
@@ -173,7 +173,7 @@ Shows *"Versão instalada: X.Y.Z"* and the **Verificar atualizações** button. 
 ### 5.7 Feedback area and footer
 
 - Right below the cards appear the **feedback messages** (success or error) for the actions you run.
-- Footer: **"Node.aec Connector <version>"** (for example *0.3.0*) and the **Fechar** button.
+- Footer: **"Node.aec Connector <version>"** (for example *0.4.0*) and the **Fechar** button.
 
 ---
 
@@ -493,11 +493,12 @@ No. It does not touch Revit models — only the Ribbon, licenses, and its own wi
 
 ## 18. Release Notes and Known Limitations
 
-### 0.4.0 (not released yet)
+### 0.4.0 (October 2026)
 
 - **One Ribbon button.** **Minha Conta** opens the only Connector window, which now also holds the plugin list (**Meus plugins**) and the catalog links. The **Meus Plugins** and **Explorar Catálogo** buttons are gone.
 - **Atualizações** section: **Verificar atualizações** checks for a new Connector; **Baixar e instalar** downloads it, verifies it, and installs it when you close Revit.
 - Update notice in the window when a newer version exists, and a clear message when the platform requires an update.
+- **Meus plugins** no longer lists the Connector itself (downloading it from the platform adds it to your account as a free product).
 
 ### 0.3.0 (October 2026)
 

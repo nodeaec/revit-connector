@@ -26,8 +26,8 @@
                                              the user picks the Revit years
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.3.0
-  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.3.0 -Install
+  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.4.0
+  powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.4.0 -Install
 
   -Version has no default and must equal <Version> in NodeAec.Connector.csproj:
   the Setup/zip name, the installer metadata, PackageContents.xml and the
@@ -51,10 +51,10 @@ if ($args.Count -gt 0) {
 # No default: a Setup with a forgotten version would ship an old number in its
 # name and metadata without any warning.
 if ([string]::IsNullOrWhiteSpace($Version)) {
-  throw "-Version is required (e.g. -Version 0.3.0). Use the same value as <Version> in src\NodeAec.Connector\NodeAec.Connector.csproj."
+  throw "-Version is required (e.g. -Version 0.4.0). Use the same value as <Version> in src\NodeAec.Connector\NodeAec.Connector.csproj."
 }
 if ($Version -notmatch '^\d+\.\d+(\.\d+){0,2}([.-][0-9A-Za-z]+)*$') {
-  throw "Invalid version: '$Version'. Use SemVer (e.g. 0.3.0 or 0.3.0-rc1)."
+  throw "Invalid version: '$Version'. Use SemVer (e.g. 0.4.0 or 0.4.0-rc1)."
 }
 
 # Compatibility group -> Revit years. The first year of each group is the build year.

@@ -16,7 +16,14 @@ public static class ConnectorConfig
     /// User-Agent) and shown in the window titles. Must equal <c>&lt;Version&gt;</c> in
     /// <c>NodeAec.Connector.csproj</c>; a unit test fails when they drift.
     /// </summary>
-    public const string Version = "0.3.0";
+    public const string Version = "0.4.0";
+
+    /// <summary>
+    /// The Connector's own product slug on the platform: the update check reads its latest
+    /// release, and the plugin list hides it (a download of a free product grants a license,
+    /// so the Connector can appear among the account's entitlements).
+    /// </summary>
+    public const string ProductSlug = "nodeaec-connector";
 
     /// <summary>
     /// Host platform sent to the API (<c>platform</c>). Reflects the Revit year this

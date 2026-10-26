@@ -97,7 +97,7 @@ dotnet build NodeAec.Connector.sln -c Release
 dotnet test NodeAec.Connector.sln -c Release
 
 # Build every Revit group, package the bundle + Setup.exe, and install the bundle locally
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0 -Install
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.4.0 -Install
 ```
 
 > [!WARNING]

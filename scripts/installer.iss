@@ -2,7 +2,7 @@
 ;
 ; ONE Setup.exe for every supported Revit year (2023-2027). Compiled by
 ; scripts/release.ps1:
-;   ISCC.exe /DAppVersion=0.3.0 /DAppVersionNum=0.3.0
+;   ISCC.exe /DAppVersion=0.4.0 /DAppVersionNum=0.4.0
 ;            /DPayloadStage=<abs path>\release\stage\NodeAec.Connector.bundle
 ;            /O<abs path>\release scripts\installer.iss
 ;
@@ -31,10 +31,10 @@
 ; NOTE: this file must stay plain ASCII (ISCC reads scripts as ANSI/UTF-8-BOM).
 
 #ifndef AppVersion
-  #error AppVersion is required: compile with /DAppVersion=0.3.0 (same as <Version> in NodeAec.Connector.csproj).
+  #error AppVersion is required: compile with /DAppVersion=0.4.0 (same as <Version> in NodeAec.Connector.csproj).
 #endif
 #ifndef AppVersionNum
-  #error AppVersionNum is required: compile with /DAppVersionNum=0.3.0 (numeric x.y.z form of AppVersion).
+  #error AppVersionNum is required: compile with /DAppVersionNum=0.4.0 (numeric x.y.z form of AppVersion).
 #endif
 #ifndef PayloadStage
   #define PayloadStage "..\release\stage\NodeAec.Connector.bundle"

@@ -38,8 +38,8 @@ NodeAec.Connector.bundle\
 
 ```powershell
 # From the repository root
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0 -Install
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.4.0
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.4.0 -Install
 ```
 
 Output in `release\`:

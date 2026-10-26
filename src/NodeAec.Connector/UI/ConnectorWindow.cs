@@ -473,7 +473,7 @@ public class ConnectorWindow : Window
     private void RenderPlugins(bool isLoggedIn, IReadOnlyList<EntitlementItem>? entitlements)
     {
         _pluginsPanel.Children.Clear();
-        var list = entitlements ?? Array.Empty<EntitlementItem>();
+        var list = UiState.PluginsToShow(entitlements);
 
         switch (UiState.PluginsBranch(isLoggedIn, list.Count))
         {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using NodeAec.Connector.Config;
 using NodeAec.Connector.Models;
 
 namespace NodeAec.Connector.UI;
@@ -116,6 +117,25 @@ internal static class UiState
     {
         if (!isLoggedIn) return PluginsView.LoggedOut;
         return entitlementCount == 0 ? PluginsView.Empty : PluginsView.List;
+    }
+
+    /// <summary>
+    /// Drops the Connector's own entitlement (<see cref="ConnectorConfig.ProductSlug"/>) from
+    /// the plugin list: downloading the Connector, a free product, grants a license for it,
+    /// but it is not a plugin the user manages here.
+    /// </summary>
+    /// <param name="entitlements">Lease items, in token order; <c>null</c> means none.</param>
+    /// <returns>The items to show, in the same order.</returns>
+    internal static IReadOnlyList<EntitlementItem> PluginsToShow(IEnumerable<EntitlementItem>? entitlements)
+    {
+        if (entitlements == null)
+        {
+            return Array.Empty<EntitlementItem>();
+        }
+
+        return entitlements
+            .Where(e => e == null || !string.Equals(e.Slug, ConnectorConfig.ProductSlug, StringComparison.OrdinalIgnoreCase))
+            .ToList();
     }
 
     /// <summary>

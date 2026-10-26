@@ -541,7 +541,7 @@ public class ConnectorApiClient
     /// Returns <c>null</c> if 404, unreachable, or if release metadata is invalid.
     /// Never throws.
     /// </summary>
-    internal async Task<LatestReleaseInfo?> GetLatestReleaseAsync(string slug = "nodeaec-connector", CancellationToken cancellationToken = default)
+    internal async Task<LatestReleaseInfo?> GetLatestReleaseAsync(string slug = ConnectorConfig.ProductSlug, CancellationToken cancellationToken = default)
     {
         try
         {

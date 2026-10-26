@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using NodeAec.Connector.Config;
 using NodeAec.Connector.Models;
 using NodeAec.Connector.UI;
 using Xunit;
@@ -146,6 +147,33 @@ public class UiStateTests
 
         Assert.Equal(new[] { "ativo-1", "ativo-2", "cancelado", "vencido" },
             ordered.Select(e => e.Slug).ToArray());
+    }
+
+    [Fact]
+    public void PluginsToShow_HidesTheConnectorItself_KeepingOrder()
+    {
+        var connector = new EntitlementItem { Slug = "NodeAec-Connector" };
+        var first = new EntitlementItem { Slug = "plugin-a" };
+        var second = new EntitlementItem { Slug = "plugin-b" };
+
+        IReadOnlyList<EntitlementItem> shown = UiState.PluginsToShow(new[] { first, connector, second });
+
+        Assert.Equal(new[] { "plugin-a", "plugin-b" }, shown.Select(e => e.Slug));
+    }
+
+    [Fact]
+    public void PluginsToShow_OnlyTheConnector_LeavesTheListEmpty()
+    {
+        var shown = UiState.PluginsToShow(new[] { new EntitlementItem { Slug = ConnectorConfig.ProductSlug } });
+
+        Assert.Empty(shown);
+        Assert.Equal(PluginsView.Empty, UiState.PluginsBranch(true, shown.Count));
+    }
+
+    [Fact]
+    public void PluginsToShow_Null_IsEmpty()
+    {
+        Assert.Empty(UiState.PluginsToShow(null));
     }
 
     [Fact]
