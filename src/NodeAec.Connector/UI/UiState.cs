@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using NodeAec.Connector.Config;
 using NodeAec.Connector.Models;
@@ -19,6 +20,19 @@ internal enum LicenseStatusTone
     Ok,
 }
 
+/// <summary>Tone of one plugin row's status label; the window maps it to UiTheme brushes.</summary>
+internal enum PluginTone
+{
+    /// <summary>Blocked: expired, cancelled, suspended, or not granted.</summary>
+    Problem,
+
+    /// <summary>Active, but the license ends within <see cref="UiState.ExpiringSoonDays"/> days.</summary>
+    Expiring,
+
+    /// <summary>Active with time to spare, or with no end date.</summary>
+    Ok,
+}
+
 /// <summary>Plugin list branch in <c>ConnectorWindow.RenderPlugins</c>.</summary>
 internal enum PluginsView
 {
@@ -28,7 +42,7 @@ internal enum PluginsView
     /// <summary>Active session but no linked products — empty state + catalog.</summary>
     Empty,
 
-    /// <summary>Active session with products — render the cards (active first).</summary>
+    /// <summary>Active session with products — render the rows (attention first).</summary>
     List,
 }
 
@@ -46,9 +60,19 @@ internal static class UiState
     /// <summary>Empty-state text of the plugin list.</summary>
     internal const string NoPluginsText = "Nenhum plugin vinculado à sua conta ainda.";
 
+    /// <summary>Text when the filter matches no plugin.</summary>
+    internal const string NoFilterMatchText = "Nenhum plugin com esse nome.";
+
+    /// <summary>A license ending within this many days shows "Vence em N dias".</summary>
+    internal const int ExpiringSoonDays = 14;
+
+    /// <summary>From this many plugins on, the list shows a filter box.</summary>
+    internal const int FilterThreshold = 12;
+
     /// <summary>
-    /// Maps the local session to the account block of the window (title, hint, login/logout
-    /// button visibility). A missing session or one without email counts as logged out.
+    /// Maps the local session to the account row: signed in, the title is the user's name
+    /// (or the email when there is no name) and the hint is the email; signed out, a
+    /// sign-in call to action. A missing session or one without email counts as logged out.
     /// </summary>
     /// <param name="name">Session user name (optional).</param>
     /// <param name="email">Session email; blank/null ⇒ logged out.</param>
@@ -59,16 +83,151 @@ internal static class UiState
         {
             // Guaranteed by the test above: annotated (NotNullWhen) on .NET 8, an oblique
             // parameter on net48 — hence the explicit bang so Hint is never null.
-            string loggedInEmail = email!;
+            string loggedInEmail = email!.Trim();
             return string.IsNullOrWhiteSpace(name)
-                ? ("Olá! Você está conectado como:", loggedInEmail, ShowLogin: false, ShowLogout: true)
-                : ($"Olá, {name}! Você está conectado como:", loggedInEmail, ShowLogin: false, ShowLogout: true);
+                ? (loggedInEmail, string.Empty, ShowLogin: false, ShowLogout: true)
+                : (name!.Trim(), loggedInEmail, ShowLogin: false, ShowLogout: true);
         }
 
-        return ("Você ainda não entrou.",
-                "Entre com sua conta para liberar seus plugins neste computador.",
+        return ("Entre com sua conta Node.aec",
+                "Para liberar seus plugins neste computador. O navegador abre para você entrar com segurança.",
                 ShowLogin: true,
                 ShowLogout: false);
+    }
+
+    /// <summary>
+    /// Up to two initials for the account badge: first and last word of the name, or the
+    /// first letter of the email. "?" when neither has a letter or digit.
+    /// </summary>
+    /// <param name="name">Session user name (optional).</param>
+    /// <param name="email">Session email (optional).</param>
+    /// <returns>One or two upper-case characters.</returns>
+    internal static string Initials(string? name, string? email)
+    {
+        string[] words = (name ?? string.Empty)
+            .Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => char.IsLetterOrDigit(w[0]))
+            .ToArray();
+        if (words.Length == 1)
+        {
+            return words[0].Substring(0, 1).ToUpperInvariant();
+        }
+
+        if (words.Length > 1)
+        {
+            return (words[0].Substring(0, 1) + words[words.Length - 1].Substring(0, 1)).ToUpperInvariant();
+        }
+
+        string mail = (email ?? string.Empty).Trim();
+        return mail.Length > 0 && char.IsLetterOrDigit(mail[0]) ? mail.Substring(0, 1).ToUpperInvariant() : "?";
+    }
+
+    /// <summary>
+    /// Status label of one plugin row and its tone. Order of checks: not granted or a
+    /// non-active status → expired → ends within <see cref="ExpiringSoonDays"/> → OK.
+    /// </summary>
+    /// <param name="item">Lease item.</param>
+    /// <param name="now">Current time (a parameter so tests are deterministic).</param>
+    /// <returns>Label text and tone.</returns>
+    internal static (string Text, PluginTone Tone) PluginStatus(EntitlementItem item, DateTimeOffset now)
+    {
+        if (!item.Granted)
+        {
+            return ("Não liberado", PluginTone.Problem);
+        }
+
+        string status = (item.Status ?? string.Empty).Trim().ToLowerInvariant();
+        if (status != "active")
+        {
+            string label = status switch
+            {
+                "cancelled" or "canceled" => "Cancelado",
+                "suspended" => "Suspenso",
+                "revoked" => "Revogado",
+                "expired" => "Expirado",
+                _ => "Inativo",
+            };
+            return (label, PluginTone.Problem);
+        }
+
+        if (item.ExpiresAt is not { } expires)
+        {
+            return ("Liberado, sem data para expirar", PluginTone.Ok);
+        }
+
+        if (expires < now)
+        {
+            return ($"Expirado em {expires:dd/MM/yyyy}", PluginTone.Problem);
+        }
+
+        int daysLeft = (int)Math.Ceiling((expires - now).TotalDays);
+        if (daysLeft <= ExpiringSoonDays)
+        {
+            string text = daysLeft <= 0 ? "Vence hoje"
+                : daysLeft == 1 ? "Vence amanhã"
+                : $"Vence em {daysLeft} dias";
+            return (text, PluginTone.Expiring);
+        }
+
+        return ($"Liberado até {expires:dd/MM/yyyy}", PluginTone.Ok);
+    }
+
+    /// <summary>
+    /// Sorts plugins for display: blocked first, then expiring soon, then the rest, keeping
+    /// the token order inside each group (LINQ <c>OrderBy</c> is stable). Null entries from a
+    /// malformed lease are dropped (defense — the issuer does not emit them).
+    /// </summary>
+    /// <param name="entitlements">Lease items, in token order.</param>
+    /// <param name="now">Current time.</param>
+    /// <returns>Sorted copy, with no nulls.</returns>
+    internal static IReadOnlyList<EntitlementItem> PluginsAttentionFirst(IEnumerable<EntitlementItem> entitlements, DateTimeOffset now)
+    {
+        return entitlements.Where(e => e != null).OrderBy(e => (int)PluginStatus(e, now).Tone).ToList();
+    }
+
+    /// <summary>
+    /// One-line summary above the list, e.g. "10 plugins · 9 liberados · 1 vence em breve ·
+    /// 1 bloqueado". "Liberados" counts every usable plugin, expiring ones included.
+    /// </summary>
+    /// <param name="entitlements">Items shown in the list.</param>
+    /// <param name="now">Current time.</param>
+    /// <returns>The summary text.</returns>
+    internal static string PluginsSummary(IReadOnlyCollection<EntitlementItem> entitlements, DateTimeOffset now)
+    {
+        var tones = entitlements.Where(e => e != null).Select(e => PluginStatus(e, now).Tone).ToList();
+        int total = tones.Count;
+        int expiring = tones.Count(t => t == PluginTone.Expiring);
+        int blocked = tones.Count(t => t == PluginTone.Problem);
+        int usable = total - blocked;
+
+        var parts = new List<string> { total == 1 ? "1 plugin" : $"{total} plugins" };
+        if (usable > 0) parts.Add(usable == 1 ? "1 liberado" : $"{usable} liberados");
+        if (expiring > 0) parts.Add($"{expiring} vence{(expiring == 1 ? "" : "m")} em breve");
+        if (blocked > 0) parts.Add(blocked == 1 ? "1 bloqueado" : $"{blocked} bloqueados");
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>
+    /// Keeps the plugins whose name or slug contains <paramref name="query"/>, ignoring case
+    /// and accents ("integracao" finds "Integração"). A blank query keeps everything.
+    /// </summary>
+    /// <param name="entitlements">Items in display order.</param>
+    /// <param name="query">Text typed in the filter box.</param>
+    /// <returns>The matching items, in the same order.</returns>
+    internal static IReadOnlyList<EntitlementItem> FilterPlugins(IEnumerable<EntitlementItem> entitlements, string? query)
+    {
+        string q = (query ?? string.Empty).Trim();
+        if (q.Length == 0)
+        {
+            return entitlements.ToList();
+        }
+
+        CompareInfo compare = CultureInfo.InvariantCulture.CompareInfo;
+        const CompareOptions options = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace;
+        return entitlements
+            .Where(e => compare.IndexOf(e.Name ?? string.Empty, q, options) >= 0 ||
+                        compare.IndexOf(e.Slug ?? string.Empty, q, options) >= 0)
+            .ToList();
     }
 
     /// <summary>
@@ -88,22 +247,22 @@ internal static class UiState
 
         if (payload == null)
         {
-            return ("Não conseguimos ler as licenças salvas. Tente atualizar.", LicenseStatusTone.Warning);
+            return ("Não conseguimos ler as licenças salvas. Clique em Atualizar licenças.", LicenseStatusTone.Warning);
         }
 
         // Out-of-range/missing `exp` becomes null (M5): never print 01/01/1970.
         if (payload.ExpiresAt is not { } exp)
         {
-            return ("Não foi possível ler o prazo das licenças salvas. Clique em atualizar.", LicenseStatusTone.Warning);
+            return ("Não foi possível ler o prazo das licenças salvas. Clique em Atualizar licenças.", LicenseStatusTone.Warning);
         }
 
         if (payload.IsExpired)
         {
-            return ($"Suas licenças estão desatualizadas desde {exp:dd/MM/yyyy}. Conecte-se à internet e clique em atualizar.",
+            return ($"Licenças desatualizadas desde {exp:dd/MM/yyyy}. Conecte-se à internet e clique em Atualizar licenças.",
                     LicenseStatusTone.Warning);
         }
 
-        return ($"Tudo certo — suas licenças estão atualizadas até {exp:dd/MM/yyyy}.", LicenseStatusTone.Ok);
+        return ($"Tudo certo — licenças atualizadas até {exp:dd/MM/yyyy}.", LicenseStatusTone.Ok);
     }
 
     /// <summary>
@@ -136,17 +295,5 @@ internal static class UiState
         return entitlements
             .Where(e => e == null || !string.Equals(e.Slug, ConnectorConfig.ProductSlug, StringComparison.OrdinalIgnoreCase))
             .ToList();
-    }
-
-    /// <summary>
-    /// Sorts products for display: active grants first, keeping the relative order
-    /// of each group (LINQ <c>OrderBy</c> is stable). Null entries from a malformed lease
-    /// are dropped before sorting (defense — the issuer does not emit them).
-    /// </summary>
-    /// <param name="entitlements">Lease items, in token order.</param>
-    /// <returns>Sorted copy (active first), with no nulls.</returns>
-    internal static IReadOnlyList<EntitlementItem> PluginsActiveFirst(IEnumerable<EntitlementItem> entitlements)
-    {
-        return entitlements.Where(e => e != null).OrderBy(e => e.IsActive() ? 0 : 1).ToList();
     }
 }

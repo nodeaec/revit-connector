@@ -36,7 +36,7 @@ repository — the client only holds the public key used to **verify** signature
 | Method | Path | Authentication | Called by |
 |---|---|---|---|
 | `POST` | `/account/entitlements/lease` | `Bearer <user token>` | Sync (`SyncMasterEntitlementsAsync`) |
-| `POST` | `/license/validate` | `Bearer <leaseToken>` | Revit-open heartbeat and *Atualizar minhas licenças* |
+| `POST` | `/license/validate` | `Bearer <leaseToken>` | Revit-open heartbeat and *Atualizar licenças* |
 | `POST` | `/license/activate` | *(public)* — identifies by `licenseKey` + `machineId` | Manual `NAEC-XXXX-...` key activation |
 | `POST` | `/license/deactivate` | *(public)* — identifies by `licenseKey` + `machineId` | Seat release |
 | `GET` | `/license/jwks` | *(public)* | Informative JWKS (`kid` discovery and rotation signal; not a trust source) |
@@ -99,7 +99,7 @@ fails closed and never calls the API. The value comes from `NodeAec.Licensing.Li
 ## 4. `POST /license/validate` (heartbeat)
 
 Renews the lease and updates the machine heartbeat. Called silently when Revit opens
-(`App.OnStartup`, on `Task.Run`) and on demand via the *Atualizar minhas licenças* button.
+(`App.OnStartup`, on `Task.Run`) and on demand via the *Atualizar licenças* button.
 
 - **Headers**: `Authorization: Bearer <leaseToken>`
 - **Body**: `{ "machineId": "3b7c89f1a0e4d2..." }`
@@ -243,7 +243,7 @@ The Connector **decides on the `code` field**, with this precedence: mapped code
 | `TRIAL_ALREADY_USED` | O período de avaliação já foi usado neste computador. Contrate uma assinatura comercial. |
 | `ACTIVATION_LIMIT_REACHED` | Limite de assentos simultâneos atingido para esta licença. Desative o assento em outro computador ou pelo portal web. |
 | `ACTIVATION_NOT_FOUND` | Este computador ainda não está registrado nesta licença. Ative a chave primeiro. |
-| `LEASE_TOKEN_REQUIRED` | Nenhuma licença local encontrada. Clique em atualizar para baixar suas licenças. |
+| `LEASE_TOKEN_REQUIRED` | Nenhuma licença local encontrada. Clique em Atualizar licenças para baixar suas licenças. |
 | `INVALID_LEASE_TOKEN` | A licença local é inválida ou foi adulterada. Atualize suas licenças na internet. |
 | `LEASE_TOKEN_EXPIRED` | O prazo de tolerância offline expirou. Conecte-se à internet para sincronizar. |
 | `MACHINE_MISMATCH` | A licença local pertence a outro computador. Entre com sua conta para ativar este equipamento. |
@@ -271,7 +271,7 @@ Live on the platform since 2026-10-25. Platform side:
 `node-aec/docs/handoffs/connector-updates.md`. Design: [plans/connector-updates.md](plans/connector-updates.md).
 
 **`GET /products/:slug/latest`** (public). The Connector calls it with
-`nodeaec-connector` each time the **Minha Conta** window opens, and when the user clicks
+`nodeaec-connector` each time the Connector window opens, and when the user clicks
 **Verificar atualizações**:
 
 ```json

@@ -45,7 +45,7 @@ What the Hub takes off the partner plugin:
 
 1. **No networking**: the partner knows no endpoints, tokens or response formats.
 2. **No activation UI**: login, manual keys, the plugin list and Connector updates live in
-   the Connector's one window, *Minha Conta* (opened by the only Ribbon button, **Connector**).
+   the Connector's one window, *Node.aec Connector* (opened by the only Ribbon button, **Connector**).
 3. **No encryption management**: the Hub writes the lease with `CurrentUser` DPAPI, and the plugin only reads it.
 4. **One sign-in**: every product on the account is synced together.
 5. **Local validation with no network**, with 30 days of offline tolerance.

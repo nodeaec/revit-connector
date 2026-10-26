@@ -98,7 +98,7 @@ The Connector's **Verificar atualizações** reads the platform, not GitHub. Aft
    `NodeAec.Connector-<x.y.z>-Setup.exe` as its **default** file. Check that the stored
    SHA-256 equals the one `release.ps1` printed.
 2. Publish the version with download allowed. Connectors offer it the next time their
-   **Minha Conta** window opens. Leave the product's minimum version empty: the Connector has
+   window opens. Leave the product's minimum version empty: the Connector has
    no forced updates.
 
 ---

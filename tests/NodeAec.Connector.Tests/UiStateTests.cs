@@ -19,11 +19,11 @@ public class UiStateTests
     // ---------- Conta (RenderUiFromStorage) ----------
 
     [Fact]
-    public void Account_WithFullName_ShowsGreetingAndLogout()
+    public void Account_WithFullName_ShowsNameEmailAndLogout()
     {
         var (title, hint, showLogin, showLogout) = UiState.Account("Pablo", "pablo@nodeaec.com.br");
 
-        Assert.Equal("Olá, Pablo! Você está conectado como:", title);
+        Assert.Equal("Pablo", title);
         Assert.Equal("pablo@nodeaec.com.br", hint);
         Assert.False(showLogin);
         Assert.True(showLogout);
@@ -33,11 +33,12 @@ public class UiStateTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void Account_WithoutName_UsesGenericGreeting(string? name)
+    public void Account_WithoutName_ShowsTheEmailAsTitle(string? name)
     {
-        var (title, _, showLogin, showLogout) = UiState.Account(name, "pablo@nodeaec.com.br");
+        var (title, hint, showLogin, showLogout) = UiState.Account(name, "pablo@nodeaec.com.br");
 
-        Assert.Equal("Olá! Você está conectado como:", title);
+        Assert.Equal("pablo@nodeaec.com.br", title);
+        Assert.Equal(string.Empty, hint);
         Assert.False(showLogin);
         Assert.True(showLogout);
     }
@@ -50,10 +51,21 @@ public class UiStateTests
     {
         var (title, hint, showLogin, showLogout) = UiState.Account("Pablo", email);
 
-        Assert.Equal("Você ainda não entrou.", title);
-        Assert.Equal("Entre com sua conta para liberar seus plugins neste computador.", hint);
+        Assert.Equal("Entre com sua conta Node.aec", title);
+        Assert.Equal("Para liberar seus plugins neste computador. O navegador abre para você entrar com segurança.", hint);
         Assert.True(showLogin);
         Assert.False(showLogout);
+    }
+
+    [Theory]
+    [InlineData("Pablo Werlang", null, "PW")]
+    [InlineData("pablo souza werlang", null, "PW")]
+    [InlineData("Pablo", null, "P")]
+    [InlineData(null, "ana@nodeaec.com.br", "A")]
+    [InlineData("   ", "", "?")]
+    public void Initials_UseFirstAndLastWordOrTheEmail(string? name, string? email, string expected)
+    {
+        Assert.Equal(expected, UiState.Initials(name, email));
     }
 
     // ---------- Status da licença (RenderUiFromStorage) ----------
@@ -72,7 +84,7 @@ public class UiStateTests
     {
         var (text, tone) = UiState.LicenseStatus("token-adulterado", payload: null);
 
-        Assert.Equal("Não conseguimos ler as licenças salvas. Tente atualizar.", text);
+        Assert.Equal("Não conseguimos ler as licenças salvas. Clique em Atualizar licenças.", text);
         Assert.Equal(LicenseStatusTone.Warning, tone);
     }
 
@@ -84,7 +96,7 @@ public class UiStateTests
 
         var (text, tone) = UiState.LicenseStatus("qualquer-token", payload);
 
-        Assert.Equal("Não foi possível ler o prazo das licenças salvas. Clique em atualizar.", text);
+        Assert.Equal("Não foi possível ler o prazo das licenças salvas. Clique em Atualizar licenças.", text);
         Assert.Equal(LicenseStatusTone.Warning, tone);
         Assert.DoesNotContain("1970", text);
     }
@@ -133,20 +145,103 @@ public class UiStateTests
         Assert.Equal(PluginsView.List, UiState.PluginsBranch(isLoggedIn: true, entitlementCount: 1));
     }
 
-    [Fact]
-    public void PluginsActiveFirst_MovesActiveBeforeInactive_PreservingRelativeOrder()
+    // ---------- Linhas de plugin (RenderPluginRows) ----------
+
+    private static readonly DateTimeOffset Now = new(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
+
+    private static EntitlementItem Plugin(string slug, string? expires = null, string status = "active", string? name = null) =>
+        new() { Slug = slug, Name = name ?? slug, Status = status, ExpiresAtString = expires };
+
+    [Theory]
+    [InlineData("2026-12-24T00:00:00Z", "active", "Liberado até 24/12/2026", PluginTone.Ok)]
+    [InlineData(null, "active", "Liberado, sem data para expirar", PluginTone.Ok)]
+    [InlineData("2026-10-31T12:00:00Z", "active", "Vence em 5 dias", PluginTone.Expiring)]
+    [InlineData("2026-10-27T12:00:00Z", "active", "Vence amanhã", PluginTone.Expiring)]
+    [InlineData("2026-10-26T12:00:00Z", "active", "Vence hoje", PluginTone.Expiring)]
+    [InlineData("2026-10-01T00:00:00Z", "active", "Expirado em 01/10/2026", PluginTone.Problem)]
+    [InlineData("2026-12-24T00:00:00Z", "cancelled", "Cancelado", PluginTone.Problem)]
+    [InlineData(null, "suspended", "Suspenso", PluginTone.Problem)]
+    [InlineData(null, "something-new", "Inativo", PluginTone.Problem)]
+    internal void PluginStatus_MapsDatesAndStatuses(string? expires, string status, string text, PluginTone tone)
     {
-        var inactiveByStatus = new EntitlementItem { Slug = "cancelado", Status = "cancelled" };
-        var inactiveByDate = new EntitlementItem { Slug = "vencido", ExpiresAtString = "2020-01-01T00:00:00Z" };
-        var activeOne = new EntitlementItem { Slug = "ativo-1" };
-        var activeTwo = new EntitlementItem { Slug = "ativo-2" };
+        var (actualText, actualTone) = UiState.PluginStatus(Plugin("p", expires, status), Now);
 
-        // Ordem de entrada: inativo, ativo, ativo, inativo.
-        IReadOnlyList<EntitlementItem> ordered = UiState.PluginsActiveFirst(
-            new[] { inactiveByStatus, activeOne, activeTwo, inactiveByDate });
+        Assert.Equal(text, actualText);
+        Assert.Equal(tone, actualTone);
+    }
 
-        Assert.Equal(new[] { "ativo-1", "ativo-2", "cancelado", "vencido" },
-            ordered.Select(e => e.Slug).ToArray());
+    [Fact]
+    public void PluginStatus_NotGranted_IsBlocked()
+    {
+        var item = Plugin("p");
+        item.Granted = false;
+
+        Assert.Equal(("Não liberado", PluginTone.Problem), UiState.PluginStatus(item, Now));
+    }
+
+    [Fact]
+    public void PluginsAttentionFirst_PutsBlockedThenExpiringThenOk_PreservingOrderInsideEachGroup()
+    {
+        var ok1 = Plugin("ok-1", "2027-01-01T00:00:00Z");
+        var expiring = Plugin("vence", "2026-10-30T00:00:00Z");
+        var ok2 = Plugin("ok-2");
+        var cancelled = Plugin("cancelado", status: "cancelled");
+        var expired = Plugin("vencido", "2020-01-01T00:00:00Z");
+
+        var ordered = UiState.PluginsAttentionFirst(new[] { ok1, expiring, ok2, cancelled, expired }, Now);
+
+        Assert.Equal(new[] { "cancelado", "vencido", "vence", "ok-1", "ok-2" }, ordered.Select(e => e.Slug).ToArray());
+    }
+
+    [Fact]
+    public void PluginsAttentionFirst_SkipsNullEntriesWithoutThrowing()
+    {
+        var ordered = UiState.PluginsAttentionFirst(new[] { null!, Plugin("ativo"), null! }, Now);
+
+        Assert.Single(ordered);
+        Assert.Equal("ativo", ordered[0].Slug);
+    }
+
+    [Fact]
+    public void PluginsSummary_TenPlugins_CountsUsableExpiringAndBlocked()
+    {
+        var items = Enumerable.Range(1, 8).Select(i => Plugin($"p{i}", "2027-06-01T00:00:00Z")).ToList();
+        items.Add(Plugin("vence", "2026-10-30T00:00:00Z"));
+        items.Add(Plugin("vencido", "2026-01-01T00:00:00Z"));
+
+        Assert.Equal("10 plugins · 9 liberados · 1 vence em breve · 1 bloqueado", UiState.PluginsSummary(items, Now));
+    }
+
+    [Fact]
+    public void PluginsSummary_OnePluginOk()
+    {
+        Assert.Equal("1 plugin · 1 liberado", UiState.PluginsSummary(new[] { Plugin("p") }, Now));
+    }
+
+    [Fact]
+    public void PluginsSummary_AllBlocked_HasNoLiberadosPart()
+    {
+        var items = new[] { Plugin("a", status: "revoked"), Plugin("b", status: "cancelled") };
+
+        Assert.Equal("2 plugins · 2 bloqueados", UiState.PluginsSummary(items, Now));
+    }
+
+    [Theory]
+    [InlineData("integracao", new[] { "exemplo" })]
+    [InlineData("REVIT", new[] { "exemplo", "revit-tools" })]
+    [InlineData("tools", new[] { "revit-tools" })]
+    [InlineData("  ", new[] { "exemplo", "revit-tools", "quantitativos" })]
+    [InlineData("nada", new string[0])]
+    public void FilterPlugins_MatchesNameOrSlugIgnoringCaseAndAccents(string query, string[] expectedSlugs)
+    {
+        var items = new[]
+        {
+            Plugin("exemplo", name: "Exemplo de Integração Revit"),
+            Plugin("revit-tools", name: "Ferramentas"),
+            Plugin("quantitativos", name: "Quantitativos"),
+        };
+
+        Assert.Equal(expectedSlugs, UiState.FilterPlugins(items, query).Select(e => e.Slug).ToArray());
     }
 
     [Fact]
@@ -174,26 +269,5 @@ public class UiStateTests
     public void PluginsToShow_Null_IsEmpty()
     {
         Assert.Empty(UiState.PluginsToShow(null));
-    }
-
-    [Fact]
-    public void PluginsActiveFirst_EmptyList_StaysEmpty()
-    {
-        IReadOnlyList<EntitlementItem> ordered =
-            UiState.PluginsActiveFirst(Array.Empty<EntitlementItem>());
-
-        Assert.Empty(ordered);
-    }
-
-    [Fact]
-    public void PluginsActiveFirst_SkipsNullEntriesWithoutThrowing()
-    {
-        var active = new EntitlementItem { Slug = "ativo" };
-
-        IReadOnlyList<EntitlementItem> ordered = UiState.PluginsActiveFirst(
-            new[] { null!, active, null! });
-
-        Assert.Single(ordered);
-        Assert.Equal("ativo", ordered[0].Slug);
     }
 }

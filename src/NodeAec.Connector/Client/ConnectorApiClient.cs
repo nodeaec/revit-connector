@@ -722,7 +722,7 @@ public class ConnectorApiClient
             "TRIAL_ALREADY_USED" => "O período de avaliação já foi usado neste computador. Contrate uma assinatura comercial.",
             "ACTIVATION_LIMIT_REACHED" => "Limite de assentos simultâneos atingido para esta licença. Desative o assento em outro computador ou pelo portal web.",
             "ACTIVATION_NOT_FOUND" => "Este computador ainda não está registrado nesta licença. Ative a chave primeiro.",
-            "LEASE_TOKEN_REQUIRED" => "Nenhuma licença local encontrada. Clique em atualizar para baixar suas licenças.",
+            "LEASE_TOKEN_REQUIRED" => "Nenhuma licença local encontrada. Clique em Atualizar licenças para baixar suas licenças.",
             "INVALID_LEASE_TOKEN" => "A licença local é inválida ou foi adulterada. Atualize suas licenças na internet.",
             "LEASE_TOKEN_EXPIRED" => "O prazo de tolerância offline expirou. Conecte-se à internet para sincronizar.",
             "MACHINE_MISMATCH" => "A licença local pertence a outro computador. Entre com sua conta para ativar este equipamento.",

@@ -14,7 +14,7 @@ public class UserSessionClaims
     [JsonPropertyName("id")]
     public string? Id { get; set; }
 
-    /// <summary>Account email, used in the "Minha Conta" UI.</summary>
+    /// <summary>Account email, shown in the account row of the Connector window.</summary>
     [JsonPropertyName("email")]
     public string? Email { get; set; }
 

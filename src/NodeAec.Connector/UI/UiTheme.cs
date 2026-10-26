@@ -34,6 +34,42 @@ public static class UiTheme
     /// <summary>Neutral background for secondary buttons.</summary>
     public static readonly Color SoftBackground = Color.FromRgb(0xDA, 0xD8, 0xD8);
 
+    /// <summary>Connector window background: a lighter neutral than <see cref="Background"/>, so white panels read as one calm surface.</summary>
+    public static readonly Color Canvas = Color.FromRgb(0xF3, 0xF3, 0xF2);
+
+    /// <summary>Thin dividers between plugin rows.</summary>
+    public static readonly Color Divider = Color.FromRgb(0xE6, 0xE6, 0xE4);
+
+    /// <summary>Success text and dot (licenses OK, plugin liberado).</summary>
+    public static readonly Color Good = Color.FromRgb(0x2F, 0x7D, 0x4A);
+
+    /// <summary>Success fill behind the license status strip and OK labels.</summary>
+    public static readonly Color GoodSoft = Color.FromRgb(0xE8, 0xF4, 0xEC);
+
+    /// <summary>Success border of the license status strip.</summary>
+    public static readonly Color GoodBorder = Color.FromRgb(0xA9, 0xD3, 0xB6);
+
+    /// <summary>Warning text and dot (licenses out of date, plugin expiring or blocked).</summary>
+    public static readonly Color Warning = Color.FromRgb(0x9A, 0x55, 0x0E);
+
+    /// <summary>Warning fill behind the status strip and warning labels.</summary>
+    public static readonly Color WarningSoft = Color.FromRgb(0xFB, 0xF1, 0xE0);
+
+    /// <summary>Warning border of the license status strip.</summary>
+    public static readonly Color WarningBorder = Color.FromRgb(0xE6, 0xC5, 0x8C);
+
+    /// <summary>Blocked plugin label text (expired, cancelled, suspended).</summary>
+    public static readonly Color Danger = Color.FromRgb(0xA8, 0x2E, 0x26);
+
+    /// <summary>Blocked plugin label fill.</summary>
+    public static readonly Color DangerSoft = Color.FromRgb(0xFB, 0xEA, 0xE8);
+
+    /// <summary>Fill of the "new version" banner (a pale tint of <see cref="Primary"/>).</summary>
+    public static readonly Color InfoSoft = Color.FromRgb(0xE7, 0xEF, 0xF7);
+
+    /// <summary>Border of the "new version" banner.</summary>
+    public static readonly Color InfoBorder = Color.FromRgb(0x9D, 0xB9, 0xD5);
+
     /// <summary>
     /// Creates a frozen brush (thread-safe, no resource leaks).
     /// </summary>

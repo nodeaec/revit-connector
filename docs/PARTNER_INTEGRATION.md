@@ -181,7 +181,7 @@ no end date, not "expired".
 
 ### About `Gate.OpenConnector()`
 
-It opens the Connector's *Minha Conta* window. If the Connector is not installed it does
+It opens the Connector's window (*Node.aec Connector*). If the Connector is not installed it does
 **nothing**: no error and no window. So always show the dialog first.
 
 It creates a WPF window, so it must run on Revit's UI thread: inside `Execute`, or inside an
