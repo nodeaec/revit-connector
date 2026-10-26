@@ -30,6 +30,29 @@ internal static class UpdatePackageVerifier
     }
 
     /// <summary>
+    /// Installer file name for a plugin: <c>&lt;slug&gt;-&lt;version&gt;-Setup.exe</c>. Both parts are
+    /// validated (a platform slug and a semantic version), so the name never carries a path.
+    /// </summary>
+    /// <param name="slug">Product slug (lower-case letters, digits and single hyphens).</param>
+    /// <param name="version">Semantic version string.</param>
+    /// <returns>Deterministic setup executable name.</returns>
+    /// <exception cref="ArgumentException">Thrown when the slug or the version is invalid.</exception>
+    public static string GetTargetFileName(string slug, string version)
+    {
+        if (!Plugins.ProductSlugs.IsValid(slug))
+        {
+            throw new ArgumentException($"Identificador de produto inválido para o instalador: '{slug}'.", nameof(slug));
+        }
+
+        if (!SemanticVersion.TryParse(version, out var parsed) || parsed == null)
+        {
+            throw new ArgumentException($"Versão semântica inválida para o instalador: '{version}'.", nameof(version));
+        }
+
+        return $"{slug}-{parsed}-Setup.exe";
+    }
+
+    /// <summary>
     /// Gets the dedicated staging directory for downloaded updates (%TEMP%\NodeAec\updates).
     /// </summary>
     /// <returns>The updates staging directory path.</returns>
@@ -48,8 +71,26 @@ internal static class UpdatePackageVerifier
     /// <exception cref="InvalidOperationException">Thrown if the path escapes the target directory.</exception>
     public static string GetTargetFilePath(string version)
     {
+        return ResolveInsideTargetDirectory(GetTargetFileName(version));
+    }
+
+    /// <summary>
+    /// Absolute path for a plugin installer (<see cref="GetTargetFileName(string, string)"/>),
+    /// verified to stay inside the target directory.
+    /// </summary>
+    /// <param name="slug">Product slug.</param>
+    /// <param name="version">Semantic version string.</param>
+    /// <returns>Absolute target file path.</returns>
+    /// <exception cref="ArgumentException">Thrown when the slug or the version is invalid.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if the path escapes the target directory.</exception>
+    public static string GetTargetFilePath(string slug, string version)
+    {
+        return ResolveInsideTargetDirectory(GetTargetFileName(slug, version));
+    }
+
+    private static string ResolveInsideTargetDirectory(string fileName)
+    {
         string targetDir = Path.GetFullPath(GetTargetDirectory());
-        string fileName = GetTargetFileName(version);
         string combined = Path.GetFullPath(Path.Combine(targetDir, fileName));
 
         string dirWithSep = targetDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)

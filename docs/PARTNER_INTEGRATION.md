@@ -262,10 +262,28 @@ The **Connector itself** installs as `ApplicationPlugins\NodeAec.Connector.bundl
 folder is only for the Connector: your plugin doesn't need to be next to it or use the same format.
 
 If you have no installer yet, the [Sample Plugin](https://github.com/nodeaec/revit-sample-plugin)
-and the `dotnet new nodeaec-revit-plugin` template (0.3.0+) ship one: `scripts/release.ps1`
+and the `dotnet new nodeaec-revit-plugin` template (0.4.0+) ship one: `scripts/release.ps1`
 builds your plugin's own `.bundle` for Revit 2023–2027, and `scripts/installer.iss` makes one
 Setup.exe in which the user checks the Revit versions. Give it your own plugin name,
 `AppId`, `ProductCode` and `UpgradeCode` (the template generates fresh GUIDs).
+
+### Let the Connector install and update your plugin
+
+The Connector window lists the plugins on the user's account and offers **Instalar** (owned,
+not installed on this computer) and **Atualizar** (a newer version is published). For that it
+needs two things from your bundle, both produced by the template 0.4.0 and the Sample Plugin:
+
+1. **`NodeAec.product.json`** in the bundle folder, next to `PackageContents.xml`:
+   `{"productSlug": "<your-slug>", "version": "<x.y.z>"}`. The slug is the same one your
+   commands pass to `Gate.Validate`. Revit ignores the file; the Connector reads it to know
+   which product and version is installed. Bundles without it get no button.
+2. **An installer that accepts `/SILENT /WaitForRevit`**: the Connector starts it from inside
+   Revit, so it must wait for Revit to close instead of refusing, and keep the user's previous
+   Revit versions (or take every installed one on a first install).
+
+Then publish each release on the platform with **the same version** as in the product file
+(plain `major.minor.patch`, no `+build`), and upload the `Setup.exe` as the version's default
+file. The Connector checks the download's size and SHA-256 against what the platform recorded.
 
 The end user needs **both** installed: the Connector (for sign-in) and your plugin. Your
 installer doesn't have to bundle the Connector. If it's missing, your commands show the
@@ -357,6 +375,7 @@ stop a determined attacker who controls that machine:
 - [ ] `Validate` is not called from any `IExternalCommandAvailability`.
 - [ ] The installer ships the files from step 2, and no `RevitAPI*.dll` / `AdWindows.dll` / `NodeAec.Connector.dll`.
 - [ ] Tested on a clean machine: before signing in (dialog appears), after signing in (command runs), and offline (command still runs).
+- [ ] The bundle has `NodeAec.product.json` with your slug and this version, and the same version is published on the platform with the `Setup.exe` as default file.
 
 ---
 

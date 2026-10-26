@@ -40,6 +40,8 @@
     <Compile Include="..\..\src\NodeAec.Connector\Updates\SemanticVersion.cs" Link="LinkedSources\Updates\SemanticVersion.cs" />
     <Compile Include="..\..\src\NodeAec.Connector\Updates\UpdateModels.cs" Link="LinkedSources\Updates\UpdateModels.cs" />
     <Compile Include="..\..\src\NodeAec.Connector\Updates\UpdatePackageVerifier.cs" Link="LinkedSources\Updates\UpdatePackageVerifier.cs" />
+    <Compile Include="..\..\src\NodeAec.Connector\Plugins\PluginInventory.cs" Link="LinkedSources\Plugins\PluginInventory.cs" />
+    <Compile Include="..\..\src\NodeAec.Connector\Plugins\InstalledBundleScanner.cs" Link="LinkedSources\Plugins\InstalledBundleScanner.cs" />
   </ItemGroup>
 
 </Project>

@@ -39,6 +39,36 @@ public class UpdatePackageVerifierTests : IDisposable
     }
 
     [Theory]
+    [InlineData("revit-sample-plugin", "0.4.0", "revit-sample-plugin-0.4.0-Setup.exe")]
+    [InlineData("quant2", "v1.2.3", "quant2-1.2.3-Setup.exe")]
+    public void GetTargetFileName_Plugin_UsesSlugAndVersion(string slug, string version, string expected)
+    {
+        Assert.Equal(expected, UpdatePackageVerifier.GetTargetFileName(slug, version));
+    }
+
+    [Theory]
+    [InlineData("../evil", "1.0.0")]
+    [InlineData("Revit-Plugin", "1.0.0")]
+    [InlineData("a b", "1.0.0")]
+    [InlineData("a--b", "1.0.0")]
+    [InlineData("-a", "1.0.0")]
+    [InlineData("", "1.0.0")]
+    [InlineData("ok", "../1.0.0")]
+    public void GetTargetFileName_Plugin_RefusesBadSlugOrVersion(string slug, string version)
+    {
+        Assert.Throws<ArgumentException>(() => UpdatePackageVerifier.GetTargetFileName(slug, version));
+    }
+
+    [Fact]
+    public void GetTargetFilePath_Plugin_StaysInsideTargetDirectory()
+    {
+        string path = UpdatePackageVerifier.GetTargetFilePath("revit-sample-plugin", "0.4.0");
+
+        Assert.Equal(Path.GetFullPath(UpdatePackageVerifier.GetTargetDirectory()), Path.GetDirectoryName(path));
+        Assert.EndsWith("revit-sample-plugin-0.4.0-Setup.exe", path);
+    }
+
+    [Theory]
     [InlineData("../../evil.exe")]
     [InlineData("malicious/path")]
     [InlineData("not-a-version")]

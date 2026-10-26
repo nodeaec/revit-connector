@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using NodeAec.Connector.Config;
 using NodeAec.Connector.Models;
+using NodeAec.Connector.Plugins;
 
 namespace NodeAec.Connector.UI;
 
@@ -31,6 +32,9 @@ internal enum PluginTone
 
     /// <summary>Active with time to spare, or with no end date.</summary>
     Ok,
+
+    /// <summary>Installed on this computer, but not a product of this account.</summary>
+    NotOwned,
 }
 
 /// <summary>Plugin list branch in <c>ConnectorWindow.RenderPlugins</c>.</summary>
@@ -42,7 +46,7 @@ internal enum PluginsView
     /// <summary>Active session but no linked products — empty state + catalog.</summary>
     Empty,
 
-    /// <summary>Active session with products — render the rows (attention first).</summary>
+    /// <summary>Active session with rows to show (owned or installed) — render them (attention first).</summary>
     List,
 }
 
@@ -173,60 +177,84 @@ internal static class UiState
     }
 
     /// <summary>
-    /// Sorts plugins for display: blocked first, then expiring soon, then the rest, keeping
-    /// the token order inside each group (LINQ <c>OrderBy</c> is stable). Null entries from a
-    /// malformed lease are dropped (defense — the issuer does not emit them).
+    /// Status label and tone of a row: the license status for owned products,
+    /// "Sem licença nesta conta" for a plugin installed here that the account does not own.
     /// </summary>
-    /// <param name="entitlements">Lease items, in token order.</param>
+    /// <param name="row">The row.</param>
+    /// <param name="now">Current time.</param>
+    /// <returns>Label text and tone.</returns>
+    internal static (string Text, PluginTone Tone) RowStatus(PluginRow row, DateTimeOffset now)
+    {
+        return row.Entitlement == null
+            ? ("Sem licença nesta conta", PluginTone.NotOwned)
+            : PluginStatus(row.Entitlement, now);
+    }
+
+    /// <summary>
+    /// Sorts rows for display: blocked first, then expiring soon, then the rest, then plugins
+    /// installed without a license, keeping the input order inside each group (LINQ
+    /// <c>OrderBy</c> is stable). Null rows are dropped.
+    /// </summary>
+    /// <param name="rows">Rows from <see cref="PluginInventory.Build"/>.</param>
     /// <param name="now">Current time.</param>
     /// <returns>Sorted copy, with no nulls.</returns>
-    internal static IReadOnlyList<EntitlementItem> PluginsAttentionFirst(IEnumerable<EntitlementItem> entitlements, DateTimeOffset now)
+    internal static IReadOnlyList<PluginRow> PluginsAttentionFirst(IEnumerable<PluginRow> rows, DateTimeOffset now)
     {
-        return entitlements.Where(e => e != null).OrderBy(e => (int)PluginStatus(e, now).Tone).ToList();
+        return rows.Where(r => r != null).OrderBy(r => (int)RowStatus(r, now).Tone).ToList();
     }
 
     /// <summary>
     /// One-line summary above the list, e.g. "10 plugins · 9 liberados · 1 vence em breve ·
-    /// 1 bloqueado". "Liberados" counts every usable plugin, expiring ones included.
+    /// 1 bloqueado · 2 com atualização · 1 instalado sem licença". The counts before the
+    /// updates are about owned products; "liberados" includes expiring ones.
     /// </summary>
-    /// <param name="entitlements">Items shown in the list.</param>
+    /// <param name="rows">Rows shown in the list.</param>
     /// <param name="now">Current time.</param>
+    /// <param name="updatesAvailable">Rows that offer "Atualizar".</param>
     /// <returns>The summary text.</returns>
-    internal static string PluginsSummary(IReadOnlyCollection<EntitlementItem> entitlements, DateTimeOffset now)
+    internal static string PluginsSummary(IReadOnlyCollection<PluginRow> rows, DateTimeOffset now, int updatesAvailable = 0)
     {
-        var tones = entitlements.Where(e => e != null).Select(e => PluginStatus(e, now).Tone).ToList();
-        int total = tones.Count;
+        var tones = rows.Where(r => r != null).Select(r => RowStatus(r, now).Tone).ToList();
+        int notOwned = tones.Count(t => t == PluginTone.NotOwned);
+        int total = tones.Count - notOwned;
         int expiring = tones.Count(t => t == PluginTone.Expiring);
         int blocked = tones.Count(t => t == PluginTone.Problem);
         int usable = total - blocked;
 
-        var parts = new List<string> { total == 1 ? "1 plugin" : $"{total} plugins" };
-        if (usable > 0) parts.Add(usable == 1 ? "1 liberado" : $"{usable} liberados");
-        if (expiring > 0) parts.Add($"{expiring} vence{(expiring == 1 ? "" : "m")} em breve");
-        if (blocked > 0) parts.Add(blocked == 1 ? "1 bloqueado" : $"{blocked} bloqueados");
+        var parts = new List<string>();
+        if (total > 0)
+        {
+            parts.Add(total == 1 ? "1 plugin" : $"{total} plugins");
+            if (usable > 0) parts.Add(usable == 1 ? "1 liberado" : $"{usable} liberados");
+            if (expiring > 0) parts.Add($"{expiring} vence{(expiring == 1 ? "" : "m")} em breve");
+            if (blocked > 0) parts.Add(blocked == 1 ? "1 bloqueado" : $"{blocked} bloqueados");
+        }
+
+        if (updatesAvailable > 0) parts.Add($"{updatesAvailable} com atualização");
+        if (notOwned > 0) parts.Add(notOwned == 1 ? "1 instalado sem licença" : $"{notOwned} instalados sem licença");
         return string.Join(" · ", parts);
     }
 
     /// <summary>
-    /// Keeps the plugins whose name or slug contains <paramref name="query"/>, ignoring case
+    /// Keeps the rows whose name or slug contains <paramref name="query"/>, ignoring case
     /// and accents ("integracao" finds "Integração"). A blank query keeps everything.
     /// </summary>
-    /// <param name="entitlements">Items in display order.</param>
+    /// <param name="rows">Rows in display order.</param>
     /// <param name="query">Text typed in the filter box.</param>
-    /// <returns>The matching items, in the same order.</returns>
-    internal static IReadOnlyList<EntitlementItem> FilterPlugins(IEnumerable<EntitlementItem> entitlements, string? query)
+    /// <returns>The matching rows, in the same order.</returns>
+    internal static IReadOnlyList<PluginRow> FilterPlugins(IEnumerable<PluginRow> rows, string? query)
     {
         string q = (query ?? string.Empty).Trim();
         if (q.Length == 0)
         {
-            return entitlements.ToList();
+            return rows.ToList();
         }
 
         CompareInfo compare = CultureInfo.InvariantCulture.CompareInfo;
         const CompareOptions options = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace;
-        return entitlements
-            .Where(e => compare.IndexOf(e.Name ?? string.Empty, q, options) >= 0 ||
-                        compare.IndexOf(e.Slug ?? string.Empty, q, options) >= 0)
+        return rows
+            .Where(r => compare.IndexOf(r.Name ?? string.Empty, q, options) >= 0 ||
+                        compare.IndexOf(r.Slug ?? string.Empty, q, options) >= 0)
             .ToList();
     }
 

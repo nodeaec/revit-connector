@@ -233,7 +233,30 @@ Signed `.lease` file import is planned for a future iteration, once the exchange
 ## 10. The "Meus plugins" Section
 
 **Meus plugins** lists **everything your account unlocked for this computer**, one row per
-plugin: the name, a colored status label, and **↗** to open the product page.
+plugin: the name, a colored status label, **↗** to open the product page, and a second line
+that says whether the plugin is installed here.
+
+**Installing and updating plugins:** when the window opens, the Connector reads which
+Node.aec plugins are installed on this computer and asks the platform for the newest version
+of each plugin you own.
+
+| Second line | Button | What it means |
+|---|---|---|
+| *"Instalado: 1.2.0"* | none | Installed and up to date. |
+| *"Instalado: 1.2.0 · Nova versão 1.3.0"* | **Atualizar** | A newer version is published. |
+| *"Não instalado neste computador"* | **Instalar** | You own it, but it is not installed here. |
+| (nothing) | none | The installed plugin was built before this feature, so the Connector cannot tell its version. Update it by hand from its product page. |
+
+**Atualizar** and **Instalar** work like the Connector's own update: the installer is
+downloaded, checked against what Node.aec published, and started; Windows asks for
+administrator approval; save your work and close Revit, and it installs. An update keeps the
+Revit versions you chose last time; a first install uses every Revit version on this computer
+(run the installer again later to change that). The progress and any error show on the
+plugin's second line. One install runs at a time.
+
+A plugin installed here that is not on your account appears at the end with the grey label
+*"Sem licença nesta conta"*: it is installed, but it will not run until a license is
+activated (for example, it belonged to another account or its trial ended).
 
 **Status labels:**
 
@@ -244,12 +267,13 @@ plugin: the name, a colored status label, and **↗** to open the product page.
 | *"Vence em N dias"*, *"Vence amanhã"*, *"Vence hoje"* | amber | Still works; ends within 14 days. Renew it in time. |
 | *"Expirado em DD/MM/AAAA"* | red | Lapsed; the plugin is blocked. |
 | *"Cancelado"*, *"Suspenso"*, *"Revogado"*, *"Inativo"*, *"Não liberado"* | red | Blocked by the platform. Contact support or the vendor. |
+| *"Sem licença nesta conta"* | grey | Installed on this computer, not on your account. |
 
 **With many plugins:**
 
 - Plugins that need attention come first: blocked (red), then expiring soon (amber), then the rest.
 - A summary above the list counts them, for example
-  *"10 plugins · 9 liberados · 1 vence em breve · 1 bloqueado"*.
+  *"10 plugins · 9 liberados · 1 vence em breve · 1 bloqueado · 2 com atualização"*.
 - The list shows about 8 rows and scrolls inside itself; the rest of the window stays in place.
 - From 12 plugins on, a **Filtrar plugins pelo nome** box appears. It ignores case and accents
   (*"integracao"* finds *"Integração"*).
@@ -472,6 +496,7 @@ No. It does not touch Revit models — only the Ribbon, licenses, and its own wi
 - **One Ribbon button,** **Connector**, in the panel now called **Node.aec**. It opens the only Connector window, now called **Node.aec Connector**, which also holds the plugin list (**Meus plugins**) and the catalog link. The **Meus Plugins** and **Explorar Catálogo** buttons are gone.
 - **Redesigned window:** a license status strip (green or amber), a compact plugin list that puts problems first and copes with many plugins (summary, its own scroll, a filter from 12 plugins), the key activation collapsed, and a fixed footer.
 - **Updates:** opening the window checks for a new Connector; a banner offers **Baixar e instalar**, which downloads it, verifies it, and installs it when you close Revit.
+- **Plugins:** each row shows whether the plugin is installed here and offers **Atualizar** or **Instalar** for plugins built with template 0.4.0 or later; plugins installed here without a license on your account are listed too.
 - **Meus plugins** no longer lists the Connector itself (downloading it from the platform adds it to your account as a free product).
 
 ### 0.3.0 (October 2026)

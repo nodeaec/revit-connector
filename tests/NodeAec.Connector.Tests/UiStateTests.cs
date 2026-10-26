@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NodeAec.Connector.Config;
 using NodeAec.Connector.Models;
+using NodeAec.Connector.Plugins;
 using NodeAec.Connector.UI;
 using Xunit;
 
@@ -152,6 +153,12 @@ public class UiStateTests
     private static EntitlementItem Plugin(string slug, string? expires = null, string status = "active", string? name = null) =>
         new() { Slug = slug, Name = name ?? slug, Status = status, ExpiresAtString = expires };
 
+    private static List<PluginRow> Rows(params EntitlementItem[] items) =>
+        PluginInventory.Build(items, installed: null, ConnectorConfig.ProductSlug).ToList();
+
+    private static PluginRow InstalledOnly(string slug) =>
+        new() { Slug = slug, Name = slug, State = InstallState.Installed, Installed = new InstalledBundle { ProductSlug = slug, Version = "1.0.0" } };
+
     [Theory]
     [InlineData("2026-12-24T00:00:00Z", "active", "Liberado até 24/12/2026", PluginTone.Ok)]
     [InlineData(null, "active", "Liberado, sem data para expirar", PluginTone.Ok)]
@@ -188,15 +195,17 @@ public class UiStateTests
         var cancelled = Plugin("cancelado", status: "cancelled");
         var expired = Plugin("vencido", "2020-01-01T00:00:00Z");
 
-        var ordered = UiState.PluginsAttentionFirst(new[] { ok1, expiring, ok2, cancelled, expired }, Now);
+        var rows = Rows(ok1, expiring, ok2, cancelled, expired);
+        rows.Insert(0, InstalledOnly("so-instalado"));
+        var ordered = UiState.PluginsAttentionFirst(rows, Now);
 
-        Assert.Equal(new[] { "cancelado", "vencido", "vence", "ok-1", "ok-2" }, ordered.Select(e => e.Slug).ToArray());
+        Assert.Equal(new[] { "cancelado", "vencido", "vence", "ok-1", "ok-2", "so-instalado" }, ordered.Select(e => e.Slug).ToArray());
     }
 
     [Fact]
     public void PluginsAttentionFirst_SkipsNullEntriesWithoutThrowing()
     {
-        var ordered = UiState.PluginsAttentionFirst(new[] { null!, Plugin("ativo"), null! }, Now);
+        var ordered = UiState.PluginsAttentionFirst(new[] { null!, Rows(Plugin("ativo"))[0], null! }, Now);
 
         Assert.Single(ordered);
         Assert.Equal("ativo", ordered[0].Slug);
@@ -209,13 +218,13 @@ public class UiStateTests
         items.Add(Plugin("vence", "2026-10-30T00:00:00Z"));
         items.Add(Plugin("vencido", "2026-01-01T00:00:00Z"));
 
-        Assert.Equal("10 plugins · 9 liberados · 1 vence em breve · 1 bloqueado", UiState.PluginsSummary(items, Now));
+        Assert.Equal("10 plugins · 9 liberados · 1 vence em breve · 1 bloqueado", UiState.PluginsSummary(Rows(items.ToArray()), Now));
     }
 
     [Fact]
     public void PluginsSummary_OnePluginOk()
     {
-        Assert.Equal("1 plugin · 1 liberado", UiState.PluginsSummary(new[] { Plugin("p") }, Now));
+        Assert.Equal("1 plugin · 1 liberado", UiState.PluginsSummary(Rows(Plugin("p")), Now));
     }
 
     [Fact]
@@ -223,7 +232,23 @@ public class UiStateTests
     {
         var items = new[] { Plugin("a", status: "revoked"), Plugin("b", status: "cancelled") };
 
-        Assert.Equal("2 plugins · 2 bloqueados", UiState.PluginsSummary(items, Now));
+        Assert.Equal("2 plugins · 2 bloqueados", UiState.PluginsSummary(Rows(items), Now));
+    }
+
+    [Fact]
+    public void PluginsSummary_CountsUpdatesAndInstalledWithoutLicense()
+    {
+        var rows = Rows(Plugin("a"), Plugin("b"));
+        rows.Add(InstalledOnly("c"));
+
+        Assert.Equal("2 plugins · 2 liberados · 1 com atualização · 1 instalado sem licença",
+            UiState.PluginsSummary(rows, Now, updatesAvailable: 1));
+    }
+
+    [Fact]
+    public void RowStatus_InstalledWithoutLicense_IsNotOwned()
+    {
+        Assert.Equal(("Sem licença nesta conta", PluginTone.NotOwned), UiState.RowStatus(InstalledOnly("x"), Now));
     }
 
     [Theory]
@@ -234,12 +259,10 @@ public class UiStateTests
     [InlineData("nada", new string[0])]
     public void FilterPlugins_MatchesNameOrSlugIgnoringCaseAndAccents(string query, string[] expectedSlugs)
     {
-        var items = new[]
-        {
+        var items = Rows(
             Plugin("exemplo", name: "Exemplo de Integração Revit"),
             Plugin("revit-tools", name: "Ferramentas"),
-            Plugin("quantitativos", name: "Quantitativos"),
-        };
+            Plugin("quantitativos", name: "Quantitativos"));
 
         Assert.Equal(expectedSlugs, UiState.FilterPlugins(items, query).Select(e => e.Slug).ToArray());
     }

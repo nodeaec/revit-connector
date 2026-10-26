@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -15,6 +16,7 @@ using NodeAec.Connector.Client;
 using NodeAec.Connector.Config;
 using NodeAec.Connector.Cryptography;
 using NodeAec.Connector.Models;
+using NodeAec.Connector.Plugins;
 using NodeAec.Connector.Storage;
 using NodeAec.Connector.Updates;
 
@@ -28,8 +30,8 @@ namespace NodeAec.Connector.UI;
 /// </summary>
 public class ConnectorWindow : Window
 {
-    /// <summary>Height of one plugin row; the list scrolls inside itself past <see cref="VisiblePluginRows"/> rows.</summary>
-    private const double PluginRowHeight = 40;
+    /// <summary>Height of one plugin row (name line + install line); the list scrolls inside itself past <see cref="VisiblePluginRows"/> rows.</summary>
+    private const double PluginRowHeight = 44;
 
     /// <summary>Rows shown before the plugin list scrolls on its own.</summary>
     private const int VisiblePluginRows = 8;
@@ -69,7 +71,25 @@ public class ConnectorWindow : Window
     private readonly TextBlock _txtFooterUpdate;
     private readonly Button _btnCheckUpdates;
 
-    private IReadOnlyList<EntitlementItem> _shownPlugins = Array.Empty<EntitlementItem>();
+    private IReadOnlyList<EntitlementItem> _owned = Array.Empty<EntitlementItem>();
+    private IReadOnlyList<PluginRow> _rows = Array.Empty<PluginRow>();
+    private bool _isLoggedIn;
+
+    /// <summary>Bundles installed on this computer; <c>null</c> until the scan on open finishes.</summary>
+    private IReadOnlyList<InstalledBundle>? _installed;
+
+    /// <summary>Latest release per plugin slug; a <c>null</c> value means asked and none known.</summary>
+    private readonly Dictionary<string, LatestReleaseInfo?> _pluginReleases = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Progress or result of an install started from a row, kept across redraws.</summary>
+    private readonly Dictionary<string, (string Text, bool IsError)> _installStatus = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Plugins whose installer was started; their button stays hidden.</summary>
+    private readonly HashSet<string> _installsStarted = new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly Dictionary<string, TextBlock> _rowDetailBlocks = new(StringComparer.OrdinalIgnoreCase);
+    private bool _installBusy;
+    private bool _fetchingReleases;
     private LatestReleaseInfo? _latestRelease;
 
     public ConnectorWindow()
@@ -304,7 +324,7 @@ public class ConnectorWindow : Window
             Margin = new Thickness(0, 0, 0, 16),
             Child = new ScrollViewer
             {
-                MaxHeight = PluginRowHeight * VisiblePluginRows,
+                MaxHeight = (PluginRowHeight + 13) * VisiblePluginRows,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Content = _pluginsPanel
@@ -380,6 +400,9 @@ public class ConnectorWindow : Window
         // Every opening checks for a newer Connector, so users are offered the update when
         // they use it. One GET off the UI thread; nothing runs at Revit startup or on a timer.
         Loaded += async (s, e) => await WindowHandlerGuard.RunAsync(HandleCheckUpdatesAsync, ReportHandlerError);
+
+        // The same opening also reads which plugins are installed here and checks theirs.
+        Loaded += async (s, e) => await WindowHandlerGuard.RunAsync(RefreshPluginInventoryAsync, ReportHandlerError);
     }
 
     private Border BuildUpdateBanner(out TextBlock title, out TextBlock notes, out Button download, out TextBlock status)
@@ -668,30 +691,46 @@ public class ConnectorWindow : Window
 
     private void RenderPlugins(bool isLoggedIn, IReadOnlyList<EntitlementItem>? entitlements)
     {
-        var list = UiState.PluginsToShow(entitlements);
-        DateTimeOffset now = DateTimeOffset.UtcNow;
+        _isLoggedIn = isLoggedIn;
+        _owned = UiState.PluginsToShow(entitlements);
+        RenderPluginList();
 
-        switch (UiState.PluginsBranch(isLoggedIn, list.Count))
+        // New products after a sign-in or sync have no known release yet.
+        if (_isLoggedIn && _installed != null && _rows.Any(NeedsReleaseCheck))
+        {
+            _ = WindowHandlerGuard.RunAsync(FetchPluginReleasesAsync, ReportHandlerError);
+        }
+    }
+
+    /// <summary>Rebuilds <see cref="_rows"/> (owned × installed), the summary, the filter and the rows.</summary>
+    private void RenderPluginList()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var rows = _isLoggedIn
+            ? PluginInventory.Build(_owned, _installed, ConnectorConfig.ProductSlug)
+            : Array.Empty<PluginRow>();
+
+        switch (UiState.PluginsBranch(_isLoggedIn, rows.Count))
         {
             case PluginsView.LoggedOut:
-                _shownPlugins = Array.Empty<EntitlementItem>();
+                _rows = Array.Empty<PluginRow>();
                 _txtPluginsSummary.Visibility = Visibility.Collapsed;
                 _pluginFilter.Visibility = Visibility.Collapsed;
                 ShowPluginsMessage(UiState.LoggedOutPluginsText);
                 return;
 
             case PluginsView.Empty:
-                _shownPlugins = Array.Empty<EntitlementItem>();
+                _rows = Array.Empty<PluginRow>();
                 _txtPluginsSummary.Visibility = Visibility.Collapsed;
                 _pluginFilter.Visibility = Visibility.Collapsed;
                 ShowPluginsMessage(UiState.NoPluginsText);
                 return;
 
             default:
-                _shownPlugins = UiState.PluginsAttentionFirst(list, now);
-                _txtPluginsSummary.Text = UiState.PluginsSummary(_shownPlugins, now);
+                _rows = UiState.PluginsAttentionFirst(rows, now);
+                _txtPluginsSummary.Text = UiState.PluginsSummary(_rows, now, PluginInventory.UpdatesAvailable(_rows, _pluginReleases));
                 _txtPluginsSummary.Visibility = Visibility.Visible;
-                _pluginFilter.Visibility = _shownPlugins.Count >= UiState.FilterThreshold ? Visibility.Visible : Visibility.Collapsed;
+                _pluginFilter.Visibility = _rows.Count >= UiState.FilterThreshold ? Visibility.Visible : Visibility.Collapsed;
                 if (_pluginFilter.Visibility != Visibility.Visible)
                 {
                     _txtPluginFilter.Text = string.Empty;
@@ -702,15 +741,15 @@ public class ConnectorWindow : Window
         }
     }
 
-    /// <summary>Rebuilds the rows from <see cref="_shownPlugins"/> and the filter text.</summary>
+    /// <summary>Rebuilds the row elements from <see cref="_rows"/> and the filter text.</summary>
     private void RenderPluginRows()
     {
-        if (_shownPlugins.Count == 0)
+        if (_rows.Count == 0)
         {
             return;
         }
 
-        var rows = UiState.FilterPlugins(_shownPlugins, _txtPluginFilter.Text);
+        var rows = UiState.FilterPlugins(_rows, _txtPluginFilter.Text);
         if (rows.Count == 0)
         {
             ShowPluginsMessage(UiState.NoFilterMatchText);
@@ -738,31 +777,39 @@ public class ConnectorWindow : Window
         });
     }
 
-    private FrameworkElement BuildPluginRow(EntitlementItem item, DateTimeOffset now, bool isLast)
+    private FrameworkElement BuildPluginRow(PluginRow item, DateTimeOffset now, bool isLast)
     {
-        string name = string.IsNullOrWhiteSpace(item.Name) ? item.Slug : item.Name;
-        var (statusText, tone) = UiState.PluginStatus(item, now);
+        var (statusText, tone) = UiState.RowStatus(item, now);
         (Color fill, Color ink) = tone switch
         {
             PluginTone.Ok => (UiTheme.GoodSoft, UiTheme.Good),
             PluginTone.Expiring => (UiTheme.WarningSoft, UiTheme.Warning),
+            PluginTone.NotOwned => (UiTheme.SoftBackground, UiTheme.TextSecondary),
             _ => (UiTheme.DangerSoft, UiTheme.Danger),
         };
+        _pluginReleases.TryGetValue(item.Slug, out var latest);
+        var (detail, action) = PluginInventory.Describe(item, latest);
+        if (_installsStarted.Contains(item.Slug))
+        {
+            action = PluginAction.None;
+        }
 
-        var row = new Grid { MinHeight = PluginRowHeight };
+        var row = new Grid { MinHeight = PluginRowHeight, Margin = new Thickness(0, 6, 0, 6) };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var nameBlock = new TextBlock
         {
-            Text = name,
+            Text = item.Name,
             FontSize = 13,
             FontWeight = FontWeights.SemiBold,
             Foreground = UiTheme.Brush(UiTheme.Text),
             VerticalAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
-            ToolTip = name
+            ToolTip = item.Name
         };
         Grid.SetColumn(nameBlock, 0);
         row.Children.Add(nameBlock);
@@ -774,6 +821,7 @@ public class ConnectorWindow : Window
             Padding = new Thickness(8, 2, 8, 3),
             Margin = new Thickness(10, 0, 4, 0),
             VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right,
             Child = new TextBlock
             {
                 Text = statusText,
@@ -795,6 +843,38 @@ public class ConnectorWindow : Window
         Grid.SetColumn(btnProduct, 2);
         row.Children.Add(btnProduct);
 
+        // Second line: install state, or the progress of an install started from this row.
+        bool hasStatus = _installStatus.TryGetValue(item.Slug, out var status);
+        var detailBlock = new TextBlock
+        {
+            Text = hasStatus ? status.Text : detail,
+            FontSize = 11,
+            Foreground = UiTheme.Brush(hasStatus ? (status.IsError ? UiTheme.Warning : UiTheme.Primary) : UiTheme.TextSecondary),
+            Margin = new Thickness(0, 2, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+            Visibility = hasStatus || detail.Length > 0 ? Visibility.Visible : Visibility.Collapsed
+        };
+        Grid.SetRow(detailBlock, 1);
+        Grid.SetColumn(detailBlock, 0);
+        row.Children.Add(detailBlock);
+        _rowDetailBlocks[item.Slug] = detailBlock;
+
+        if (action != PluginAction.None)
+        {
+            var btnAction = CreateSecondaryButton(action == PluginAction.Update ? "Atualizar" : "Instalar");
+            btnAction.FontSize = 11;
+            btnAction.Padding = new Thickness(10, 3, 10, 3);
+            btnAction.Margin = new Thickness(10, 4, 4, 0);
+            btnAction.HorizontalAlignment = HorizontalAlignment.Right;
+            btnAction.IsEnabled = !_installBusy;
+            btnAction.Click += async (s, e) => await WindowHandlerGuard.RunAsync(() => HandleInstallPluginAsync(item, action), ReportHandlerError);
+            Grid.SetRow(btnAction, 1);
+            Grid.SetColumn(btnAction, 1);
+            Grid.SetColumnSpan(btnAction, 2);
+            row.Children.Add(btnAction);
+        }
+
         return new Border
         {
             Padding = new Thickness(14, 0, 8, 0),
@@ -802,6 +882,233 @@ public class ConnectorWindow : Window
             BorderThickness = new Thickness(0, 0, 0, isLast ? 0 : 1),
             Child = row
         };
+    }
+
+    /// <summary>Owned rows whose latest release is worth asking for and not asked yet.</summary>
+    private bool NeedsReleaseCheck(PluginRow row) =>
+        row.IsOwned &&
+        (row.State == InstallState.Installed || row.State == InstallState.NotInstalled) &&
+        ProductSlugs.IsValid(row.Slug) &&
+        !_pluginReleases.ContainsKey(row.Slug);
+
+    /// <summary>
+    /// Reads the installed bundles (off the UI thread), redraws the list with each plugin's
+    /// install state, then asks the platform for the latest release of the owned ones.
+    /// </summary>
+    private async Task RefreshPluginInventoryAsync()
+    {
+        _installed = await Task.Run(() => InstalledBundleScanner.Scan()).ConfigureAwait(true);
+        RenderPluginList();
+        await FetchPluginReleasesAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Asks <c>GET /products/:slug/latest</c> for every row that needs it, four at a time,
+    /// then redraws the list. A failure counts as "no release known": no button, no error.
+    /// </summary>
+    private async Task FetchPluginReleasesAsync()
+    {
+        if (_fetchingReleases || !_isLoggedIn)
+        {
+            return;
+        }
+
+        var slugs = _rows.Where(NeedsReleaseCheck).Select(r => r.Slug).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (slugs.Count == 0)
+        {
+            return;
+        }
+
+        _fetchingReleases = true;
+        try
+        {
+            var client = new ConnectorApiClient();
+            using var gate = new SemaphoreSlim(4);
+            var lookups = slugs.Select(async slug =>
+            {
+                await gate.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    var release = await client.GetLatestReleaseAsync(slug).ConfigureAwait(false);
+                    return (Slug: slug, Release: release != null && string.Equals(release.Slug, slug, StringComparison.OrdinalIgnoreCase) ? release : null);
+                }
+                catch (Exception ex)
+                {
+                    Diagnostics.ConnectorLog.Write("WARN", $"Falha ao verificar a versão de {slug}: {ex.GetType().Name}.");
+                    return (Slug: slug, Release: (LatestReleaseInfo?)null);
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            }).ToList();
+
+            foreach (var (slug, release) in await Task.WhenAll(lookups).ConfigureAwait(true))
+            {
+                _pluginReleases[slug] = release;
+            }
+        }
+        finally
+        {
+            _fetchingReleases = false;
+        }
+
+        RenderPluginList();
+    }
+
+    /// <summary>Installs or updates one plugin from its row ("Instalar" / "Atualizar").</summary>
+    private async Task HandleInstallPluginAsync(PluginRow row, PluginAction action)
+    {
+        if (!_pluginReleases.TryGetValue(row.Slug, out var release) || release == null)
+        {
+            return;
+        }
+
+        void Report(string text, bool isError)
+        {
+            _installStatus[row.Slug] = (text, isError);
+            if (_rowDetailBlocks.TryGetValue(row.Slug, out var block))
+            {
+                block.Text = text;
+                block.Foreground = UiTheme.Brush(isError ? UiTheme.Warning : UiTheme.Primary);
+                block.Visibility = Visibility.Visible;
+            }
+        }
+
+        string? token = SessionToken();
+        if (token == null)
+        {
+            Report("Entre com sua conta para baixar o plugin.", true);
+            return;
+        }
+
+        if (_installBusy)
+        {
+            Report("Aguarde a instalação em andamento terminar.", true);
+            return;
+        }
+
+        bool install = action == PluginAction.Install;
+        SetInstallBusy(true);
+        try
+        {
+            bool started = await DownloadVerifyAndStartAsync(
+                release,
+                UpdatePackageVerifier.GetTargetFilePath(row.Slug, release.Version),
+                token,
+                Report,
+                "Baixando",
+                install
+                    ? "Salve seu trabalho e feche o Revit para concluir a instalação. O plugin será instalado em todas as versões do Revit deste computador."
+                    : "Salve seu trabalho e feche o Revit para concluir a atualização. As versões do Revit que você escolheu são mantidas.",
+                install ? "Instalar" : "Atualizar").ConfigureAwait(true);
+            if (started)
+            {
+                _installsStarted.Add(row.Slug);
+            }
+        }
+        finally
+        {
+            SetInstallBusy(false);
+        }
+    }
+
+    /// <summary>One install at a time: disables every install button while one runs.</summary>
+    private void SetInstallBusy(bool busy)
+    {
+        _installBusy = busy;
+        _btnDownloadInstall.IsEnabled = !busy;
+        _btnCheckUpdates.IsEnabled = !busy;
+        RenderPluginRows();
+    }
+
+    private static string? SessionToken()
+    {
+        var session = LeaseStorage.LoadSession();
+        return session.HasValue && !string.IsNullOrWhiteSpace(session.Value.Token) ? session.Value.Token : null;
+    }
+
+    /// <summary>
+    /// Shared by the Connector update and the plugin rows: gets the signed-in download link,
+    /// streams the installer to <paramref name="targetPath"/>, checks its size and SHA-256
+    /// against <paramref name="release"/>, and starts it with <c>/SILENT /WaitForRevit</c>
+    /// (Windows asks for admin approval). Each step is reported through
+    /// <paramref name="report"/> (text, is-error). Never throws.
+    /// </summary>
+    /// <returns><c>true</c> when the installer was started.</returns>
+    private static async Task<bool> DownloadVerifyAndStartAsync(
+        LatestReleaseInfo release,
+        string targetPath,
+        string token,
+        Action<string, bool> report,
+        string downloadingLabel,
+        string startedText,
+        string retryLabel)
+    {
+        try
+        {
+            report("Solicitando link seguro de download...", false);
+            var client = new ConnectorApiClient();
+            string? downloadUrl = await client.GetDownloadUrlAsync(
+                release.Slug,
+                release.File.VersionPublicId,
+                release.File.FilePublicId,
+                token).ConfigureAwait(true);
+
+            if (string.IsNullOrWhiteSpace(downloadUrl))
+            {
+                report("Não foi possível obter o link de download. Tente novamente mais tarde.", true);
+                return false;
+            }
+
+            report($"{downloadingLabel}... 0%", false);
+            var progress = new Progress<double>(pct => report($"{downloadingLabel}... {(int)Math.Round(pct * 100)}%", false));
+
+            bool downloaded = await client.DownloadFileAsync(downloadUrl!, targetPath, release.File.SizeBytes, progress).ConfigureAwait(true);
+            if (!downloaded)
+            {
+                report("Não foi possível concluir o download. Verifique sua conexão e tente novamente.", true);
+                return false;
+            }
+
+            report("Verificando integridade do arquivo...", false);
+            if (!UpdatePackageVerifier.VerifyFile(targetPath, release.File.SizeBytes, release.File.Sha256))
+            {
+                try
+                {
+                    if (File.Exists(targetPath)) File.Delete(targetPath);
+                }
+                catch { }
+
+                report("O arquivo baixado não confere. Nada foi instalado. Tente novamente.", true);
+                return false;
+            }
+
+            report("Iniciando instalador...", false);
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = targetPath,
+                    Arguments = "/SILENT /WaitForRevit",
+                    UseShellExecute = true
+                });
+            }
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+            {
+                report($"A instalação foi cancelada. Clique em {retryLabel} para tentar de novo.", true);
+                return false;
+            }
+
+            report(startedText, false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.ConnectorLog.Write("WARN", $"Falha ao baixar/instalar {release.Slug}: {ex.GetType().Name}.");
+            report($"Não foi possível instalar ({ex.GetType().Name}). Tente novamente.", true);
+            return false;
+        }
     }
 
     private async Task HandleBrowserLoginAsync()
@@ -1025,102 +1332,45 @@ public class ConnectorWindow : Window
         }
 
         // Every message of this flow is shown under the button, inside the banner.
-        _txtUpdateStatus.Visibility = Visibility.Visible;
-
-        var session = LeaseStorage.LoadSession();
-        if (!session.HasValue || string.IsNullOrWhiteSpace(session.Value.Token))
+        void Report(string text, bool isError)
         {
-            _txtUpdateStatus.Text = "Entre com sua conta para baixar a atualização.";
-            _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
+            _txtUpdateStatus.Text = text;
+            _txtUpdateStatus.Foreground = UiTheme.Brush(isError ? UiTheme.Warning : UiTheme.Primary);
+            _txtUpdateStatus.Visibility = Visibility.Visible;
+        }
+
+        string? token = SessionToken();
+        if (token == null)
+        {
+            Report("Entre com sua conta para baixar a atualização.", true);
             return;
         }
 
-        _btnDownloadInstall.IsEnabled = false;
-        _btnCheckUpdates.IsEnabled = false;
-        _txtUpdateStatus.Text = "Solicitando link seguro de download...";
-        _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Primary);
+        if (_installBusy)
+        {
+            Report("Aguarde a instalação em andamento terminar.", true);
+            return;
+        }
 
+        SetInstallBusy(true);
         try
         {
-            var client = new ConnectorApiClient();
-            string? downloadUrl = await client.GetDownloadUrlAsync(
-                _latestRelease.Slug,
-                _latestRelease.File.VersionPublicId,
-                _latestRelease.File.FilePublicId,
-                session.Value.Token).ConfigureAwait(true);
-
-            if (string.IsNullOrWhiteSpace(downloadUrl))
+            bool started = await DownloadVerifyAndStartAsync(
+                _latestRelease,
+                UpdatePackageVerifier.GetTargetFilePath(_latestRelease.Version),
+                token,
+                Report,
+                "Baixando atualização",
+                "Salve seu trabalho e feche o Revit. A instalação continua sozinha e mantém as versões do Revit que você escolheu.",
+                "Baixar e instalar").ConfigureAwait(true);
+            if (started)
             {
-                _txtUpdateStatus.Text = "Não foi possível obter o link de download. Tente novamente mais tarde.";
-                _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
-                return;
-            }
-
-            string targetPath = UpdatePackageVerifier.GetTargetFilePath(_latestRelease.Version);
-            _txtUpdateStatus.Text = "Baixando atualização... 0%";
-
-            var progress = new Progress<double>(pct =>
-            {
-                int percentage = (int)Math.Round(pct * 100);
-                _txtUpdateStatus.Text = $"Baixando atualização... {percentage}%";
-            });
-
-            bool downloaded = await client.DownloadFileAsync(downloadUrl!, targetPath, _latestRelease.File.SizeBytes, progress).ConfigureAwait(true);
-            if (!downloaded)
-            {
-                _txtUpdateStatus.Text = "Não foi possível concluir o download. Verifique sua conexão e tente novamente.";
-                _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
-                return;
-            }
-
-            _txtUpdateStatus.Text = "Verificando integridade do arquivo...";
-            bool valid = UpdatePackageVerifier.VerifyFile(targetPath, _latestRelease.File.SizeBytes, _latestRelease.File.Sha256);
-            if (!valid)
-            {
-                try
-                {
-                    if (File.Exists(targetPath)) File.Delete(targetPath);
-                }
-                catch { }
-
-                _txtUpdateStatus.Text = "O arquivo baixado não confere. Nada foi instalado. Tente novamente.";
-                _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
-                return;
-            }
-
-            _txtUpdateStatus.Text = "Iniciando instalador...";
-
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = targetPath,
-                    Arguments = "/SILENT /WaitForRevit",
-                    UseShellExecute = true
-                };
-                Process.Start(psi);
-
-                _txtUpdateStatus.Text = "Salve seu trabalho e feche o Revit. A instalação continua sozinha e mantém as versões do Revit que você escolheu.";
-                _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Primary);
                 _btnDownloadInstall.Visibility = Visibility.Collapsed;
             }
-            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
-            {
-                _txtUpdateStatus.Text = "A instalação foi cancelada. Clique em Baixar e instalar para tentar de novo.";
-                _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
-                return;
-            }
-        }
-        catch (Exception ex)
-        {
-            Diagnostics.ConnectorLog.Write("WARN", $"Falha ao baixar/instalar atualização: {ex.GetType().Name}.");
-            _txtUpdateStatus.Text = $"Não foi possível instalar a atualização ({ex.GetType().Name}). Tente novamente.";
-            _txtUpdateStatus.Foreground = UiTheme.Brush(UiTheme.Accent);
         }
         finally
         {
-            _btnDownloadInstall.IsEnabled = true;
-            _btnCheckUpdates.IsEnabled = true;
+            SetInstallBusy(false);
         }
     }
 
